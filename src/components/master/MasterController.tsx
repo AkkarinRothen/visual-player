@@ -328,15 +328,22 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     showFullScreenPreview,
   ]);
 
-  // Session Recovery: Save non-sensitive incremental snapshot for crash / process death recovery
+  // Monotonic session revision tracker
+  const sessionRevision = pastEvents.length + 1;
+
+  // Session Recovery: Save non-sensitive transactional snapshot for crash / process death recovery
   useEffect(() => {
     if (roomCode && campaign) {
       sessionRecoveryService.saveIncrementalSnapshot({
         role: 'master',
         roomId: roomCode,
+        sessionId: `sess_${roomCode}`,
+        connectionEpoch: Date.now(),
         campaignId: campaign.id,
         activeSceneId: activeDisplay.currentSceneId,
-        sessionRevision: liveState.combatState?.round || 1,
+        sessionRevision,
+        liveState,
+        stagedState,
         combatActive: liveState.combatState?.isActive || false,
         hasStagedChanges: pendingChangesCount > 0,
         lastSceneName: activeDisplay.sceneName,
@@ -347,8 +354,9 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     campaign,
     activeDisplay.currentSceneId,
     activeDisplay.sceneName,
-    liveState.combatState?.isActive,
-    liveState.combatState?.round,
+    sessionRevision,
+    liveState,
+    stagedState,
     pendingChangesCount,
   ]);
 

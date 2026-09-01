@@ -251,7 +251,26 @@ export interface DependencyWarning {
   recommendedCategoryKeys: PublishCategoryKey[];
 }
 
+export interface HandshakeCapabilities {
+  isHardwareKeystore: boolean;
+  hasWakeLock: boolean;
+  isImmersiveSupported: boolean;
+}
+
+export interface HandshakeHelloPayload {
+  deviceRole: 'master' | 'display';
+  platform: 'android' | 'web';
+  appVersion: string;
+  protocolVersion: number;
+  sessionId: string;
+  connectionEpoch: number;
+  sessionRevision: number;
+  stateChecksum: string;
+  capabilities: HandshakeCapabilities;
+}
+
 export type SyncMessage =
+  | { type: 'HANDSHAKE_HELLO'; payload: HandshakeHelloPayload }
   | { type: 'FULL_STATE'; payload: DisplayState }
   | { type: 'REQUEST_FULL_STATE' }
   | { type: 'SET_SCENE'; payload: Scene; characters?: CharacterOnScreen[] }

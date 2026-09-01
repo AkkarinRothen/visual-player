@@ -11,16 +11,44 @@ describe('SessionRecoveryService & Process Death Resilience Suite', () => {
     sessionRecoveryService.clearRecovery();
   });
 
+  const mockLiveState: DisplayState = {
+    sceneName: 'Test Scene',
+    backgroundUrl: 'https://example.com/bg.jpg',
+    characters: [],
+    weather: 'none',
+    weatherIntensity: 0,
+    lighting: 'normal',
+    locationBanner: { text: '', visible: false },
+    isBlackout: false,
+    shakeTrigger: 0,
+    lightningTrigger: 0,
+    ambientAudioUrl: '',
+    ambientPlaying: false,
+    ambientVolume: 0.5,
+    lastSfx: null,
+    combatState: {
+      isActive: false,
+      round: 0,
+      currentTurnIndex: 0,
+      combatants: [],
+      turnTimerSeconds: 60,
+      showTurnTimerToPlayers: true,
+    },
+  };
+
   it('saves an incremental non-sensitive snapshot and retrieves it when unexpected termination occurs', () => {
     sessionRecoveryService.saveIncrementalSnapshot({
       role: 'master',
       roomId: 'VP-RECOV',
+      sessionId: 'sess_1',
+      connectionEpoch: Date.now(),
       campaignId: 'camp-1',
       activeSceneId: 'scene-dungeon',
       sessionRevision: 3,
       combatActive: true,
       hasStagedChanges: false,
       lastSceneName: 'Las Mazmorras Profundas',
+      liveState: mockLiveState,
     });
 
     const pending = sessionRecoveryService.getPendingRecovery();
@@ -35,9 +63,12 @@ describe('SessionRecoveryService & Process Death Resilience Suite', () => {
     sessionRecoveryService.saveIncrementalSnapshot({
       role: 'master',
       roomId: 'VP-CLEAN',
+      sessionId: 'sess_1',
+      connectionEpoch: Date.now(),
       sessionRevision: 1,
       combatActive: false,
       hasStagedChanges: false,
+      liveState: mockLiveState,
     });
 
     expect(sessionRecoveryService.getPendingRecovery()).not.toBeNull();
@@ -51,9 +82,12 @@ describe('SessionRecoveryService & Process Death Resilience Suite', () => {
     sessionRecoveryService.saveIncrementalSnapshot({
       role: 'master',
       roomId: 'VP-OLD',
+      sessionId: 'sess_1',
+      connectionEpoch: Date.now(),
       sessionRevision: 1,
       combatActive: false,
       hasStagedChanges: false,
+      liveState: mockLiveState,
     });
 
     // Manually age the snapshot in localStorage
@@ -69,9 +103,12 @@ describe('SessionRecoveryService & Process Death Resilience Suite', () => {
     sessionRecoveryService.saveIncrementalSnapshot({
       role: 'display',
       roomId: 'VP-DISP',
+      sessionId: 'sess_1',
+      connectionEpoch: Date.now(),
       sessionRevision: 2,
       combatActive: false,
       hasStagedChanges: false,
+      liveState: mockLiveState,
     });
 
     expect(sessionRecoveryService.getPendingRecovery()).not.toBeNull();
