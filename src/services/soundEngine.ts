@@ -1,9 +1,11 @@
-// Web Audio API Sound Synthesizer & Player for TTRPG Visual Player
+// Web Audio API Sound Synthesizer & Player with Ambient Crossfade
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
-  private ambientAudioElement: HTMLAudioElement | null = null;
+  private currentAmbientAudio: HTMLAudioElement | null = null;
   private currentAmbientUrl: string = '';
+  private targetAmbientVolume: number = 0.5;
+  private crossfadeInterval: number | null = null;
 
   private getAudioContext(): AudioContext {
     if (!this.ctx) {
@@ -16,7 +18,6 @@ class SoundEngine {
     return this.ctx;
   }
 
-  // Synthesize rich sound effects procedurally without needing external mp3 files
   public playSynth(preset: string) {
     try {
       const ctx = this.getAudioContext();
@@ -24,7 +25,6 @@ class SoundEngine {
 
       switch (preset) {
         case 'thunder': {
-          // Low rumble + noise burst
           const bufferSize = ctx.sampleRate * 2.5;
           const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
           const data = buffer.getChannelData(0);
@@ -53,7 +53,6 @@ class SoundEngine {
         }
 
         case 'sword_clash': {
-          // High metallic ping + noise burst
           const osc1 = ctx.createOscillator();
           const osc2 = ctx.createOscillator();
           osc1.type = 'triangle';
@@ -80,7 +79,6 @@ class SoundEngine {
         }
 
         case 'magic_spell': {
-          // Chime arpeggio / ethereal shimmer
           const freqs = [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98];
           freqs.forEach((freq, i) => {
             const osc = ctx.createOscillator();
@@ -102,7 +100,6 @@ class SoundEngine {
         }
 
         case 'monster_roar': {
-          // Deep low sawtooth with FM modulation
           const osc = ctx.createOscillator();
           const mod = ctx.createOscillator();
           const modGain = ctx.createGain();
@@ -133,8 +130,44 @@ class SoundEngine {
           break;
         }
 
+        case 'gong':
+        case 'combat_start': {
+          const freqs = [180, 310, 470, 720];
+          freqs.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = idx === 0 ? 'triangle' : 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+
+            gain.gain.setValueAtTime(0.4 / (idx + 1), now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 2.8);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + 2.8);
+          });
+          break;
+        }
+
+        case 'timer_warning': {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(880, now);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + 0.15);
+          break;
+        }
+
         case 'door_creak': {
-          // Low squeaky pitch bend
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.type = 'sawtooth';
@@ -155,7 +188,6 @@ class SoundEngine {
         }
 
         case 'church_bell': {
-          // Rich bell overtone
           const freqs = [330, 660, 990, 1400];
           freqs.forEach((freq, index) => {
             const osc = ctx.createOscillator();
@@ -176,7 +208,6 @@ class SoundEngine {
         }
 
         case 'fanfare_victory': {
-          // Major chord fanfare
           const notes = [440, 554.37, 659.25, 880];
           notes.forEach((freq, idx) => {
             const osc = ctx.createOscillator();
@@ -198,7 +229,6 @@ class SoundEngine {
         }
 
         case 'heartbeat': {
-          // Double thump
           [0, 0.2].forEach((offset) => {
             const osc = ctx.createOscillator();
             const g = ctx.createGain();
@@ -226,7 +256,6 @@ class SoundEngine {
     }
   }
 
-  // Play custom audio file / URL
   public playAudioUrl(url: string, volume: number = 0.8) {
     try {
       const audio = new Audio(url);
@@ -237,29 +266,90 @@ class SoundEngine {
     }
   }
 
-  // Manage looping ambient audio
-  public setAmbient(url: string, playing: boolean, volume: number = 0.5) {
+  // Smooth crossfade ambient audio
+  public setAmbient(url: string, playing: boolean, volume: number = 0.5, crossfade: boolean = true) {
     try {
+      this.targetAmbientVolume = Math.max(0, Math.min(1, volume));
+
+      if (this.crossfadeInterval) {
+        clearInterval(this.crossfadeInterval);
+        this.crossfadeInterval = null;
+      }
+
       if (!url || !playing) {
-        if (this.ambientAudioElement) {
-          this.ambientAudioElement.pause();
-          this.ambientAudioElement = null;
-          this.currentAmbientUrl = '';
+        if (this.currentAmbientAudio) {
+          if (!crossfade) {
+            this.currentAmbientAudio.pause();
+            this.currentAmbientAudio = null;
+            this.currentAmbientUrl = '';
+          } else {
+            // Fade out current audio
+            let curVol = this.currentAmbientAudio.volume;
+            this.crossfadeInterval = window.setInterval(() => {
+              curVol -= 0.05;
+              if (curVol <= 0.05) {
+                if (this.currentAmbientAudio) {
+                  this.currentAmbientAudio.pause();
+                  this.currentAmbientAudio = null;
+                  this.currentAmbientUrl = '';
+                }
+                clearInterval(this.crossfadeInterval!);
+                this.crossfadeInterval = null;
+              } else if (this.currentAmbientAudio) {
+                this.currentAmbientAudio.volume = curVol;
+              }
+            }, 50);
+          }
         }
         return;
       }
 
-      if (this.currentAmbientUrl !== url || !this.ambientAudioElement) {
-        if (this.ambientAudioElement) {
-          this.ambientAudioElement.pause();
+      // If already playing the same URL, just update volume
+      if (this.currentAmbientUrl === url && this.currentAmbientAudio) {
+        this.currentAmbientAudio.volume = this.targetAmbientVolume;
+        if (this.currentAmbientAudio.paused) {
+          this.currentAmbientAudio.play().catch(console.warn);
         }
-        this.ambientAudioElement = new Audio(url);
-        this.ambientAudioElement.loop = true;
-        this.currentAmbientUrl = url;
+        return;
       }
 
-      this.ambientAudioElement.volume = Math.max(0, Math.min(1, volume));
-      this.ambientAudioElement.play().catch((err) => console.warn('Ambient play failed:', err));
+      // Crossfade to new URL
+      const newAudio = new Audio(url);
+      newAudio.loop = true;
+      newAudio.volume = crossfade ? 0.01 : this.targetAmbientVolume;
+      newAudio.play().catch((err) => console.warn('New ambient play error:', err));
+
+      const oldAudio = this.currentAmbientAudio;
+      this.currentAmbientAudio = newAudio;
+      this.currentAmbientUrl = url;
+
+      if (crossfade && oldAudio) {
+        let step = 0;
+        const totalSteps = 20;
+        this.crossfadeInterval = window.setInterval(() => {
+          step++;
+          const progress = step / totalSteps;
+          if (oldAudio) {
+            oldAudio.volume = Math.max(0, this.targetAmbientVolume * (1 - progress));
+          }
+          if (this.currentAmbientAudio) {
+            this.currentAmbientAudio.volume = Math.min(this.targetAmbientVolume, this.targetAmbientVolume * progress);
+          }
+
+          if (step >= totalSteps) {
+            if (oldAudio) {
+              oldAudio.pause();
+            }
+            clearInterval(this.crossfadeInterval!);
+            this.crossfadeInterval = null;
+          }
+        }, 60);
+      } else {
+        if (oldAudio) {
+          oldAudio.pause();
+        }
+        newAudio.volume = this.targetAmbientVolume;
+      }
     } catch (e) {
       console.error('Ambient audio error:', e);
     }

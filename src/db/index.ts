@@ -9,19 +9,26 @@ export interface StoredAsset {
   createdAt: number;
 }
 
+export interface AppSetting {
+  key: string;
+  value: string;
+}
+
 export class VisualPlayerDB extends Dexie {
   campaigns!: Table<Campaign, string>;
   characters!: Table<Character, string>;
   scenes!: Table<Scene, string>;
   assets!: Table<StoredAsset, string>;
+  settings!: Table<AppSetting, string>;
 
   constructor() {
     super('VisualPlayerDB');
-    this.version(1).stores({
-      campaigns: 'id, title, createdAt',
+    this.version(2).stores({
+      campaigns: 'id, title, createdAt, updatedAt',
       characters: 'id, name, roleOrTitle',
       scenes: 'id, name',
       assets: 'id, name, type, createdAt',
+      settings: 'key',
     });
   }
 }
@@ -33,6 +40,7 @@ export const BUILTIN_SFX: SFXTrack[] = [
   { id: 'sfx-thunder', name: 'Trueno / Tormenta', category: 'environment', icon: 'Zap', soundType: 'synthesized', synthPreset: 'thunder' },
   { id: 'sfx-sword', name: 'Choque de Espadas', category: 'combat', icon: 'ShieldAlert', soundType: 'synthesized', synthPreset: 'sword_clash' },
   { id: 'sfx-magic', name: 'Hechizo Mágico', category: 'magic', icon: 'Sparkles', soundType: 'synthesized', synthPreset: 'magic_spell' },
+  { id: 'sfx-gong', name: 'Gong de Combate', category: 'combat', icon: 'Swords', soundType: 'synthesized', synthPreset: 'gong' },
   { id: 'sfx-roar', name: 'Rugido de Monstruo', category: 'combat', icon: 'Skull', soundType: 'synthesized', synthPreset: 'monster_roar' },
   { id: 'sfx-door', name: 'Puerta Chirriante', category: 'mystery', icon: 'DoorOpen', soundType: 'synthesized', synthPreset: 'door_creak' },
   { id: 'sfx-bell', name: 'Campana de Templo', category: 'social', icon: 'Bell', soundType: 'synthesized', synthPreset: 'church_bell' },
@@ -53,6 +61,7 @@ export const DEMO_CHARACTERS: Character[] = [
     },
     bio: 'Un explorador sigiloso con conocimiento del bosque prohibido.',
     tags: ['Elfo', 'Pícaro', 'Aliado'],
+    maxHp: 38,
   },
   {
     id: 'char-morwen',
@@ -65,6 +74,7 @@ export const DEMO_CHARACTERS: Character[] = [
     },
     bio: 'Custodia runas arcanas y secretos de la era primordial.',
     tags: ['Maga', 'Noble', 'Neutral'],
+    maxHp: 32,
   },
   {
     id: 'char-thorin',
@@ -76,6 +86,7 @@ export const DEMO_CHARACTERS: Character[] = [
     },
     bio: 'Veterano de mil batallas subterráneas contra las hordas oscuras.',
     tags: ['Enano', 'Guerrero'],
+    maxHp: 58,
   },
   {
     id: 'char-tavernero',
@@ -84,6 +95,7 @@ export const DEMO_CHARACTERS: Character[] = [
     defaultAvatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80',
     bio: 'Sabe todos los rumores de la región... a cambio de unas monedas de oro.',
     tags: ['NPC', 'Taberna'],
+    maxHp: 24,
   },
   {
     id: 'char-ignis',
@@ -92,6 +104,7 @@ export const DEMO_CHARACTERS: Character[] = [
     defaultAvatarUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=600&auto=format&fit=crop&q=80',
     bio: 'Reposa en su lecho de oro fundido esperando intrusos.',
     tags: ['Jefe', 'Dragón', 'Enemigo'],
+    maxHp: 180,
   },
 ];
 
@@ -106,6 +119,8 @@ export const DEMO_SCENES: Scene[] = [
     weatherIntensity: 0.4,
     lighting: 'torch_flicker',
     dmNotes: 'El tabernero Gromm tiene la llave del sótano donde se oculta la entrada a las catacumbas. Hay un bardo cantando en una esquina y dos soldados sospechosos observando a los jugadores.',
+    ambientAudioUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=medieval-tavern-music-112349.mp3',
+    ambientAudioName: 'Música de Taberna Medieval',
     suggestedNpcIds: ['char-tavernero', 'char-eldrin'],
   },
   {
@@ -118,6 +133,8 @@ export const DEMO_SCENES: Scene[] = [
     weatherIntensity: 0.7,
     lighting: 'mystic_violet',
     dmNotes: 'Tirada de Percepción DC 14 para no perderse. A mitad del camino encontrarán un altar con runas cubiertas de musgo.',
+    ambientAudioUrl: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=forest-wind-and-birds-6881.mp3',
+    ambientAudioName: 'Viento en el Bosque Mágico',
     suggestedNpcIds: ['char-eldrin', 'char-morwen'],
   },
   {
@@ -130,6 +147,8 @@ export const DEMO_SCENES: Scene[] = [
     weatherIntensity: 0.9,
     lighting: 'night',
     dmNotes: 'Lluvia intensa y relámpagos constantes. La visibilidad está reducida a 10 metros. Un eco mágico resuena cada vez que cae un rayo.',
+    ambientAudioUrl: 'https://cdn.pixabay.com/download/audio/2022/10/30/audio_51c6b6d510.mp3?filename=heavy-rain-and-thunder-126296.mp3',
+    ambientAudioName: 'Lluvia Fuerte y Truenos',
     suggestedNpcIds: ['char-morwen', 'char-thorin'],
   },
   {
@@ -163,16 +182,66 @@ export const DEMO_CAMPAIGN: Campaign = {
   title: 'La Crónica de las Gemas de Fuego',
   description: 'Aventura de prueba que viaja desde una cálida taberna hasta la guarida de un dragón milenario cruzando bosques y tempestades.',
   createdAt: Date.now(),
+  updatedAt: Date.now(),
   scenes: DEMO_SCENES,
   characters: DEMO_CHARACTERS,
   customSfx: BUILTIN_SFX,
 };
 
-// Initialize database with demo campaign if empty
+// Campaign CRUD & Multi-Campaign Database Helpers
+export async function getAllCampaigns(): Promise<Campaign[]> {
+  return await db.campaigns.toArray();
+}
+
+export async function getActiveCampaignId(): Promise<string> {
+  const setting = await db.settings.get('activeCampaignId');
+  if (setting) return setting.value;
+  return DEMO_CAMPAIGN.id;
+}
+
+export async function setActiveCampaignId(id: string): Promise<void> {
+  await db.settings.put({ key: 'activeCampaignId', value: id });
+}
+
+export async function createCampaign(camp: Campaign): Promise<void> {
+  await db.campaigns.put(camp);
+  await setActiveCampaignId(camp.id);
+}
+
+export async function updateCampaign(camp: Campaign): Promise<void> {
+  camp.updatedAt = Date.now();
+  await db.campaigns.put(camp);
+}
+
+export async function duplicateCampaign(id: string): Promise<Campaign | null> {
+  const original = await db.campaigns.get(id);
+  if (!original) return null;
+
+  const duplicated: Campaign = {
+    ...original,
+    id: `campaign-${Date.now()}`,
+    title: `${original.title} (Copia)`,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  await db.campaigns.put(duplicated);
+  return duplicated;
+}
+
+export async function deleteCampaign(id: string): Promise<void> {
+  await db.campaigns.delete(id);
+  const remaining = await getAllCampaigns();
+  if (remaining.length > 0) {
+    await setActiveCampaignId(remaining[0].id);
+  }
+}
+
 export async function initDefaultDataIfNeeded(): Promise<Campaign> {
   const count = await db.campaigns.count();
   if (count === 0) {
     await db.campaigns.put(DEMO_CAMPAIGN);
+    await setActiveCampaignId(DEMO_CAMPAIGN.id);
     for (const char of DEMO_CHARACTERS) {
       await db.characters.put(char);
     }
@@ -181,6 +250,10 @@ export async function initDefaultDataIfNeeded(): Promise<Campaign> {
     }
     return DEMO_CAMPAIGN;
   }
+  const activeId = await getActiveCampaignId();
+  const activeCamp = await db.campaigns.get(activeId);
+  if (activeCamp) return activeCamp;
+
   const campaigns = await db.campaigns.toArray();
   return campaigns[0] || DEMO_CAMPAIGN;
 }

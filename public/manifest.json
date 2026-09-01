@@ -1,0 +1,19 @@
+{
+  "name": "Visual Player - RPG Screen Master",
+  "short_name": "VisualPlayer",
+  "description": "Plataforma visual inmersiva para sesiones de rol de mesa (TTRPG)",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090a0f",
+  "theme_color": "#090a0f",
+  "orientation": "any",
+  "categories": ["games", "entertainment", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

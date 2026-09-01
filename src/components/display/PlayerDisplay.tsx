@@ -3,7 +3,8 @@ import type { ConnectionStatus, DisplayState, SyncMessage } from '../../types';
 import { peerService } from '../../services/peerService';
 import { soundEngine } from '../../services/soundEngine';
 import { AtmosphereCanvas } from '../canvas/AtmosphereCanvas';
-import { Maximize2, Minimize2, Wifi, WifiOff, Volume2, Sparkles } from 'lucide-react';
+import { InitiativeRibbon } from './InitiativeRibbon';
+import { Maximize2, Minimize2, Wifi, WifiOff, Volume2, Sparkles, Activity } from 'lucide-react';
 
 interface PlayerDisplayProps {
   initialRoomCode?: string;
@@ -13,6 +14,7 @@ interface PlayerDisplayProps {
 export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, onExitToLobby }) => {
   const [roomCode, setRoomCode] = useState<string>(initialRoomCode || '');
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
+  const [latencyMs, setLatencyMs] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(true);
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(false);
@@ -37,6 +39,14 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
     ambientPlaying: false,
     ambientVolume: 0.5,
     lastSfx: null,
+    combatState: {
+      isActive: false,
+      round: 1,
+      currentTurnIndex: 0,
+      combatants: [],
+      turnTimerSeconds: 60,
+      showTurnTimerToPlayers: true,
+    },
   });
 
   // Background Crossfade handling
@@ -62,8 +72,11 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
 
     setupPeer();
 
-    const unsubStatus = peerService.onStatusChange((status) => {
+    const unsubStatus = peerService.onStatusChange((status, _, lat) => {
       setConnectionStatus(status);
+      if (lat !== undefined) {
+        setLatencyMs(lat);
+      }
     });
 
     const unsubMsg = peerService.onMessage((msg: SyncMessage) => {
@@ -83,6 +96,14 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
       case 'FULL_STATE':
         setState(msg.payload);
         triggerBgTransition(msg.payload.backgroundUrl);
+        if (msg.payload.ambientAudioUrl) {
+          soundEngine.setAmbient(
+            msg.payload.ambientAudioUrl,
+            msg.payload.ambientPlaying,
+            msg.payload.ambientVolume,
+            true
+          );
+        }
         break;
 
       case 'SET_SCENE':
@@ -102,6 +123,10 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
           characters: msg.characters !== undefined ? msg.characters : prev.characters,
         }));
         triggerBgTransition(msg.payload.backgroundUrl);
+
+        if (msg.payload.ambientAudioUrl) {
+          soundEngine.setAmbient(msg.payload.ambientAudioUrl, true, 0.5, true);
+        }
         break;
 
       case 'SET_BACKGROUND':
@@ -208,7 +233,44 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
           ambientPlaying: msg.payload.playing,
           ambientVolume: msg.payload.volume,
         }));
-        soundEngine.setAmbient(msg.payload.url, msg.payload.playing, msg.payload.volume);
+        soundEngine.setAmbient(
+          msg.payload.url,
+          msg.payload.playing,
+          msg.payload.volume,
+          msg.payload.crossfade ?? true
+        );
+        break;
+
+      case 'START_COMBAT':
+      case 'UPDATE_COMBAT':
+        setState((prev) => ({
+          ...prev,
+          combatState: msg.payload,
+        }));
+        break;
+
+      case 'TURN_TIMER_TICK':
+        setState((prev) => ({
+          ...prev,
+          combatState: {
+            ...prev.combatState,
+            turnTimerSeconds: msg.payload.seconds,
+            isTimerRunning: msg.payload.isRunning,
+            showTurnTimerToPlayers: msg.payload.showToPlayers,
+          },
+        }));
+        break;
+
+      case 'END_COMBAT':
+        setState((prev) => ({
+          ...prev,
+          combatState: {
+            isActive: false,
+            round: 1,
+            currentTurnIndex: 0,
+            combatants: [],
+          },
+        }));
         break;
     }
   };
@@ -316,8 +378,13 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
         lightningTrigger={state.lightningTrigger}
       />
 
-      {/* Cinematic Location Banner */}
-      {state.locationBanner?.visible && state.locationBanner.text && (
+      {/* Initiative & Combat Ribbon (Top) */}
+      {state.combatState?.isActive && (
+        <InitiativeRibbon combatState={state.combatState} />
+      )}
+
+      {/* Cinematic Location Banner (Hidden during combat for clean view) */}
+      {!state.combatState?.isActive && state.locationBanner?.visible && state.locationBanner.text && (
         <div className="cinematic-banner-container">
           <div className="cinematic-banner">
             <div className="banner-rune-left">✦</div>
@@ -364,6 +431,11 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
               <>
                 <Wifi size={16} className="text-emerald-400" />
                 <span>Master Conectado</span>
+                {latencyMs > 0 && (
+                  <span className="latency-badge">
+                    <Activity size={12} /> {latencyMs}ms
+                  </span>
+                )}
               </>
             ) : connectionStatus === 'connecting' ? (
               <>

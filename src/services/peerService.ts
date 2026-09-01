@@ -2,18 +2,23 @@ import Peer, { type DataConnection } from 'peerjs';
 import type { SyncMessage, ConnectionStatus } from '../types';
 
 export type MessageHandler = (msg: SyncMessage) => void;
-export type StatusHandler = (status: ConnectionStatus, peerId?: string) => void;
+export type StatusHandler = (status: ConnectionStatus, peerId?: string, latencyMs?: number) => void;
 
 class PeerService {
   private peer: Peer | null = null;
   private connection: DataConnection | null = null;
-  private connections: Map<string, DataConnection> = new Map(); // Display can support multiple connections if needed
+  private connections: Map<string, DataConnection> = new Map();
   private messageListeners: Set<MessageHandler> = new Set();
   private statusListeners: Set<StatusHandler> = new Set();
   private status: ConnectionStatus = 'disconnected';
   private currentRoomId: string = '';
   private isDisplayRole: boolean = false;
   private pingInterval: number | null = null;
+  private lastPingSentAt: number = 0;
+  private latencyMs: number = 0;
+  private reconnectTimeout: number | null = null;
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 10;
 
   public getStatus(): ConnectionStatus {
     return this.status;
@@ -23,6 +28,10 @@ class PeerService {
     return this.currentRoomId;
   }
 
+  public getLatency(): number {
+    return this.latencyMs;
+  }
+
   public onMessage(handler: MessageHandler): () => void {
     this.messageListeners.add(handler);
     return () => this.messageListeners.delete(handler);
@@ -30,20 +39,19 @@ class PeerService {
 
   public onStatusChange(handler: StatusHandler): () => void {
     this.statusListeners.add(handler);
-    handler(this.status, this.currentRoomId);
+    handler(this.status, this.currentRoomId, this.latencyMs);
     return () => this.statusListeners.delete(handler);
   }
 
   private notifyStatus(status: ConnectionStatus, peerId?: string) {
     this.status = status;
-    this.statusListeners.forEach((fn) => fn(status, peerId || this.currentRoomId));
+    this.statusListeners.forEach((fn) => fn(status, peerId || this.currentRoomId, this.latencyMs));
   }
 
   private notifyMessage(msg: SyncMessage) {
     this.messageListeners.forEach((fn) => fn(msg));
   }
 
-  // Generate clean 4-character room code (e.g. "VP-4821")
   public generateRoomCode(): string {
     const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
     let code = 'VP-';
@@ -53,12 +61,11 @@ class PeerService {
     return code;
   }
 
-  // Format full Peer ID to avoid collision on public PeerJS broker
   public getFullPeerId(code: string): string {
     return `visual-player-${code.toUpperCase().trim()}`;
   }
 
-  // Initialize DISPLAY mode (Tablet)
+  // Initialize DISPLAY mode (Tablet / Screen)
   public async initDisplay(customCode?: string): Promise<string> {
     this.destroy();
     this.isDisplayRole = true;
@@ -81,8 +88,9 @@ class PeerService {
         });
 
         this.peer.on('open', (id) => {
-          console.log('[PeerDisplay] Opened with ID:', id);
-          this.notifyStatus('disconnected'); // Open and ready for incoming master connection
+          console.log('[PeerDisplay] Ready with ID:', id);
+          this.reconnectAttempts = 0;
+          this.notifyStatus('disconnected');
           resolve(this.currentRoomId);
         });
 
@@ -94,12 +102,11 @@ class PeerService {
         this.peer.on('error', (err) => {
           console.error('[PeerDisplay] Peer error:', err);
           if (err.type === 'unavailable-id') {
-            // Retry with another code if conflict
             const newCode = this.generateRoomCode();
             this.initDisplay(newCode).then(resolve).catch(reject);
           } else {
             this.notifyStatus('error');
-            reject(err);
+            this.scheduleReconnect(() => this.initDisplay(roomCode));
           }
         });
 
@@ -115,18 +122,31 @@ class PeerService {
   }
 
   private handleIncomingConnection(conn: DataConnection) {
+    // Close existing connection from the same peer to avoid duplicates
+    const existing = this.connections.get(conn.peer);
+    if (existing) {
+      existing.close();
+    }
+
     this.connections.set(conn.peer, conn);
 
     conn.on('open', () => {
-      console.log('[PeerDisplay] Master connection established:', conn.peer);
+      console.log('[PeerDisplay] Master connected:', conn.peer);
       this.notifyStatus('connected');
+      // Ask Master for current state or wait for Master to broadcast
+      conn.send({ type: 'REQUEST_FULL_STATE' });
     });
 
     conn.on('data', (data) => {
       try {
         const msg = data as SyncMessage;
         if (msg.type === 'PING') {
-          conn.send({ type: 'PONG', timestamp: Date.now() });
+          conn.send({ type: 'PONG', timestamp: msg.timestamp });
+          return;
+        }
+        if (msg.type === 'PONG') {
+          this.latencyMs = Math.max(1, Math.round((Date.now() - msg.timestamp) / 2));
+          this.notifyStatus(this.status);
           return;
         }
         this.notifyMessage(msg);
@@ -148,7 +168,7 @@ class PeerService {
     });
   }
 
-  // Initialize MASTER mode (Cell Phone / Controller)
+  // Initialize MASTER mode (Cell Phone / DM Remote)
   public async connectAsMaster(roomCode: string): Promise<boolean> {
     this.destroy();
     this.isDisplayRole = false;
@@ -159,7 +179,6 @@ class PeerService {
 
     return new Promise((resolve, reject) => {
       try {
-        // Random ID for master
         this.peer = new Peer({
           debug: 1,
           config: {
@@ -171,45 +190,19 @@ class PeerService {
         });
 
         this.peer.on('open', (id) => {
-          console.log('[PeerMaster] Opened with ID:', id, 'Connecting to:', targetPeerId);
-          const conn = this.peer!.connect(targetPeerId, {
-            reliable: true,
-          });
-
-          this.connection = conn;
-
-          conn.on('open', () => {
-            console.log('[PeerMaster] Successfully connected to Display!');
-            this.notifyStatus('connected');
-            this.startHeartbeat();
-            resolve(true);
-          });
-
-          conn.on('data', (data) => {
-            try {
-              const msg = data as SyncMessage;
-              this.notifyMessage(msg);
-            } catch (err) {
-              console.error('[PeerMaster] Error parsing message:', err);
-            }
-          });
-
-          conn.on('close', () => {
-            console.warn('[PeerMaster] Connection to Display closed');
-            this.notifyStatus('disconnected');
-            this.stopHeartbeat();
-          });
-
-          conn.on('error', (err) => {
-            console.error('[PeerMaster] Connection error:', err);
-            this.notifyStatus('error');
-          });
+          console.log('[PeerMaster] Opened with ID:', id, 'Connecting to Display:', targetPeerId);
+          this.establishConnectionToDisplay(targetPeerId, resolve, reject);
         });
 
         this.peer.on('error', (err) => {
           console.error('[PeerMaster] Peer error:', err);
           this.notifyStatus('error');
-          reject(err);
+          this.scheduleReconnect(() => this.connectAsMaster(roomCode));
+        });
+
+        this.peer.on('disconnected', () => {
+          console.warn('[PeerMaster] Disconnected from signaling server, reconnecting...');
+          this.peer?.reconnect();
         });
       } catch (err) {
         this.notifyStatus('error');
@@ -218,13 +211,92 @@ class PeerService {
     });
   }
 
+  private establishConnectionToDisplay(
+    targetPeerId: string,
+    resolve?: (value: boolean) => void,
+    reject?: (reason?: unknown) => void
+  ) {
+    if (this.connection) {
+      this.connection.close();
+      this.connection = null;
+    }
+
+    const conn = this.peer!.connect(targetPeerId, {
+      reliable: true,
+    });
+
+    this.connection = conn;
+
+    conn.on('open', () => {
+      console.log('[PeerMaster] Connected to Display successfully!');
+      this.reconnectAttempts = 0;
+      this.notifyStatus('connected');
+      this.startHeartbeat();
+      if (resolve) resolve(true);
+    });
+
+    conn.on('data', (data) => {
+      try {
+        const msg = data as SyncMessage;
+        if (msg.type === 'PING') {
+          conn.send({ type: 'PONG', timestamp: msg.timestamp });
+          return;
+        }
+        if (msg.type === 'PONG') {
+          this.latencyMs = Math.max(1, Math.round((Date.now() - msg.timestamp) / 2));
+          this.notifyStatus(this.status);
+          return;
+        }
+        this.notifyMessage(msg);
+      } catch (err) {
+        console.error('[PeerMaster] Error parsing message:', err);
+      }
+    });
+
+    conn.on('close', () => {
+      console.warn('[PeerMaster] Connection to Display closed');
+      this.notifyStatus('disconnected');
+      this.stopHeartbeat();
+      this.scheduleReconnect(() => this.establishConnectionToDisplay(targetPeerId));
+    });
+
+    conn.on('error', (err) => {
+      console.error('[PeerMaster] Connection error:', err);
+      this.notifyStatus('error');
+      if (reject) reject(err);
+    });
+  }
+
+  private scheduleReconnect(action: () => void) {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+    }
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000);
+      console.log(`[PeerService] Scheduling auto-reconnect in ${Math.round(delay)}ms (Attempt ${this.reconnectAttempts})`);
+      this.reconnectTimeout = window.setTimeout(() => {
+        action();
+      }, delay);
+    }
+  }
+
   private startHeartbeat() {
     this.stopHeartbeat();
     this.pingInterval = window.setInterval(() => {
       if (this.connection && this.connection.open) {
-        this.connection.send({ type: 'PING', timestamp: Date.now() });
+        this.lastPingSentAt = Date.now();
+        this.connection.send({ type: 'PING', timestamp: this.lastPingSentAt });
       }
-    }, 10000);
+      if (this.isDisplayRole && this.connections.size > 0) {
+        this.lastPingSentAt = Date.now();
+        this.connections.forEach((c) => {
+          if (c.open) {
+            c.send({ type: 'PING', timestamp: this.lastPingSentAt });
+          }
+        });
+      }
+    }, 5000);
   }
 
   private stopHeartbeat() {
@@ -234,27 +306,28 @@ class PeerService {
     }
   }
 
-  // Send message from Master to Display (or vice-versa)
   public send(msg: SyncMessage) {
     if (this.isDisplayRole) {
-      // Broadcast to all connected masters/controllers
       this.connections.forEach((conn) => {
         if (conn.open) {
           conn.send(msg);
         }
       });
     } else {
-      // Send from Master to Display
       if (this.connection && this.connection.open) {
         this.connection.send(msg);
       } else {
-        console.warn('[PeerService] Cannot send message, connection is not open');
+        console.warn('[PeerService] Cannot send message: connection is not open');
       }
     }
   }
 
   public destroy() {
     this.stopHeartbeat();
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
     if (this.connection) {
       this.connection.close();
       this.connection = null;
@@ -266,6 +339,7 @@ class PeerService {
       this.peer = null;
     }
     this.status = 'disconnected';
+    this.latencyMs = 0;
   }
 }
 
