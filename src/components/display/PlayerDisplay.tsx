@@ -59,7 +59,7 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
   // Initialize WebRTC Display Peer
   useEffect(() => {
     let unmounted = false;
-    const stopWatcher = startTurnRenewalWatcher();
+    const stopWatcher = startTurnRenewalWatcher(roomCode || initialRoomCode || 'VP-DEMO');
 
     const setupPeer = async () => {
       try {

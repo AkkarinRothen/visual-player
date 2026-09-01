@@ -5,6 +5,7 @@ export interface IceServerConfig {
 }
 
 export interface IceFetchOptions {
+  roomId?: string;
   forceRelay?: boolean;
   forceRefresh?: boolean;
 }
@@ -18,21 +19,43 @@ export const DEFAULT_STUN_SERVERS: IceServerConfig[] = [
 let cachedTurnServers: IceServerConfig[] | null = null;
 let cacheExpiresAt: number = 0;
 let renewalTimer: number | null = null;
+let activeRoomId: string = 'VP-DEMO';
 let isSessionActive: boolean = false;
 
 /**
- * Fetches ephemeral TURN credentials from the serverless endpoint if available.
+ * Creates an ephemeral base64 session token with anti-replay timestamp.
  */
-export async function fetchEphemeralTurnServers(forceRefresh: boolean = false): Promise<IceServerConfig[]> {
+export function createClientSessionToken(roomId: string = activeRoomId): string {
+  const payload = {
+    roomId: roomId.toUpperCase().trim(),
+    timestamp: Date.now(),
+    nonce: Math.random().toString(36).substring(2, 10),
+  };
+  return btoa(JSON.stringify(payload));
+}
+
+/**
+ * Fetches ephemeral TURN credentials from the serverless endpoint using session token authentication.
+ */
+export async function fetchEphemeralTurnServers(
+  roomId: string = activeRoomId,
+  forceRefresh: boolean = false
+): Promise<IceServerConfig[]> {
   const now = Date.now();
+  activeRoomId = roomId;
+
   if (!forceRefresh && cachedTurnServers && now < cacheExpiresAt) {
     return cachedTurnServers;
   }
 
   try {
+    const token = createClientSessionToken(roomId);
     const response = await fetch('/api/turn-credentials', {
       method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      headers: {
+        'Accept': 'application/json',
+        'X-Session-Token': token,
+      },
     });
 
     if (response.ok) {
@@ -44,14 +67,18 @@ export async function fetchEphemeralTurnServers(forceRefresh: boolean = false): 
 
         // Schedule proactive renewal at 75% of TTL if session is active
         if (isSessionActive) {
-          scheduleProactiveRenewal(ttlSec * 0.75 * 1000);
+          scheduleProactiveRenewal(roomId, ttlSec * 0.75 * 1000);
         }
 
         return cachedTurnServers!;
       }
+    } else if (response.status === 429) {
+      console.warn('[IceConfig] Rate limit reached on TURN credentials endpoint. Using cached or STUN.');
+    } else if (response.status === 500) {
+      console.log('[IceConfig] TURN service not configured on server. Falling back to STUN direct NAT.');
     }
   } catch (err) {
-    console.log('[IceConfig] Serverless TURN endpoint not reached, using standard STUN configuration.');
+    console.log('[IceConfig] Serverless TURN endpoint not reachable, operating in STUN direct mode.');
   }
 
   return [];
@@ -60,7 +87,7 @@ export async function fetchEphemeralTurnServers(forceRefresh: boolean = false): 
 /**
  * Schedules a background renewal before the current TURN token expires.
  */
-function scheduleProactiveRenewal(delayMs: number): void {
+function scheduleProactiveRenewal(roomId: string, delayMs: number): void {
   if (renewalTimer) {
     clearTimeout(renewalTimer);
   }
@@ -68,7 +95,7 @@ function scheduleProactiveRenewal(delayMs: number): void {
   renewalTimer = window.setTimeout(async () => {
     if (isSessionActive) {
       console.log('[IceConfig] Proactively renewing TURN credentials at 75% TTL...');
-      await fetchEphemeralTurnServers(true);
+      await fetchEphemeralTurnServers(roomId, true);
     }
   }, Math.max(5000, delayMs));
 }
@@ -76,11 +103,15 @@ function scheduleProactiveRenewal(delayMs: number): void {
 /**
  * Starts watching session activity for proactive TURN token renewals and network reconnects.
  */
-export function startTurnRenewalWatcher(onRenewed?: (servers: IceServerConfig[]) => void): () => void {
+export function startTurnRenewalWatcher(
+  roomId: string = 'VP-DEMO',
+  onRenewed?: (servers: IceServerConfig[]) => void
+): () => void {
   isSessionActive = true;
+  activeRoomId = roomId;
 
   // Immediate check & schedule
-  fetchEphemeralTurnServers().then((servers) => {
+  fetchEphemeralTurnServers(roomId).then((servers) => {
     if (onRenewed && servers.length > 0) {
       onRenewed(servers);
     }
@@ -89,7 +120,7 @@ export function startTurnRenewalWatcher(onRenewed?: (servers: IceServerConfig[])
   // Re-fetch on network recovery (e.g. WiFi reconnect or switching to cellular)
   const handleOnline = async () => {
     console.log('[IceConfig] Network online detected, fetching fresh TURN credentials...');
-    const refreshed = await fetchEphemeralTurnServers(true);
+    const refreshed = await fetchEphemeralTurnServers(activeRoomId, true);
     if (onRenewed && refreshed.length > 0) {
       onRenewed(refreshed);
     }
@@ -113,8 +144,8 @@ export function startTurnRenewalWatcher(onRenewed?: (servers: IceServerConfig[])
 export async function getIceConfiguration(
   options: IceFetchOptions = {}
 ): Promise<RTCConfiguration> {
-  const { forceRelay = false, forceRefresh = false } = options;
-  const turnServers = await fetchEphemeralTurnServers(forceRefresh);
+  const { roomId = 'VP-DEMO', forceRelay = false, forceRefresh = false } = options;
+  const turnServers = await fetchEphemeralTurnServers(roomId, forceRefresh);
 
   const iceServers: IceServerConfig[] = [
     ...DEFAULT_STUN_SERVERS,

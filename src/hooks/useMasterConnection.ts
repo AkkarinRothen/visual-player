@@ -35,7 +35,8 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
   }, []);
 
   useEffect(() => {
-    const stopWatcher = startTurnRenewalWatcher();
+    const activeCode = roomCode || initialRoomCode || 'VP-DEMO';
+    const stopWatcher = startTurnRenewalWatcher(activeCode);
 
     if (initialRoomCode) {
       connectToRoom(initialRoomCode);
