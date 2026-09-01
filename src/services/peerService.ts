@@ -1,7 +1,20 @@
 import Peer, { type DataConnection } from 'peerjs';
-import type { SyncMessage, ConnectionStatus } from '../types';
+import type { ConnectionStatus, SyncMessage } from '../types';
+import type {
+  AckPayload,
+  SyncMessageType,
+  VersionedSyncMessage,
+} from '../domain/protocol/types';
+import {
+  createVersionedMessage,
+  validateIncomingMessage,
+  MessageDeduplicator,
+  SequenceTracker,
+} from '../domain/protocol/protocolEngine';
+import { ReliableDeliveryQueue } from '../domain/protocol/reliableQueue';
+import { type ChaosConfig, DEFAULT_CHAOS_CONFIG } from '../domain/protocol/transport';
 
-export type MessageHandler = (msg: SyncMessage) => void;
+export type MessageHandler = (msg: SyncMessage | VersionedSyncMessage) => void;
 export type StatusHandler = (status: ConnectionStatus, peerId?: string, latencyMs?: number) => void;
 
 class PeerService {
@@ -19,6 +32,18 @@ class PeerService {
   private reconnectTimeout: number | null = null;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 10;
+
+  // Protocol v1 Components
+  private deduplicator: MessageDeduplicator = new MessageDeduplicator(100);
+  private sequenceTracker: SequenceTracker = new SequenceTracker();
+  private reliableQueue: ReliableDeliveryQueue;
+
+  // Dev Chaos Simulation Config
+  private chaosConfig: ChaosConfig = { ...DEFAULT_CHAOS_CONFIG };
+
+  constructor() {
+    this.reliableQueue = new ReliableDeliveryQueue((msg) => this.sendRaw(msg));
+  }
 
   public getStatus(): ConnectionStatus {
     return this.status;
@@ -48,7 +73,7 @@ class PeerService {
     this.statusListeners.forEach((fn) => fn(status, peerId || this.currentRoomId, this.latencyMs));
   }
 
-  private notifyMessage(msg: SyncMessage) {
+  private notifyMessage(msg: SyncMessage | VersionedSyncMessage) {
     this.messageListeners.forEach((fn) => fn(msg));
   }
 
@@ -122,7 +147,6 @@ class PeerService {
   }
 
   private handleIncomingConnection(conn: DataConnection) {
-    // Close existing connection from the same peer to avoid duplicates
     const existing = this.connections.get(conn.peer);
     if (existing) {
       existing.close();
@@ -133,26 +157,11 @@ class PeerService {
     conn.on('open', () => {
       console.log('[PeerDisplay] Master connected:', conn.peer);
       this.notifyStatus('connected');
-      // Ask Master for current state or wait for Master to broadcast
-      conn.send({ type: 'REQUEST_FULL_STATE' });
+      this.send({ type: 'REQUEST_FULL_STATE' as SyncMessageType });
     });
 
     conn.on('data', (data) => {
-      try {
-        const msg = data as SyncMessage;
-        if (msg.type === 'PING') {
-          conn.send({ type: 'PONG', timestamp: msg.timestamp });
-          return;
-        }
-        if (msg.type === 'PONG') {
-          this.latencyMs = Math.max(1, Math.round((Date.now() - msg.timestamp) / 2));
-          this.notifyStatus(this.status);
-          return;
-        }
-        this.notifyMessage(msg);
-      } catch (err) {
-        console.error('[PeerDisplay] Error processing message:', err);
-      }
+      this.processIncomingData(data, conn);
     });
 
     conn.on('close', () => {
@@ -236,21 +245,7 @@ class PeerService {
     });
 
     conn.on('data', (data) => {
-      try {
-        const msg = data as SyncMessage;
-        if (msg.type === 'PING') {
-          conn.send({ type: 'PONG', timestamp: msg.timestamp });
-          return;
-        }
-        if (msg.type === 'PONG') {
-          this.latencyMs = Math.max(1, Math.round((Date.now() - msg.timestamp) / 2));
-          this.notifyStatus(this.status);
-          return;
-        }
-        this.notifyMessage(msg);
-      } catch (err) {
-        console.error('[PeerMaster] Error parsing message:', err);
-      }
+      this.processIncomingData(data, conn);
     });
 
     conn.on('close', () => {
@@ -265,6 +260,68 @@ class PeerService {
       this.notifyStatus('error');
       if (reject) reject(err);
     });
+  }
+
+  /**
+   * Process raw data using the Versioned Protocol v1 pipeline.
+   */
+  private processIncomingData(raw: unknown, conn: DataConnection) {
+    const validation = validateIncomingMessage(raw);
+    if (!validation.isValid || !validation.message) {
+      console.warn('[PeerProtocol] Rejected malformed message:', raw, validation.error);
+      return;
+    }
+
+    const msg = validation.message;
+
+    // Heartbeat PING / PONG handling
+    if (msg.type === 'PING') {
+      const pongMsg = createVersionedMessage('PONG', msg.payload);
+      conn.send(pongMsg);
+      return;
+    }
+    if (msg.type === 'PONG') {
+      const sentTime = typeof msg.payload === 'object' && msg.payload && 'timestamp' in msg.payload
+        ? (msg.payload as { timestamp: number }).timestamp
+        : msg.sentAt;
+      this.latencyMs = Math.max(1, Math.round((Date.now() - sentTime) / 2));
+      this.notifyStatus(this.status);
+      return;
+    }
+
+    // Handle ACK receipt
+    if (msg.type === 'ACK_MESSAGE') {
+      this.reliableQueue.handleAck(msg.payload as AckPayload);
+      return;
+    }
+
+    // Auto-respond with ACK if requested (Critical messages)
+    if (msg.requiresAck) {
+      const ackMsg = createVersionedMessage('ACK_MESSAGE', {
+        ackMessageId: msg.messageId,
+        receivedSequence: msg.sequenceNumber,
+      });
+      conn.send(ackMsg);
+    }
+
+    // Tier 1: Deduplication for Critical messages
+    if (msg.tier === 'critical') {
+      if (!this.deduplicator.shouldProcess(msg.messageId)) {
+        console.log('[PeerProtocol] Ignored duplicate critical message:', msg.messageId);
+        return;
+      }
+    }
+
+    // Tier 2: Sequence check for Continuous messages
+    if (msg.tier === 'continuous') {
+      if (!this.sequenceTracker.isNewer(msg.type, msg.sequenceNumber)) {
+        console.log('[PeerProtocol] Dropped stale continuous message sequence:', msg.sequenceNumber);
+        return;
+      }
+    }
+
+    // Forward validated message to application subscribers
+    this.notifyMessage(msg);
   }
 
   private scheduleReconnect(action: () => void) {
@@ -284,18 +341,9 @@ class PeerService {
   private startHeartbeat() {
     this.stopHeartbeat();
     this.pingInterval = window.setInterval(() => {
-      if (this.connection && this.connection.open) {
-        this.lastPingSentAt = Date.now();
-        this.connection.send({ type: 'PING', timestamp: this.lastPingSentAt });
-      }
-      if (this.isDisplayRole && this.connections.size > 0) {
-        this.lastPingSentAt = Date.now();
-        this.connections.forEach((c) => {
-          if (c.open) {
-            c.send({ type: 'PING', timestamp: this.lastPingSentAt });
-          }
-        });
-      }
+      this.lastPingSentAt = Date.now();
+      const ping = createVersionedMessage('PING', { timestamp: this.lastPingSentAt });
+      this.sendRaw(ping);
     }, 5000);
   }
 
@@ -306,24 +354,94 @@ class PeerService {
     }
   }
 
-  public send(msg: SyncMessage) {
-    if (this.isDisplayRole) {
-      this.connections.forEach((conn) => {
-        if (conn.open) {
-          conn.send(msg);
-        }
-      });
-    } else {
-      if (this.connection && this.connection.open) {
-        this.connection.send(msg);
+  public setChaosConfig(newConfig: Partial<ChaosConfig>) {
+    this.chaosConfig = { ...this.chaosConfig, ...newConfig };
+  }
+
+  public getChaosConfig(): ChaosConfig {
+    return { ...this.chaosConfig };
+  }
+
+  public isChaosActive(): boolean {
+    return (
+      this.chaosConfig.latencyMs > 0 ||
+      this.chaosConfig.packetLossRate > 0 ||
+      this.chaosConfig.duplicationRate > 0 ||
+      this.chaosConfig.isPartitioned
+    );
+  }
+
+  public resetChaos(): void {
+    this.chaosConfig = { ...DEFAULT_CHAOS_CONFIG };
+  }
+
+  /**
+   * Low-level raw send to all active DataConnections, respecting dev chaos configuration.
+   */
+  private sendRaw(msg: VersionedSyncMessage) {
+    if (this.chaosConfig.isPartitioned) {
+      console.log('[PeerChaos] Dropped message due to simulated network partition:', msg.type);
+      return;
+    }
+
+    if (this.chaosConfig.packetLossRate > 0 && Math.random() < this.chaosConfig.packetLossRate) {
+      console.log('[PeerChaos] Dropped message due to simulated packet loss:', msg.type);
+      return;
+    }
+
+    const actualDispatch = () => {
+      if (this.isDisplayRole) {
+        this.connections.forEach((conn) => {
+          if (conn.open) {
+            conn.send(msg);
+          }
+        });
       } else {
-        console.warn('[PeerService] Cannot send message: connection is not open');
+        if (this.connection && this.connection.open) {
+          this.connection.send(msg);
+        }
       }
+    };
+
+    const delay = this.chaosConfig.latencyMs;
+    if (delay === 0) {
+      actualDispatch();
+    } else {
+      setTimeout(actualDispatch, delay);
+    }
+
+    if (this.chaosConfig.duplicationRate > 0 && Math.random() < this.chaosConfig.duplicationRate) {
+      setTimeout(actualDispatch, delay + 35);
+    }
+  }
+
+  /**
+   * High-level send wrapped with Protocol v1 envelope and reliable delivery queue.
+   */
+  public send(msg: SyncMessage | VersionedSyncMessage | { type: SyncMessageType; payload?: unknown }) {
+    let versioned: VersionedSyncMessage;
+    if ('protocolVersion' in msg && msg.protocolVersion === 1) {
+      versioned = msg as VersionedSyncMessage;
+    } else {
+      versioned = createVersionedMessage(
+        msg.type as SyncMessageType,
+        'payload' in msg ? msg.payload : undefined
+      );
+    }
+
+    if (versioned.tier === 'critical') {
+      this.reliableQueue.sendWithAck(versioned);
+    } else {
+      this.sendRaw(versioned);
     }
   }
 
   public destroy() {
     this.stopHeartbeat();
+    this.reliableQueue.clear();
+    this.deduplicator.clear();
+    this.sequenceTracker.reset();
+
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;

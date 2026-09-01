@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import type { ConnectionStatus, DisplayState, SyncMessage } from '../../types';
+import type { ConnectionStatus, DisplayState } from '../../types';
 import { peerService } from '../../services/peerService';
 import { soundEngine } from '../../services/soundEngine';
 import { AtmosphereCanvas } from '../canvas/AtmosphereCanvas';
@@ -79,8 +79,8 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
       }
     });
 
-    const unsubMsg = peerService.onMessage((msg: SyncMessage) => {
-      handleIncomingMessage(msg);
+    const unsubMsg = peerService.onMessage((msg) => {
+      handleIncomingMessage(msg as any);
     });
 
     return () => {
@@ -91,7 +91,7 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
   }, [initialRoomCode]);
 
   // Handle incoming messages from Master Remote
-  const handleIncomingMessage = (msg: SyncMessage) => {
+  const handleIncomingMessage = (msg: any) => {
     switch (msg.type) {
       case 'FULL_STATE':
         setState(msg.payload);
