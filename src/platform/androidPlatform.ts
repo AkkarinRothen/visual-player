@@ -72,34 +72,21 @@ class AndroidScreenBridge implements IScreenBridge {
 
 class AndroidSecureStorageBridge implements ISecureStorageBridge {
   public async get(key: string): Promise<string | null> {
-    try {
-      const res = await NativeKeystore.get({ key });
-      return res.value;
-    } catch {
-      if (typeof window !== 'undefined') {
-        return window.sessionStorage.getItem(`vp_and_${key}`);
-      }
-      return null;
-    }
+    const res = await NativeKeystore.get({ key });
+    return res.value;
   }
 
   public async set(key: string, value: string): Promise<void> {
-    try {
-      await NativeKeystore.set({ key, value });
-    } catch {
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(`vp_and_${key}`, value);
-      }
+    const res = await NativeKeystore.set({ key, value });
+    if (!res.success) {
+      throw new Error(`Failed to securely persist key: ${key}`);
     }
   }
 
   public async remove(key: string): Promise<void> {
-    try {
-      await NativeKeystore.remove({ key });
-    } catch {
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.removeItem(`vp_and_${key}`);
-      }
+    const res = await NativeKeystore.remove({ key });
+    if (!res.success) {
+      throw new Error(`Failed to remove key: ${key}`);
     }
   }
 }

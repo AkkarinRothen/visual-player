@@ -2,40 +2,90 @@ package com.akkarinrothen.visualplayer;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import androidx.security.crypto.EncryptedSharedPreferences;
-import androidx.security.crypto.MasterKey;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyPermanentlyInvalidatedException;
+import android.security.keystore.KeyProperties;
+import android.util.Base64;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import org.json.JSONObject;
+
+import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
+import java.security.SecureRandom;
+import java.security.UnrecoverableKeyException;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 
 @CapacitorPlugin(name = "VisualPlayerKeystore")
 public class VisualPlayerKeystorePlugin extends Plugin {
 
-    private static final String PREF_FILE_NAME = "vp_encrypted_secure_keystore";
-    private SharedPreferences securePrefs;
+    private static final String ANDROID_KEYSTORE = "AndroidKeyStore";
+    private static final String MASTER_KEY_ALIAS = "vp_keystore_v1_aes";
+    private static final String PREF_FILE_NAME = "vp_secure_keystore_v1";
+    private static final int GCM_IV_LENGTH_BYTES = 12;
+    private static final int GCM_TAG_LENGTH_BITS = 128;
+
+    private SharedPreferences storagePrefs;
+    private final SecureRandom secureRandom = new SecureRandom();
 
     @Override
     public void load() {
         super.load();
+        storagePrefs = getContext().getSharedPreferences(PREF_FILE_NAME, Context.MODE_PRIVATE);
         try {
-            Context context = getContext();
-            MasterKey masterKey = new MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            ensureMasterKey();
+        } catch (Exception e) {
+            // Key will be generated upon first write attempt
+        }
+    }
+
+    private synchronized SecretKey ensureMasterKey() throws Exception {
+        KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+        keyStore.load(null);
+
+        if (!keyStore.containsAlias(MASTER_KEY_ALIAS)) {
+            KeyGenerator keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE);
+            KeyGenParameterSpec spec = new KeyGenParameterSpec.Builder(
+                MASTER_KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(256)
+                .setRandomizedEncryptionRequired(false) // We manage unique 12-byte IVs explicitly
                 .build();
 
-            securePrefs = EncryptedSharedPreferences.create(
-                context,
-                PREF_FILE_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            );
-        } catch (Exception e) {
-            // Fallback to standard private mode if keystore hardware fails on emulator
-            securePrefs = getContext().getSharedPreferences(PREF_FILE_NAME, Context.MODE_PRIVATE);
+            keyGenerator.init(spec);
+            return keyGenerator.generateKey();
         }
+
+        return (SecretKey) keyStore.getKey(MASTER_KEY_ALIAS, null);
+    }
+
+    private synchronized void purgeAndRegenerateKey() {
+        try {
+            KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+            keyStore.load(null);
+            if (keyStore.containsAlias(MASTER_KEY_ALIAS)) {
+                keyStore.deleteEntry(MASTER_KEY_ALIAS);
+            }
+            if (storagePrefs != null) {
+                storagePrefs.edit().clear().apply();
+            }
+            ensureMasterKey();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private byte[] getAAD(String key) {
+        String aad = getContext().getPackageName() + ":" + key;
+        return aad.getBytes(StandardCharsets.UTF_8);
     }
 
     @PluginMethod
@@ -46,10 +96,42 @@ public class VisualPlayerKeystorePlugin extends Plugin {
             return;
         }
 
-        String value = securePrefs != null ? securePrefs.getString(key, null) : null;
-        JSObject ret = new JSObject();
-        ret.put("value", value);
-        call.resolve(ret);
+        String rawEnvelope = storagePrefs.getString(key, null);
+        if (rawEnvelope == null) {
+            JSObject ret = new JSObject();
+            ret.put("value", null);
+            call.resolve(ret);
+            return;
+        }
+
+        try {
+            JSONObject envelope = new JSONObject(rawEnvelope);
+            String ivB64 = envelope.getString("iv");
+            String ctB64 = envelope.getString("ct");
+
+            byte[] iv = Base64.decode(ivB64, Base64.NO_WRAP);
+            byte[] ciphertext = Base64.decode(ctB64, Base64.NO_WRAP);
+
+            SecretKey secretKey = ensureMasterKey();
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
+            cipher.updateAAD(getAAD(key));
+
+            byte[] plaintextBytes = cipher.doFinal(ciphertext);
+            String value = new String(plaintextBytes, StandardCharsets.UTF_8);
+
+            JSObject ret = new JSObject();
+            ret.put("value", value);
+            call.resolve(ret);
+
+        } catch (KeyPermanentlyInvalidatedException | UnrecoverableKeyException e) {
+            purgeAndRegenerateKey();
+            call.reject("KEY_INVALIDATED", "Keystore credentials invalidated. Session cleared.");
+        } catch (Exception e) {
+            // Tampered data, wrong tag, or decryption failure: fail closed
+            storagePrefs.edit().remove(key).apply();
+            call.reject("DECRYPTION_FAILED", "Failed to decrypt secure entry: " + e.getMessage());
+        }
     }
 
     @PluginMethod
@@ -61,12 +143,36 @@ public class VisualPlayerKeystorePlugin extends Plugin {
             return;
         }
 
-        if (securePrefs != null) {
-            securePrefs.edit().putString(key, value).apply();
+        try {
+            SecretKey secretKey = ensureMasterKey();
+            byte[] iv = new byte[GCM_IV_LENGTH_BYTES];
+            secureRandom.nextBytes(iv);
+
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
+            cipher.updateAAD(getAAD(key));
+
+            byte[] plaintextBytes = value.getBytes(StandardCharsets.UTF_8);
+            byte[] ciphertext = cipher.doFinal(plaintextBytes);
+
+            JSONObject envelope = new JSONObject();
+            envelope.put("v", 1);
+            envelope.put("alg", "AES_GCM_256");
+            envelope.put("iv", Base64.encodeToString(iv, Base64.NO_WRAP));
+            envelope.put("ct", Base64.encodeToString(ciphertext, Base64.NO_WRAP));
+
+            storagePrefs.edit().putString(key, envelope.toString()).apply();
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+
+        } catch (KeyPermanentlyInvalidatedException | UnrecoverableKeyException e) {
+            purgeAndRegenerateKey();
+            call.reject("KEY_INVALIDATED", "Keystore credentials invalidated. Please retry.");
+        } catch (Exception e) {
+            call.reject("ENCRYPTION_FAILED", "Failed to encrypt entry: " + e.getMessage());
         }
-        JSObject ret = new JSObject();
-        ret.put("success", true);
-        call.resolve(ret);
     }
 
     @PluginMethod
@@ -77,9 +183,7 @@ public class VisualPlayerKeystorePlugin extends Plugin {
             return;
         }
 
-        if (securePrefs != null) {
-            securePrefs.edit().remove(key).apply();
-        }
+        storagePrefs.edit().remove(key).apply();
         JSObject ret = new JSObject();
         ret.put("success", true);
         call.resolve(ret);

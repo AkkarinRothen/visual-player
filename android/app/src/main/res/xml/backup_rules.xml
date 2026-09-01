@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Exclude hardware-bound Keystore storage from Cloud Backups to prevent decryption failures across devices -->
+    <exclude domain="sharedpref" path="vp_secure_keystore_v1.xml" />
+</full-backup-content>
