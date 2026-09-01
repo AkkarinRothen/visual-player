@@ -16,6 +16,7 @@ import type {
 import { soundEngine } from '../../services/soundEngine';
 import { peerService } from '../../services/peerService';
 import { getPlatformBridge } from '../../platform';
+import { sessionRecoveryService } from '../../services/sessionRecovery';
 import {
   db,
   BUILTIN_SFX,
@@ -325,6 +326,30 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     showCampaignPickerModal,
     showSelectivePublishModal,
     showFullScreenPreview,
+  ]);
+
+  // Session Recovery: Save non-sensitive incremental snapshot for crash / process death recovery
+  useEffect(() => {
+    if (roomCode && campaign) {
+      sessionRecoveryService.saveIncrementalSnapshot({
+        role: 'master',
+        roomId: roomCode,
+        campaignId: campaign.id,
+        activeSceneId: activeDisplay.currentSceneId,
+        sessionRevision: liveState.combatState?.round || 1,
+        combatActive: liveState.combatState?.isActive || false,
+        hasStagedChanges: pendingChangesCount > 0,
+        lastSceneName: activeDisplay.sceneName,
+      });
+    }
+  }, [
+    roomCode,
+    campaign,
+    activeDisplay.currentSceneId,
+    activeDisplay.sceneName,
+    liveState.combatState?.isActive,
+    liveState.combatState?.round,
+    pendingChangesCount,
   ]);
 
   // Mode Toggle with confirmation if pending changes
@@ -939,7 +964,14 @@ export const MasterController: React.FC<MasterControllerProps> = ({
               )}
             </button>
             {onExitToLobby && (
-              <button className="status-chip" onClick={onExitToLobby} title="Salir al Lobby">
+              <button
+                className="status-chip"
+                onClick={() => {
+                  sessionRecoveryService.markCleanExit();
+                  onExitToLobby();
+                }}
+                title="Salir al Lobby"
+              >
                 <LogOut size={14} />
               </button>
             )}
