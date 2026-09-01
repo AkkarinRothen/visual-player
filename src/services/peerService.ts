@@ -13,6 +13,8 @@ import {
 } from '../domain/protocol/protocolEngine';
 import { ReliableDeliveryQueue } from '../domain/protocol/reliableQueue';
 import { type ChaosConfig, DEFAULT_CHAOS_CONFIG } from '../domain/protocol/transport';
+import { getIceConfiguration } from './iceConfig';
+import { iceTelemetry, type IceTelemetrySnapshot } from './iceTelemetry';
 
 export type MessageHandler = (msg: SyncMessage | VersionedSyncMessage) => void;
 export type StatusHandler = (status: ConnectionStatus, peerId?: string, latencyMs?: number) => void;
@@ -32,6 +34,9 @@ class PeerService {
   private reconnectTimeout: number | null = null;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 10;
+
+  // WebRTC ICE / TURN Configuration
+  private forceRelayOnly: boolean = false;
 
   // Protocol v1 Components
   private deduplicator: MessageDeduplicator = new MessageDeduplicator(100);
@@ -99,17 +104,13 @@ class PeerService {
     const fullPeerId = this.getFullPeerId(roomCode);
 
     this.notifyStatus('connecting');
+    const iceConfig = await getIceConfiguration({ forceRelay: this.forceRelayOnly });
 
     return new Promise((resolve, reject) => {
       try {
         this.peer = new Peer(fullPeerId, {
           debug: 1,
-          config: {
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:global.stun.twilio.com:3478' },
-            ],
-          },
+          config: iceConfig,
         });
 
         this.peer.on('open', (id) => {
@@ -157,6 +158,9 @@ class PeerService {
     conn.on('open', () => {
       console.log('[PeerDisplay] Master connected:', conn.peer);
       this.notifyStatus('connected');
+      if ((conn as unknown as { peerConnection?: RTCPeerConnection }).peerConnection) {
+        iceTelemetry.attach((conn as unknown as { peerConnection: RTCPeerConnection }).peerConnection);
+      }
       this.send({ type: 'REQUEST_FULL_STATE' as SyncMessageType });
     });
 
@@ -185,17 +189,13 @@ class PeerService {
     const targetPeerId = this.getFullPeerId(this.currentRoomId);
 
     this.notifyStatus('connecting');
+    const iceConfig = await getIceConfiguration({ forceRelay: this.forceRelayOnly });
 
     return new Promise((resolve, reject) => {
       try {
         this.peer = new Peer({
           debug: 1,
-          config: {
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:global.stun.twilio.com:3478' },
-            ],
-          },
+          config: iceConfig,
         });
 
         this.peer.on('open', (id) => {
@@ -240,6 +240,9 @@ class PeerService {
       console.log('[PeerMaster] Connected to Display successfully!');
       this.reconnectAttempts = 0;
       this.notifyStatus('connected');
+      if ((conn as unknown as { peerConnection?: RTCPeerConnection }).peerConnection) {
+        iceTelemetry.attach((conn as unknown as { peerConnection: RTCPeerConnection }).peerConnection);
+      }
       this.startHeartbeat();
       if (resolve) resolve(true);
     });
@@ -352,6 +355,18 @@ class PeerService {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
     }
+  }
+
+  public setForceRelayOnly(force: boolean) {
+    this.forceRelayOnly = force;
+  }
+
+  public getForceRelayOnly(): boolean {
+    return this.forceRelayOnly;
+  }
+
+  public getIceTelemetry(): IceTelemetrySnapshot {
+    return iceTelemetry.getSnapshot();
   }
 
   public setChaosConfig(newConfig: Partial<ChaosConfig>) {

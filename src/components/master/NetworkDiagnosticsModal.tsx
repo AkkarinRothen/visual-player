@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { ConnectionStatus, DisplayState } from '../../types';
 import type { ChaosConfig } from '../../domain/protocol/transport';
 import { peerService } from '../../services/peerService';
+import { iceTelemetry, type IceTelemetrySnapshot } from '../../services/iceTelemetry';
 import {
   Activity,
   X,
@@ -10,6 +11,8 @@ import {
   RotateCcw,
   RefreshCw,
   Sliders,
+  ShieldCheck,
+  Server,
 } from 'lucide-react';
 
 interface NetworkDiagnosticsModalProps {
@@ -29,9 +32,18 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
   onClose,
 }) => {
   const [chaos, setChaos] = useState<ChaosConfig>(peerService.getChaosConfig());
+  const [forceRelay, setForceRelay] = useState<boolean>(peerService.getForceRelayOnly());
+  const [telemetry, setTelemetry] = useState<IceTelemetrySnapshot>(iceTelemetry.getSnapshot());
 
   useEffect(() => {
     setChaos(peerService.getChaosConfig());
+    setForceRelay(peerService.getForceRelayOnly());
+
+    const unsub = iceTelemetry.onTelemetry((snap) => {
+      setTelemetry(snap);
+    });
+
+    return () => unsub();
   }, []);
 
   const applyChaos = (updated: Partial<ChaosConfig>) => {
@@ -62,7 +74,43 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
     setChaos(peerService.getChaosConfig());
   };
 
+  const handleToggleForceRelay = async (val: boolean) => {
+    setForceRelay(val);
+    peerService.setForceRelayOnly(val);
+    // Re-connect to apply the new ICE transport policy (relay vs all)
+    await peerService.connectAsMaster(roomCode);
+  };
+
   const isChaosActive = peerService.isChaosActive();
+
+  const getCandidateBadge = () => {
+    if (telemetry.candidateType === 'host') {
+      return (
+        <span className="ice-badge host">
+          🏠 Red Local Directa (host)
+        </span>
+      );
+    }
+    if (telemetry.candidateType === 'srflx' || telemetry.candidateType === 'prflx') {
+      return (
+        <span className="ice-badge srflx">
+          🌐 NAT Directo STUN (srflx)
+        </span>
+      );
+    }
+    if (telemetry.candidateType === 'relay' || telemetry.isRelay) {
+      return (
+        <span className="ice-badge relay">
+          🔄 Servidor Relay TURN (relay)
+        </span>
+      );
+    }
+    return (
+      <span className="ice-badge unknown">
+        ⚡ Negociando Candidatos ICE...
+      </span>
+    );
+  };
 
   return (
     <div className="modal-overlay diagnostics-modal-overlay" onClick={onClose}>
@@ -71,7 +119,7 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
         <div className="modal-header">
           <div className="flex-align-gap">
             <Activity size={20} className="text-amber-400" />
-            <h2>Diagnóstico de Red & Modo Caos (DEV)</h2>
+            <h2>Diagnóstico ICE & Modo Caos WebRTC</h2>
           </div>
           <button className="modal-close" onClick={onClose}>
             <X size={20} />
@@ -79,13 +127,13 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
         </div>
 
         <p className="modal-subtitle">
-          Monitor de salud de sincronización WebRTC e inyector de fallos para evaluar tolerancia a pérdida de red, retraso y reintentos.
+          Telemetría en tiempo real del enlace ICE/TURN, detección de NAT simétrico e inyector de fallos para evaluar la convergencia.
         </p>
 
-        {/* 1. Live Connection Metrics */}
+        {/* 1. Live Connection & ICE Telemetry Metrics */}
         <div className="diagnostics-metrics-grid">
           <div className="diag-metric-card">
-            <span className="metric-label">Estado WebRTC</span>
+            <span className="metric-label">Estado de Conexión</span>
             <div className="flex-align-gap mt-1">
               {connectionStatus === 'connected' ? (
                 <Wifi size={16} className="text-emerald-400" />
@@ -94,7 +142,7 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
               )}
               <strong className={`status-text ${connectionStatus}`}>{connectionStatus.toUpperCase()}</strong>
             </div>
-            <span className="metric-sub">Sala: {roomCode}</span>
+            <span className="metric-sub">PIN de Sala: {roomCode}</span>
           </div>
 
           <div className="diag-metric-card">
@@ -104,7 +152,48 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
           </div>
         </div>
 
-        {/* 2. Resync Action Bar */}
+        {/* 2. ICE Candidate Telemetry Inspector Card */}
+        <div className="ice-telemetry-box">
+          <div className="flex-between mb-1">
+            <div className="flex-align-gap">
+              <Server size={16} className="text-indigo-400" />
+              <strong>Tipo de Enlace ICE Activo:</strong>
+            </div>
+            {getCandidateBadge()}
+          </div>
+
+          <div className="ice-details-grid">
+            <div className="ice-detail-item">
+              <span>Protocolo:</span>
+              <strong>{telemetry.protocol.toUpperCase()}</strong>
+            </div>
+            <div className="ice-detail-item">
+              <span>ICE State:</span>
+              <strong>{telemetry.connectionState}</strong>
+            </div>
+            <div className="ice-detail-item">
+              <span>Candidato Remoto:</span>
+              <strong>{telemetry.remoteCandidateType}</strong>
+            </div>
+          </div>
+
+          {/* Force Relay (TURN) Test Switch */}
+          <div className="force-relay-row">
+            <label className="checkbox-pill-lg">
+              <input
+                type="checkbox"
+                checked={forceRelay}
+                onChange={(e) => handleToggleForceRelay(e.target.checked)}
+              />
+              <ShieldCheck size={16} className="text-emerald-400" />
+              <span>
+                <strong>Forzar Modo Solo Relay (TURN)</strong> (Prueba de NAT Simétrico)
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* 3. Resync Action Bar */}
         <div className="resync-action-box">
           <div className="resync-info">
             <strong>Resincronización de Emergencia:</strong>
@@ -116,7 +205,7 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
           </button>
         </div>
 
-        {/* 3. Chaos Simulation Section */}
+        {/* 4. Chaos Simulation Section (DEV) */}
         <div className="chaos-section">
           <div className="flex-between mb-2">
             <div className="flex-align-gap">

@@ -3934,7 +3934,7 @@ body, html {
   border: 1px solid rgba(245, 158, 11, 0.25);
   border-radius: 8px;
   padding: 8px 12px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .resync-info {
@@ -3951,6 +3951,78 @@ body, html {
 .resync-info span {
   font-size: 0.72rem;
   color: #cbd5e1;
+}
+
+/* ICE Telemetry Inspector Box */
+.ice-telemetry-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ice-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.ice-badge.host {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.ice-badge.srflx {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.ice-badge.relay {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.5);
+}
+
+.ice-badge.unknown {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.ice-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+
+.ice-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ice-detail-item span {
+  color: #94a3b8;
+}
+
+.ice-detail-item strong {
+  color: #fff;
+}
+
+.force-relay-row {
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  padding-top: 6px;
 }
 
 .chaos-section {
