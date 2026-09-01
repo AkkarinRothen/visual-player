@@ -100,10 +100,15 @@ import { QRCodeSVG } from 'qrcode.react';
 
 interface MasterControllerProps {
   initialRoomCode?: string;
+  pairingSecret?: string;
   onExitToLobby?: () => void;
 }
 
-export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomCode, onExitToLobby }) => {
+export const MasterController: React.FC<MasterControllerProps> = ({
+  initialRoomCode,
+  pairingSecret,
+  onExitToLobby,
+}) => {
   const [activeTab, setActiveTab] = useState<'live' | 'moments' | 'combat' | 'notes' | 'library'>('live');
   const [showQRModal, setShowQRModal] = useState<boolean>(false);
   const [previewTab, setPreviewTab] = useState<'live' | 'staged'>('live');
@@ -165,6 +170,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
     broadcastMessage,
   } = useMasterConnection({
     initialRoomCode,
+    pairingSecret,
     onFullStateRequested: () => {
       broadcastFullState(liveState);
     },
@@ -810,7 +816,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
     }
   };
 
-  const joinUrl = `${window.location.origin}${window.location.pathname}?join=${roomCode}`;
+  const joinUrl = `${window.location.origin}${window.location.pathname}#join=${roomCode}${pairingSecret ? `&secret=${pairingSecret}` : ''}`;
 
   return (
     <div className="master-controller-root">

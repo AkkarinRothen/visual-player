@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import crypto from 'crypto';
 import { verifySessionToken } from './session-token.js';
+import { getSessionStore } from './session-store.js';
 
 // Strict Allowed Host Patterns for Visual Player Project
 const ALLOWED_EXACT_HOSTS = new Set([
@@ -16,50 +17,8 @@ const ALLOWED_HOST_SUFFIXES = [
   '.visualplayer.app',
 ];
 
-// In-Memory Rate Limiter (Sliding Window per client fingerprint / room)
-interface RateLimitRecord {
-  count: number;
-  resetTime: number;
-}
-
-const rateLimitMap = new Map<string, RateLimitRecord>();
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_WINDOW_SEC = 60; // 1 minute
 const MAX_REQUESTS_PER_WINDOW = 5; // Strict: 5 requests per minute
-
-// Set of processed single-use JTIs to prevent replay
-const usedJtiSet = new Set<string>();
-
-/**
- * Checks and updates rate limit for a client fingerprint or room ID.
- */
-export function checkRateLimit(clientFingerprint: string, now: number = Date.now()): { allowed: boolean; retryAfterSeconds: number } {
-  // Periodic cleanup of stale entries
-  if (rateLimitMap.size > 1000) {
-    for (const [key, record] of rateLimitMap.entries()) {
-      if (now > record.resetTime) {
-        rateLimitMap.delete(key);
-      }
-    }
-  }
-
-  const record = rateLimitMap.get(clientFingerprint);
-
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(clientFingerprint, {
-      count: 1,
-      resetTime: now + RATE_LIMIT_WINDOW_MS,
-    });
-    return { allowed: true, retryAfterSeconds: 0 };
-  }
-
-  if (record.count >= MAX_REQUESTS_PER_WINDOW) {
-    const retryAfter = Math.max(1, Math.ceil((record.resetTime - now) / 1000));
-    return { allowed: false, retryAfterSeconds: retryAfter };
-  }
-
-  record.count += 1;
-  return { allowed: true, retryAfterSeconds: 0 };
-}
 
 /**
  * Validates request origin/referer strictly against Visual Player domain allowlist.
@@ -173,27 +132,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  const sessionAuth = verifySessionToken(rawToken);
+  const sessionAuth = await verifySessionToken(rawToken);
   if (!sessionAuth.valid || !sessionAuth.payload) {
     res.statusCode = 401;
     res.end(JSON.stringify({ error: `Unauthorized: ${sessionAuth.error}` }));
     return;
   }
 
-  const { roomId, jti } = sessionAuth.payload;
+  const { roomId } = sessionAuth.payload;
 
-  // Single-use JTI replay prevention (in-memory tracking)
-  if (usedJtiSet.has(jti)) {
-    res.statusCode = 401;
-    res.end(JSON.stringify({ error: 'Unauthorized: Session token replay detected' }));
-    return;
-  }
-  usedJtiSet.add(jti);
-  if (usedJtiSet.size > 2000) {
-    usedJtiSet.clear();
-  }
-
-  // 4. Rate Limiting Check (by roomId + client fingerprint)
+  // 4. Distributed Rate Limiting Check (by roomId + client fingerprint)
   const forwardedFor = (req.headers['x-forwarded-for'] as string) || '';
   const clientIp = forwardedFor.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
   const userAgent = (req.headers['user-agent'] as string) || '';
@@ -202,14 +150,15 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     .update(`${roomId}-${clientIp}-${userAgent}`)
     .digest('hex');
 
-  const rateCheck = checkRateLimit(fingerprint);
+  const store = getSessionStore();
+  const rateCheck = await store.checkRateLimit(fingerprint, MAX_REQUESTS_PER_WINDOW, RATE_LIMIT_WINDOW_SEC);
   if (!rateCheck.allowed) {
     res.statusCode = 429;
-    res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
+    res.setHeader('Retry-After', String(rateCheck.retryAfter));
     res.end(
       JSON.stringify({
         error: 'Too Many Requests: Rate limit exceeded for this room session.',
-        retryAfter: rateCheck.retryAfterSeconds,
+        retryAfter: rateCheck.retryAfter,
       })
     );
     return;

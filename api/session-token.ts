@@ -1,23 +1,17 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import crypto from 'crypto';
+import { getSessionStore, hashSecret } from './session-store.js';
 
 export interface SessionTokenPayload {
   roomId: string;
   role: 'display' | 'master' | 'spectator';
+  sessionVersion: number;
   iat: number;
   exp: number;
   jti: string;
   aud: 'visual-player-turn';
 }
 
-interface RoomRecord {
-  roomId: string;
-  roomSecret: string;
-  createdAt: number;
-  expiresAt: number;
-}
-
-const activeRoomsMap = new Map<string, RoomRecord>();
 const ROOM_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours session
 
 function base64UrlEncode(str: string): string {
@@ -37,11 +31,18 @@ function base64UrlDecode(str: string): string {
 }
 
 export function getServerSessionSecret(): string {
-  return process.env.SERVER_SESSION_SECRET || process.env.TURN_SECRET || 'visual-player-server-dev-secret-key-32b';
+  const secret = process.env.SERVER_SESSION_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL: SERVER_SESSION_SECRET is required in production mode');
+    }
+    return 'visual-player-server-dev-secret-key-32b';
+  }
+  return secret;
 }
 
 /**
- * Signs a session payload using HMAC-SHA256.
+ * Signs a session payload using HMAC-SHA256 with server session secret.
  */
 export function signSessionToken(
   payload: Omit<SessionTokenPayload, 'aud'>,
@@ -68,13 +69,13 @@ export function signSessionToken(
 }
 
 /**
- * Cryptographically verifies token signature, expiration, and audience.
+ * Cryptographically verifies token signature, expiration, audience, and sessionVersion.
  */
-export function verifySessionToken(
+export async function verifySessionToken(
   tokenStr?: string,
   secretOverride?: string,
   nowMs: number = Date.now()
-): { valid: boolean; payload?: SessionTokenPayload; error?: string } {
+): Promise<{ valid: boolean; payload?: SessionTokenPayload; error?: string }> {
   if (!tokenStr) {
     return { valid: false, error: 'Missing session token' };
   }
@@ -86,7 +87,15 @@ export function verifySessionToken(
 
   const [headerB64, payloadB64, signature] = parts;
   const dataToVerify = `${headerB64}.${payloadB64}`;
-  const secret = secretOverride || getServerSessionSecret();
+
+  let secret = secretOverride;
+  if (!secret) {
+    try {
+      secret = getServerSessionSecret();
+    } catch (err) {
+      return { valid: false, error: 'Server configuration error' };
+    }
+  }
 
   // 1. Verify HMAC-SHA256 Signature
   const expectedSignature = crypto
@@ -118,6 +127,13 @@ export function verifySessionToken(
       return { valid: false, error: 'Session token has expired' };
     }
 
+    // 3. Check Session Version in Store
+    const store = getSessionStore();
+    const room = await store.getRoom(payload.roomId);
+    if (room && payload.sessionVersion < room.sessionVersion) {
+      return { valid: false, error: 'Session token revoked: Room session was rotated or refreshed' };
+    }
+
     return { valid: true, payload };
   } catch (err) {
     return { valid: false, error: 'Corrupted token payload' };
@@ -127,11 +143,11 @@ export function verifySessionToken(
 /**
  * Creates a new room with a 128-bit pairing secret and emits a signed display token.
  */
-export function createRoomSession(customCode?: string): {
+export async function createRoomSession(customCode?: string): Promise<{
   roomId: string;
   roomSecret: string;
   sessionToken: string;
-} {
+}> {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
   let roomId = 'VP-';
   for (let i = 0; i < 4; i++) {
@@ -141,13 +157,17 @@ export function createRoomSession(customCode?: string): {
     roomId = customCode.toUpperCase().trim();
   }
 
-  // 128-bit cryptographic random hex
+  // 128-bit cryptographic random hex (16 bytes)
   const roomSecret = crypto.randomBytes(16).toString('hex');
+  const serverSecret = getServerSessionSecret();
+  const secretHash = hashSecret(roomSecret, serverSecret);
   const now = Date.now();
 
-  activeRoomsMap.set(roomId, {
+  const store = getSessionStore();
+  await store.saveRoom({
     roomId,
-    roomSecret,
+    secretHash,
+    sessionVersion: 1,
     createdAt: now,
     expiresAt: now + ROOM_TTL_MS,
   });
@@ -155,6 +175,7 @@ export function createRoomSession(customCode?: string): {
   const sessionToken = signSessionToken({
     roomId,
     role: 'display',
+    sessionVersion: 1,
     iat: Math.floor(now / 1000),
     exp: Math.floor((now + ROOM_TTL_MS) / 1000),
     jti: crypto.randomUUID(),
@@ -166,30 +187,31 @@ export function createRoomSession(customCode?: string): {
 /**
  * Authorizes a master connection with the 128-bit pairing secret and emits a signed master token.
  */
-export function joinRoomSession(
+export async function joinRoomSession(
   roomId: string,
   providedSecret?: string
-): { success: boolean; sessionToken?: string; error?: string } {
+): Promise<{ success: boolean; sessionToken?: string; error?: string }> {
+  if (!roomId || !providedSecret) {
+    return { success: false, error: 'Missing room ID or pairing secret' };
+  }
+
   const cleanId = roomId.toUpperCase().trim();
-  const room = activeRoomsMap.get(cleanId);
+  const serverSecret = getServerSessionSecret();
+  const store = getSessionStore();
 
-  // In local dev without memory persistence, if secret is 32-char hex, accept
-  let isAuthorized = false;
-  if (room && providedSecret && room.roomSecret.toLowerCase() === providedSecret.toLowerCase()) {
-    isAuthorized = true;
-  } else if (!room && providedSecret && /^[a-f0-9]{32}$/i.test(providedSecret)) {
-    // Development ephemeral room tolerance
-    isAuthorized = true;
+  const isValidSecret = await store.verifySecret(cleanId, providedSecret, serverSecret);
+  if (!isValidSecret) {
+    return { success: false, error: 'Unauthorized: Invalid room or pairing secret' };
   }
 
-  if (!isAuthorized) {
-    return { success: false, error: 'Invalid pairing secret' };
-  }
-
+  const room = await store.getRoom(cleanId);
+  const sessionVersion = room ? room.sessionVersion : 1;
   const now = Date.now();
+
   const sessionToken = signSessionToken({
     roomId: cleanId,
     role: 'master',
+    sessionVersion,
     iat: Math.floor(now / 1000),
     exp: Math.floor((now + ROOM_TTL_MS) / 1000),
     jti: crypto.randomUUID(),
@@ -212,18 +234,25 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 
+  // Fail-Closed Check in Production
+  if (process.env.NODE_ENV === 'production' && !process.env.SERVER_SESSION_SECRET) {
+    res.statusCode = 500;
+    res.end(JSON.stringify({ error: 'Server Configuration Error: SERVER_SESSION_SECRET is missing.' }));
+    return;
+  }
+
   let bodyStr = '';
   req.on('data', (chunk) => {
     bodyStr += chunk;
   });
 
-  req.on('end', () => {
+  req.on('end', async () => {
     try {
       const parsed = bodyStr ? JSON.parse(bodyStr) : {};
       const action = parsed.action || 'create';
 
       if (action === 'create') {
-        const result = createRoomSession(parsed.customCode);
+        const result = await createRoomSession(parsed.customCode);
         res.statusCode = 200;
         res.end(JSON.stringify(result));
         return;
@@ -237,7 +266,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           return;
         }
 
-        const auth = joinRoomSession(roomId, roomSecret);
+        const auth = await joinRoomSession(roomId, roomSecret);
         if (!auth.success) {
           res.statusCode = 401;
           res.end(JSON.stringify({ error: auth.error }));

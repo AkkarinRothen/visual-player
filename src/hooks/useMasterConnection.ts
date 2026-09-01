@@ -1,22 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ConnectionStatus, DisplayState, SyncMessage } from '../types';
 import { peerService } from '../services/peerService';
-import { startTurnRenewalWatcher } from '../services/iceConfig';
+import { acquireServerSessionToken, startTurnRenewalWatcher } from '../services/iceConfig';
 
 interface UseMasterConnectionOptions {
   initialRoomCode?: string;
+  pairingSecret?: string;
   onFullStateRequested?: () => void;
 }
 
 export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
-  const { initialRoomCode, onFullStateRequested } = options;
+  const { initialRoomCode, pairingSecret, onFullStateRequested } = options;
   const [roomCode, setRoomCode] = useState<string>(initialRoomCode || '');
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [latencyMs, setLatencyMs] = useState<number>(0);
 
-  const connectToRoom = useCallback(async (code: string) => {
+  const connectToRoom = useCallback(async (code: string, secret?: string) => {
     try {
       setRoomCode(code);
+      if (secret) {
+        await acquireServerSessionToken(code, secret, 'master');
+      }
       await peerService.connectAsMaster(code);
     } catch (e) {
       console.error('Master connection failed:', e);
@@ -39,7 +43,7 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
     const stopWatcher = startTurnRenewalWatcher(activeCode);
 
     if (initialRoomCode) {
-      connectToRoom(initialRoomCode);
+      connectToRoom(initialRoomCode, pairingSecret);
     }
 
     const unsubStatus = peerService.onStatusChange((status, _, lat) => {
