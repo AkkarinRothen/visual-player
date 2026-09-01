@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import type { ConnectionStatus, DisplayState } from '../../types';
 import { peerService } from '../../services/peerService';
 import { soundEngine } from '../../services/soundEngine';
+import { startTurnRenewalWatcher } from '../../services/iceConfig';
 import { AtmosphereCanvas } from '../canvas/AtmosphereCanvas';
 import { InitiativeRibbon } from './InitiativeRibbon';
 import { Maximize2, Minimize2, Wifi, WifiOff, Volume2, Sparkles, Activity } from 'lucide-react';
@@ -58,6 +59,7 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
   // Initialize WebRTC Display Peer
   useEffect(() => {
     let unmounted = false;
+    const stopWatcher = startTurnRenewalWatcher();
 
     const setupPeer = async () => {
       try {
@@ -85,6 +87,7 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
 
     return () => {
       unmounted = true;
+      stopWatcher();
       unsubStatus();
       unsubMsg();
     };

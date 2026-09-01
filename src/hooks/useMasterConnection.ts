@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ConnectionStatus, DisplayState, SyncMessage } from '../types';
 import { peerService } from '../services/peerService';
+import { startTurnRenewalWatcher } from '../services/iceConfig';
 
 interface UseMasterConnectionOptions {
   initialRoomCode?: string;
@@ -34,6 +35,8 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
   }, []);
 
   useEffect(() => {
+    const stopWatcher = startTurnRenewalWatcher();
+
     if (initialRoomCode) {
       connectToRoom(initialRoomCode);
     }
@@ -52,6 +55,7 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
     });
 
     return () => {
+      stopWatcher();
       unsubStatus();
       unsubMsg();
     };
