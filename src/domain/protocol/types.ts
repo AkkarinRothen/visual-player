@@ -8,6 +8,15 @@ export type SyncMessageType =
   | 'REQUEST_STATE_SNAPSHOT'
   | 'STATE_SNAPSHOT'
   | 'RECONCILIATION_APPLIED'
+  | 'LEASE_ACQUIRE'
+  | 'LEASE_GRANTED'
+  | 'LEASE_RENEW'
+  | 'LEASE_REVOKED'
+  | 'LEASE_REJECTED'
+  | 'PREPARE_HANDOFF'
+  | 'ACCEPT_HANDOFF'
+  | 'COMMIT_HANDOFF'
+  | 'ROLLBACK_HANDOFF'
   | 'FULL_STATE'
   | 'REQUEST_FULL_STATE'
   | 'PLAY_SFX'
@@ -59,6 +68,15 @@ export function getMessageTierInfo(type: SyncMessageType): {
     case 'REQUEST_STATE_SNAPSHOT':
     case 'STATE_SNAPSHOT':
     case 'RECONCILIATION_APPLIED':
+    case 'LEASE_ACQUIRE':
+    case 'LEASE_GRANTED':
+    case 'LEASE_RENEW':
+    case 'LEASE_REVOKED':
+    case 'LEASE_REJECTED':
+    case 'PREPARE_HANDOFF':
+    case 'ACCEPT_HANDOFF':
+    case 'COMMIT_HANDOFF':
+    case 'ROLLBACK_HANDOFF':
     case 'FULL_STATE':
     case 'UPDATE_COMBAT':
     case 'END_COMBAT':

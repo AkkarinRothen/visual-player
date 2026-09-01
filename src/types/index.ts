@@ -269,29 +269,59 @@ export interface HandshakeHelloPayload {
   capabilities: HandshakeCapabilities;
 }
 
+export interface MasterLease {
+  leaseId: string;
+  sessionId: string;
+  masterDeviceId: string;
+  connectionEpoch: number;
+  acquiredAt: number;
+  expiresAt: number;
+  status: 'active' | 'transferring' | 'revoked' | 'expired';
+}
+
+export interface HandoffToken {
+  token: string;
+  sessionId: string;
+  fromMasterDeviceId: string;
+  toMasterDeviceId?: string;
+  createdAt: number;
+  expiresAt: number;
+  stateChecksum: string;
+  sessionRevision: number;
+}
+
 export type SyncMessage =
   | { type: 'HANDSHAKE_HELLO'; payload: HandshakeHelloPayload }
-  | { type: 'FULL_STATE'; payload: DisplayState }
+  | { type: 'LEASE_ACQUIRE'; payload: { masterDeviceId: string; connectionEpoch: number } }
+  | { type: 'LEASE_GRANTED'; payload: { lease: MasterLease } }
+  | { type: 'LEASE_RENEW'; payload: { leaseId: string; connectionEpoch: number } }
+  | { type: 'LEASE_REVOKED'; payload: { reason: string; newMasterDeviceId?: string } }
+  | { type: 'LEASE_REJECTED'; payload: { reason: string; activeLeaseId: string } }
+  | { type: 'PREPARE_HANDOFF'; payload: { handoffToken: string; expiresAt: number; stateChecksum: string; sessionRevision: number } }
+  | { type: 'ACCEPT_HANDOFF'; payload: { handoffToken: string; newMasterDeviceId: string } }
+  | { type: 'COMMIT_HANDOFF'; payload: { handoffToken: string; newLease: MasterLease } }
+  | { type: 'ROLLBACK_HANDOFF'; payload: { reason: string } }
+  | { type: 'FULL_STATE'; payload: DisplayState; leaseId?: string }
   | { type: 'REQUEST_FULL_STATE' }
-  | { type: 'SET_SCENE'; payload: Scene; characters?: CharacterOnScreen[] }
-  | { type: 'SET_BACKGROUND'; payload: string }
-  | { type: 'UPDATE_CHARACTERS'; payload: CharacterOnScreen[] }
-  | { type: 'ADD_CHARACTER'; payload: CharacterOnScreen }
-  | { type: 'REMOVE_CHARACTER'; payload: { id: string } }
-  | { type: 'SET_SPEAKING'; payload: { id: string; isSpeaking: boolean } }
-  | { type: 'SET_CHARACTER_EXPRESSION'; payload: { id: string; avatarUrl: string; expressionName: string } }
-  | { type: 'SET_CHARACTER_POSITION'; payload: { id: string; position: CharacterPosition } }
-  | { type: 'SET_WEATHER'; payload: { weather: WeatherType; intensity: number } }
-  | { type: 'SET_LIGHTING'; payload: LightingFilter }
-  | { type: 'TRIGGER_LIGHTNING' }
-  | { type: 'TRIGGER_SHAKE'; payload?: { intensity?: number } }
-  | { type: 'SET_BLACKOUT'; payload: boolean }
-  | { type: 'SET_BANNER'; payload: { text: string; subtitle?: string; visible: boolean } }
-  | { type: 'PLAY_SFX'; payload: { id: string; name: string; synthPreset?: string; audioUrl?: string; timestamp: number } }
-  | { type: 'SET_AMBIENT'; payload: { url: string; playing: boolean; volume: number; crossfade?: boolean } }
-  | { type: 'START_COMBAT'; payload: CombatState }
-  | { type: 'UPDATE_COMBAT'; payload: CombatState }
+  | { type: 'SET_SCENE'; payload: Scene; characters?: CharacterOnScreen[]; leaseId?: string }
+  | { type: 'SET_BACKGROUND'; payload: string; leaseId?: string }
+  | { type: 'UPDATE_CHARACTERS'; payload: CharacterOnScreen[]; leaseId?: string }
+  | { type: 'ADD_CHARACTER'; payload: CharacterOnScreen; leaseId?: string }
+  | { type: 'REMOVE_CHARACTER'; payload: { id: string }; leaseId?: string }
+  | { type: 'SET_SPEAKING'; payload: { id: string; isSpeaking: boolean }; leaseId?: string }
+  | { type: 'SET_CHARACTER_EXPRESSION'; payload: { id: string; avatarUrl: string; expressionName: string }; leaseId?: string }
+  | { type: 'SET_CHARACTER_POSITION'; payload: { id: string; position: CharacterPosition }; leaseId?: string }
+  | { type: 'SET_WEATHER'; payload: { weather: WeatherType; intensity: number }; leaseId?: string }
+  | { type: 'SET_LIGHTING'; payload: LightingFilter; leaseId?: string }
+  | { type: 'TRIGGER_LIGHTNING'; leaseId?: string }
+  | { type: 'TRIGGER_SHAKE'; payload?: { intensity?: number }; leaseId?: string }
+  | { type: 'SET_BLACKOUT'; payload: boolean; leaseId?: string }
+  | { type: 'SET_BANNER'; payload: { text: string; subtitle?: string; visible: boolean }; leaseId?: string }
+  | { type: 'PLAY_SFX'; payload: { id: string; name: string; synthPreset?: string; audioUrl?: string; timestamp: number }; leaseId?: string }
+  | { type: 'SET_AMBIENT'; payload: { url: string; playing: boolean; volume: number; crossfade?: boolean }; leaseId?: string }
+  | { type: 'START_COMBAT'; payload: CombatState; leaseId?: string }
+  | { type: 'UPDATE_COMBAT'; payload: CombatState; leaseId?: string }
   | { type: 'TURN_TIMER_TICK'; payload: { seconds: number; isRunning: boolean; showToPlayers: boolean } }
-  | { type: 'END_COMBAT' }
+  | { type: 'END_COMBAT'; leaseId?: string }
   | { type: 'PING'; timestamp: number }
   | { type: 'PONG'; timestamp: number };
