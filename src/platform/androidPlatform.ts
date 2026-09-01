@@ -1,6 +1,6 @@
+import { registerPlugin } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
-import { StatusBar } from '@capacitor/status-bar';
 import { Network } from '@capacitor/network';
 import type {
   PlatformBridge,
@@ -14,28 +14,32 @@ import type {
   DeepLinkCallback,
 } from './types';
 
+// Custom Native Android Plugins
+interface VisualPlayerScreenPlugin {
+  keepAwake(options: { enable: boolean }): Promise<{ isAwake: boolean }>;
+  setImmersive(options: { enable: boolean }): Promise<{ isImmersive: boolean }>;
+}
+
+interface VisualPlayerKeystorePlugin {
+  get(options: { key: string }): Promise<{ value: string | null }>;
+  set(options: { key: string; value: string }): Promise<{ success: boolean }>;
+  remove(options: { key: string }): Promise<{ success: boolean }>;
+}
+
+const NativeScreen = registerPlugin<VisualPlayerScreenPlugin>('VisualPlayerScreen');
+const NativeKeystore = registerPlugin<VisualPlayerKeystorePlugin>('VisualPlayerKeystore');
+
 class AndroidScreenBridge implements IScreenBridge {
-  private wakeLockSentinel: WakeLockSentinel | null = null;
   private isAwake = false;
 
   public async setKeepAwake(enable: boolean): Promise<boolean> {
     this.isAwake = enable;
-    if (enable) {
-      if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
-        try {
-          this.wakeLockSentinel = await navigator.wakeLock.request('screen');
-          return true;
-        } catch {
-          // Native WebView handles keep awake via WebSettings / window flags
-        }
-      }
-      return true;
-    } else {
-      if (this.wakeLockSentinel) {
-        await this.wakeLockSentinel.release();
-        this.wakeLockSentinel = null;
-      }
-      return true;
+    try {
+      const res = await NativeScreen.keepAwake({ enable });
+      return res.isAwake;
+    } catch {
+      // Fallback in web/emulator testing
+      return enable;
     }
   }
 
@@ -55,13 +59,9 @@ class AndroidScreenBridge implements IScreenBridge {
 
   public async setImmersive(enable: boolean): Promise<void> {
     try {
-      if (enable) {
-        await StatusBar.hide();
-      } else {
-        await StatusBar.show();
-      }
+      await NativeScreen.setImmersive({ enable });
     } catch (err) {
-      console.warn('[AndroidScreenBridge] Immersive toggle failed:', err);
+      console.warn('[AndroidScreenBridge] Native immersive toggle failed:', err);
     }
   }
 
@@ -72,18 +72,35 @@ class AndroidScreenBridge implements IScreenBridge {
 
 class AndroidSecureStorageBridge implements ISecureStorageBridge {
   public async get(key: string): Promise<string | null> {
-    if (typeof window === 'undefined') return null;
-    return window.sessionStorage.getItem(`vp_and_${key}`);
+    try {
+      const res = await NativeKeystore.get({ key });
+      return res.value;
+    } catch {
+      if (typeof window !== 'undefined') {
+        return window.sessionStorage.getItem(`vp_and_${key}`);
+      }
+      return null;
+    }
   }
 
   public async set(key: string, value: string): Promise<void> {
-    if (typeof window === 'undefined') return;
-    window.sessionStorage.setItem(`vp_and_${key}`, value);
+    try {
+      await NativeKeystore.set({ key, value });
+    } catch {
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(`vp_and_${key}`, value);
+      }
+    }
   }
 
   public async remove(key: string): Promise<void> {
-    if (typeof window === 'undefined') return;
-    window.sessionStorage.removeItem(`vp_and_${key}`);
+    try {
+      await NativeKeystore.remove({ key });
+    } catch {
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(`vp_and_${key}`);
+      }
+    }
   }
 }
 
