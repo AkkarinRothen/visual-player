@@ -6,6 +6,8 @@ export interface IceServerConfig {
 
 export interface IceFetchOptions {
   roomId?: string;
+  roomSecret?: string;
+  role?: 'display' | 'master' | 'spectator';
   forceRelay?: boolean;
   forceRefresh?: boolean;
 }
@@ -20,22 +22,54 @@ let cachedTurnServers: IceServerConfig[] | null = null;
 let cacheExpiresAt: number = 0;
 let renewalTimer: number | null = null;
 let activeRoomId: string = 'VP-DEMO';
+let activeSessionToken: string | null = null;
 let isSessionActive: boolean = false;
 
 /**
- * Creates an ephemeral base64 session token with anti-replay timestamp.
+ * Requests a cryptographically signed session token from the server.
  */
-export function createClientSessionToken(roomId: string = activeRoomId): string {
-  const payload = {
-    roomId: roomId.toUpperCase().trim(),
-    timestamp: Date.now(),
-    nonce: Math.random().toString(36).substring(2, 10),
-  };
-  return btoa(JSON.stringify(payload));
+export async function acquireServerSessionToken(
+  roomId: string = activeRoomId,
+  roomSecret?: string,
+  role: 'display' | 'master' | 'spectator' = 'display'
+): Promise<string | null> {
+  try {
+    const action = role === 'display' ? 'create' : 'join';
+    const body: Record<string, string> = { action, roomId: roomId.toUpperCase().trim() };
+    if (role === 'display') {
+      body.customCode = roomId;
+    } else if (roomSecret) {
+      body.roomSecret = roomSecret;
+    }
+
+    const response = await fetch('/api/session-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      activeSessionToken = data.sessionToken || null;
+      return activeSessionToken;
+    }
+  } catch (err) {
+    console.log('[IceConfig] Server session token endpoint unavailable, using local STUN.');
+  }
+
+  return null;
+}
+
+export function setSessionToken(token: string): void {
+  activeSessionToken = token;
+}
+
+export function getSessionToken(): string | null {
+  return activeSessionToken;
 }
 
 /**
- * Fetches ephemeral TURN credentials from the serverless endpoint using session token authentication.
+ * Fetches ephemeral TURN credentials from the serverless endpoint using the server-signed session token.
  */
 export async function fetchEphemeralTurnServers(
   roomId: string = activeRoomId,
@@ -48,13 +82,20 @@ export async function fetchEphemeralTurnServers(
     return cachedTurnServers;
   }
 
+  if (!activeSessionToken) {
+    await acquireServerSessionToken(roomId);
+  }
+
+  if (!activeSessionToken) {
+    return [];
+  }
+
   try {
-    const token = createClientSessionToken(roomId);
     const response = await fetch('/api/turn-credentials', {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'X-Session-Token': token,
+        'X-Session-Token': activeSessionToken,
       },
     });
 
@@ -73,9 +114,10 @@ export async function fetchEphemeralTurnServers(
         return cachedTurnServers!;
       }
     } else if (response.status === 429) {
-      console.warn('[IceConfig] Rate limit reached on TURN credentials endpoint. Using cached or STUN.');
-    } else if (response.status === 500) {
-      console.log('[IceConfig] TURN service not configured on server. Falling back to STUN direct NAT.');
+      console.warn('[IceConfig] Rate limit reached on TURN credentials endpoint.');
+    } else if (response.status === 401) {
+      console.warn('[IceConfig] Session token invalid or expired. Re-authenticating...');
+      activeSessionToken = null;
     }
   } catch (err) {
     console.log('[IceConfig] Serverless TURN endpoint not reachable, operating in STUN direct mode.');

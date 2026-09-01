@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import crypto from 'crypto';
+import { verifySessionToken } from './session-token.js';
 
 // Strict Allowed Host Patterns for Visual Player Project
 const ALLOWED_EXACT_HOSTS = new Set([
@@ -24,6 +25,9 @@ interface RateLimitRecord {
 const rateLimitMap = new Map<string, RateLimitRecord>();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const MAX_REQUESTS_PER_WINDOW = 5; // Strict: 5 requests per minute
+
+// Set of processed single-use JTIs to prevent replay
+const usedJtiSet = new Set<string>();
 
 /**
  * Checks and updates rate limit for a client fingerprint or room ID.
@@ -91,46 +95,6 @@ export function isAllowedOrigin(originHeader?: string, refererHeader?: string): 
 }
 
 /**
- * Validates session token payload (Room ID, Timestamp, Anti-Replay window <= 5 min).
- */
-export function validateSessionToken(
-  tokenStr?: string,
-  nowMs: number = Date.now()
-): { valid: boolean; roomId?: string; error?: string } {
-  if (!tokenStr) {
-    return { valid: false, error: 'Missing session token' };
-  }
-
-  try {
-    const decoded = Buffer.from(tokenStr, 'base64').toString('utf-8');
-    const parsed = JSON.parse(decoded) as { roomId?: string; timestamp?: number; nonce?: string };
-
-    if (!parsed.roomId || typeof parsed.roomId !== 'string') {
-      return { valid: false, error: 'Invalid room format' };
-    }
-
-    // Validate room code format (e.g. VP-ABCD or custom alphanumeric)
-    if (!/^VP-[A-Z0-9]{3,8}$/i.test(parsed.roomId.trim())) {
-      return { valid: false, error: 'Invalid room code structure' };
-    }
-
-    if (!parsed.timestamp || typeof parsed.timestamp !== 'number') {
-      return { valid: false, error: 'Invalid timestamp' };
-    }
-
-    // Clock skew / anti-replay window: maximum 5 minutes (300,000 ms) difference
-    const diff = Math.abs(nowMs - parsed.timestamp);
-    if (diff > 5 * 60 * 1000) {
-      return { valid: false, error: 'Session token timestamp expired or desynchronized (> 5 minutes)' };
-    }
-
-    return { valid: true, roomId: parsed.roomId.toUpperCase().trim() };
-  } catch (err) {
-    return { valid: false, error: 'Corrupted session token' };
-  }
-}
-
-/**
  * Generates HMAC-SHA1 credentials for Coturn / RFC 5766 standard REST TURN servers.
  */
 export function generateTurnCredentials(
@@ -154,7 +118,7 @@ export function generateTurnCredentials(
 }
 
 /**
- * Serverless API handler to issue ephemeral TURN credentials with strict security hardening.
+ * Serverless API handler to issue ephemeral TURN credentials with strict cryptographic session verification.
  */
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   if (req.method !== 'GET') {
@@ -195,15 +159,38 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  // 3. Session Token Authorization Check
-  const authHeader = (req.headers['x-session-token'] as string | undefined) ||
-    new URL(req.url || '/', 'http://localhost').searchParams.get('token') || undefined;
+  // 3. Cryptographic Server-Signed Token Authorization Check (HEADERS ONLY, NEVER QUERY STRING)
+  let rawToken = req.headers['x-session-token'] as string | undefined;
+  const authHeader = req.headers['authorization'] as string | undefined;
 
-  const sessionAuth = validateSessionToken(authHeader);
-  if (!sessionAuth.valid) {
+  if (!rawToken && authHeader && authHeader.startsWith('Bearer ')) {
+    rawToken = authHeader.substring(7).trim();
+  }
+
+  if (!rawToken) {
+    res.statusCode = 401;
+    res.end(JSON.stringify({ error: 'Unauthorized: Missing required session authorization header' }));
+    return;
+  }
+
+  const sessionAuth = verifySessionToken(rawToken);
+  if (!sessionAuth.valid || !sessionAuth.payload) {
     res.statusCode = 401;
     res.end(JSON.stringify({ error: `Unauthorized: ${sessionAuth.error}` }));
     return;
+  }
+
+  const { roomId, jti } = sessionAuth.payload;
+
+  // Single-use JTI replay prevention (in-memory tracking)
+  if (usedJtiSet.has(jti)) {
+    res.statusCode = 401;
+    res.end(JSON.stringify({ error: 'Unauthorized: Session token replay detected' }));
+    return;
+  }
+  usedJtiSet.add(jti);
+  if (usedJtiSet.size > 2000) {
+    usedJtiSet.clear();
   }
 
   // 4. Rate Limiting Check (by roomId + client fingerprint)
@@ -212,7 +199,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const userAgent = (req.headers['user-agent'] as string) || '';
   const fingerprint = crypto
     .createHash('sha256')
-    .update(`${sessionAuth.roomId}-${clientIp}-${userAgent}`)
+    .update(`${roomId}-${clientIp}-${userAgent}`)
     .digest('hex');
 
   const rateCheck = checkRateLimit(fingerprint);
