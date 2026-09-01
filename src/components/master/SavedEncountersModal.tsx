@@ -10,7 +10,6 @@ import {
   X,
   Skull,
   Dices,
-  Shield,
   Award,
   Sparkles,
 } from 'lucide-react';

@@ -11,6 +11,7 @@ import type {
   LightingFilter,
   MacroStep,
   PublishCategoryKey,
+  SavedEncounter,
   Scene,
   SessionCheckpoint,
   WeatherType,
@@ -24,6 +25,7 @@ import {
   DEMO_SCENES,
   DEMO_CHARACTERS,
   DEMO_MACROS,
+  DEMO_ENCOUNTERS,
   initDefaultDataIfNeeded,
   getAllCampaigns,
   createCampaign,
@@ -34,6 +36,9 @@ import {
   getCampaignCheckpoints,
   saveCheckpoint,
   deleteCheckpoint,
+  getCampaignEncounters,
+  saveEncounter,
+  deleteEncounter,
 } from '../../db';
 import { CombatTab } from './CombatTab';
 import { MomentsTab } from './MomentsTab';
@@ -114,6 +119,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
   const [showCheckpointsModal, setShowCheckpointsModal] = useState<boolean>(false);
   const [showQuickMoments, setShowQuickMoments] = useState<boolean>(false);
   const [checkpointsList, setCheckpointsList] = useState<SessionCheckpoint[]>([]);
+  const [encountersList, setEncountersList] = useState<SavedEncounter[]>([]);
 
   // History Stacks (Past & Future for Undo/Redo)
   const [pastEvents, setPastEvents] = useState<HistoryEvent[]>([]);
@@ -239,6 +245,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
       setCampaign(camp);
       const checkpoints = await getCampaignCheckpoints(camp.id);
       setCheckpointsList(checkpoints);
+      const encs = await getCampaignEncounters(camp.id);
+      setEncountersList(encs.length > 0 ? encs : DEMO_ENCOUNTERS);
 
       if (camp.scenes.length > 0) {
         const initialScene = camp.scenes[0];
@@ -1882,6 +1890,21 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
             combatState={activeDisplay.combatState}
             campaign={campaign}
             currentScene={currentScene}
+            encounters={encountersList}
+            onSaveEncounter={async (saved) => {
+              await saveEncounter(saved);
+              if (campaign) {
+                const updated = await getCampaignEncounters(campaign.id);
+                setEncountersList(updated);
+              }
+            }}
+            onDeleteEncounter={async (id) => {
+              await deleteEncounter(id);
+              if (campaign) {
+                const updated = await getCampaignEncounters(campaign.id);
+                setEncountersList(updated);
+              }
+            }}
             onUpdateCombatState={(newState) => {
               if (activeDisplay.combatState.isActive !== newState.isActive) {
                 createAutoCheckpoint(
