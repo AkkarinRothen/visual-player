@@ -11,6 +11,7 @@ export interface ISecureStorageBridge {
   get(key: string): Promise<string | null>;
   set(key: string, value: string): Promise<void>;
   remove(key: string): Promise<void>;
+  getSecurityInfo?(): Promise<{ isHardwareBacked: boolean; securityLevel: string; keyAlias: string }>;
 }
 
 export type NetworkStatusCallback = (connected: boolean, connectionType: string) => void;

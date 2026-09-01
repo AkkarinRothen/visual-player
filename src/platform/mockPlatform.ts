@@ -48,6 +48,14 @@ export class MockSecureStorageBridge implements ISecureStorageBridge {
     this.store.delete(key);
   }
 
+  public async getSecurityInfo(): Promise<{ isHardwareBacked: boolean; securityLevel: string; keyAlias: string }> {
+    return {
+      isHardwareBacked: true,
+      securityLevel: 'TEE',
+      keyAlias: 'vp_keystore_v1_aes',
+    };
+  }
+
   public clear(): void {
     this.store.clear();
   }

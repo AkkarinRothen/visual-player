@@ -43,6 +43,13 @@ describe('Platform Bridge & Native Adaptations Suite', () => {
 
       await bridge.storage.remove('session_key');
       expect(await bridge.storage.get('session_key')).toBeNull();
+
+      if (bridge.storage.getSecurityInfo) {
+        const info = await bridge.storage.getSecurityInfo();
+        expect(info.isHardwareBacked).toBe(true);
+        expect(info.securityLevel).toBe('TEE');
+        expect(info.keyAlias).toBe('vp_keystore_v1_aes');
+      }
     });
 
     it('dispatches network change events to registered listeners', () => {

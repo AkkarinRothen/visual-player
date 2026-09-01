@@ -24,6 +24,7 @@ interface VisualPlayerKeystorePlugin {
   get(options: { key: string }): Promise<{ value: string | null }>;
   set(options: { key: string; value: string }): Promise<{ success: boolean }>;
   remove(options: { key: string }): Promise<{ success: boolean }>;
+  getSecurityInfo(): Promise<{ isHardwareBacked: boolean; securityLevel: string; keyAlias: string }>;
 }
 
 const NativeScreen = registerPlugin<VisualPlayerScreenPlugin>('VisualPlayerScreen');
@@ -88,6 +89,10 @@ class AndroidSecureStorageBridge implements ISecureStorageBridge {
     if (!res.success) {
       throw new Error(`Failed to remove key: ${key}`);
     }
+  }
+
+  public async getSecurityInfo(): Promise<{ isHardwareBacked: boolean; securityLevel: string; keyAlias: string }> {
+    return await NativeKeystore.getSecurityInfo();
   }
 }
 
