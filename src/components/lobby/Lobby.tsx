@@ -14,10 +14,11 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
   useEffect(() => {
-    const recovery = sessionRecoveryService.getPendingRecovery();
-    if (recovery) {
-      setPendingRecovery(recovery);
-    }
+    sessionRecoveryService.getPendingRecovery().then((recovery) => {
+      if (recovery) {
+        setPendingRecovery(recovery);
+      }
+    });
   }, []);
 
   // Check URL query parameters for auto-join

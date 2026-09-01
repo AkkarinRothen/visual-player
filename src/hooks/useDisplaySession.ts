@@ -199,6 +199,7 @@ export function useDisplaySession(options: UseDisplaySessionOptions = {}) {
     pendingChangesCount,
     pastEvents,
     futureEvents,
+    sessionRevision: state.sessionRevision,
     initSessionState,
     updateDisplay,
     setOperationMode,

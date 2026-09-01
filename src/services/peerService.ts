@@ -37,6 +37,7 @@ class PeerService {
 
   // WebRTC ICE / TURN Configuration
   private forceRelayOnly: boolean = false;
+  private connectionEpoch: number = Date.now();
 
   // Protocol v1 Components
   private deduplicator: MessageDeduplicator = new MessageDeduplicator(100);
@@ -60,6 +61,10 @@ class PeerService {
 
   public getLatency(): number {
     return this.latencyMs;
+  }
+
+  public getConnectionEpoch(): number {
+    return this.connectionEpoch;
   }
 
   public onMessage(handler: MessageHandler): () => void {

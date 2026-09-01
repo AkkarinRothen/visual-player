@@ -207,6 +207,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     pendingChangesCount,
     pastEvents,
     futureEvents,
+    sessionRevision,
     initSessionState,
     updateDisplay,
     setOperationMode,
@@ -328,9 +329,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     showFullScreenPreview,
   ]);
 
-  // Monotonic session revision tracker
-  const sessionRevision = pastEvents.length + 1;
-
   // Session Recovery: Save non-sensitive transactional snapshot for crash / process death recovery
   useEffect(() => {
     if (roomCode && campaign) {
@@ -338,7 +336,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         role: 'master',
         roomId: roomCode,
         sessionId: `sess_${roomCode}`,
-        connectionEpoch: Date.now(),
+        connectionEpoch: peerService.getConnectionEpoch(),
         campaignId: campaign.id,
         activeSceneId: activeDisplay.currentSceneId,
         sessionRevision,

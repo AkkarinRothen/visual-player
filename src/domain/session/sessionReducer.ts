@@ -7,12 +7,14 @@ export interface SessionState {
   operationMode: 'live' | 'staging';
   pastEvents: HistoryEvent[];
   futureEvents: HistoryEvent[];
+  sessionRevision: number;
 }
 
 export type SessionAction =
   | {
       type: 'INIT_STATE';
       payload: DisplayState;
+      revision?: number;
     }
   | {
       type: 'UPDATE_DISPLAY';
@@ -95,15 +97,19 @@ export const initialSessionState: SessionState = {
   operationMode: 'live',
   pastEvents: [],
   futureEvents: [],
+  sessionRevision: 1,
 };
 
 export function sessionReducer(state: SessionState, action: SessionAction): SessionState {
+  const currentRevision = state.sessionRevision || 1;
+
   switch (action.type) {
     case 'INIT_STATE': {
       return {
         ...state,
         liveState: action.payload,
         stagedState: action.payload,
+        sessionRevision: action.revision !== undefined ? action.revision : currentRevision,
       };
     }
 
@@ -128,6 +134,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
           stagedState: next,
           pastEvents: newPast,
           futureEvents: [], // Clear redo stack on new action
+          sessionRevision: currentRevision + 1,
         };
       } else {
         return {
@@ -135,6 +142,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
           stagedState: next,
           pastEvents: newPast,
           futureEvents: [],
+          sessionRevision: currentRevision + 1,
         };
       }
     }
@@ -167,6 +175,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
           stagedState: lastEvent.stateSnapshot,
           pastEvents: remainingPast,
           futureEvents: [redoItem, ...state.futureEvents],
+          sessionRevision: currentRevision + 1,
         };
       } else {
         return {
@@ -174,6 +183,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
           stagedState: lastEvent.stateSnapshot,
           pastEvents: remainingPast,
           futureEvents: [redoItem, ...state.futureEvents],
+          sessionRevision: currentRevision + 1,
         };
       }
     }
@@ -199,6 +209,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
           stagedState: nextEvent.stateSnapshot,
           pastEvents: [undoItem, ...state.pastEvents.slice(0, 19)],
           futureEvents: remainingFuture,
+          sessionRevision: currentRevision + 1,
         };
       } else {
         return {
@@ -206,6 +217,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
           stagedState: nextEvent.stateSnapshot,
           pastEvents: [undoItem, ...state.pastEvents.slice(0, 19)],
           futureEvents: remainingFuture,
+          sessionRevision: currentRevision + 1,
         };
       }
     }
@@ -224,6 +236,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
         liveState: state.stagedState,
         pastEvents: [historyEvent, ...state.pastEvents.slice(0, 19)],
         futureEvents: [],
+        sessionRevision: currentRevision + 1,
       };
     }
 
@@ -243,6 +256,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
         liveState: newLive,
         pastEvents: [historyEvent, ...state.pastEvents.slice(0, 19)],
         futureEvents: [],
+        sessionRevision: currentRevision + 1,
       };
     }
 
@@ -269,6 +283,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
           stagedState: action.payload.snapshot,
           pastEvents: [historyEvent, ...state.pastEvents.slice(0, 19)],
           futureEvents: [],
+          sessionRevision: currentRevision + 1,
         };
       } else {
         return {
@@ -276,6 +291,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
           stagedState: action.payload.snapshot,
           pastEvents: [historyEvent, ...state.pastEvents.slice(0, 19)],
           futureEvents: [],
+          sessionRevision: currentRevision + 1,
         };
       }
     }

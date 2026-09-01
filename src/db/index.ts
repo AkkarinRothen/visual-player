@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import type { Campaign, Character, Scene, SFXTrack, SessionCheckpoint, CinematicMacro, SavedEncounter } from '../types';
+import type { FullRecoverySnapshot } from '../services/sessionRecovery';
 
 export interface StoredAsset {
   id: string;
@@ -22,10 +23,11 @@ export class VisualPlayerDB extends Dexie {
   settings!: Table<AppSetting, string>;
   checkpoints!: Table<SessionCheckpoint, string>;
   encounters!: Table<SavedEncounter, string>;
+  recoverySnapshots!: Table<FullRecoverySnapshot, string>;
 
   constructor() {
     super('VisualPlayerDB');
-    this.version(4).stores({
+    this.version(5).stores({
       campaigns: 'id, title, createdAt, updatedAt',
       characters: 'id, name, roleOrTitle',
       scenes: 'id, name',
@@ -33,6 +35,7 @@ export class VisualPlayerDB extends Dexie {
       settings: 'key',
       checkpoints: 'id, campaignId, type, createdAt',
       encounters: 'id, campaignId, name, difficulty',
+      recoverySnapshots: 'id, roomId, sessionRevision, savedAt, exitType',
     });
   }
 }

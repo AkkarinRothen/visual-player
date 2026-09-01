@@ -3,6 +3,11 @@ import type { CombatState, DisplayState, SFXTrack } from '../../types';
 export type MessageTier = 'critical' | 'continuous' | 'ephemeral';
 
 export type SyncMessageType =
+  | 'HANDSHAKE_HELLO'
+  | 'HANDSHAKE_RESULT'
+  | 'REQUEST_STATE_SNAPSHOT'
+  | 'STATE_SNAPSHOT'
+  | 'RECONCILIATION_APPLIED'
   | 'FULL_STATE'
   | 'REQUEST_FULL_STATE'
   | 'PLAY_SFX'
@@ -49,6 +54,11 @@ export function getMessageTierInfo(type: SyncMessageType): {
   requiresAck: boolean;
 } {
   switch (type) {
+    case 'HANDSHAKE_HELLO':
+    case 'HANDSHAKE_RESULT':
+    case 'REQUEST_STATE_SNAPSHOT':
+    case 'STATE_SNAPSHOT':
+    case 'RECONCILIATION_APPLIED':
     case 'FULL_STATE':
     case 'UPDATE_COMBAT':
     case 'END_COMBAT':

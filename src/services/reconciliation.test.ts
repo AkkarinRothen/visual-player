@@ -3,9 +3,10 @@ import {
   computeStateChecksum,
   sessionRecoveryService,
 } from './sessionRecovery';
+import { SimulatedNetworkTransport } from '../domain/protocol/transport';
 import type { DisplayState, HandshakeHelloPayload } from '../types';
 
-describe('Android ↔ Web Handshake, Canonical Checksum & Reconciliation Engine', () => {
+describe('Android ↔ Web Handshake, Canonical SHA-256 Checksum & Reconciliation Engine', () => {
   const baseDisplayState: DisplayState = {
     sceneName: 'El Bosque Susurrante',
     backgroundUrl: 'https://images.unsplash.com/forest.jpg',
@@ -43,19 +44,36 @@ describe('Android ↔ Web Handshake, Canonical Checksum & Reconciliation Engine'
     },
   };
 
-  it('1. Computes deterministic canonical checksum for identical visual states regardless of object reference', () => {
+  it('1. Computes deterministic canonical SHA-256 checksum for identical visual states regardless of key ordering', async () => {
     const stateA = { ...baseDisplayState };
-    const stateB = JSON.parse(JSON.stringify(baseDisplayState));
+    // Construct stateB with scrambled property order
+    const stateB: DisplayState = {
+      combatState: { ...baseDisplayState.combatState },
+      ambientVolume: baseDisplayState.ambientVolume,
+      ambientPlaying: baseDisplayState.ambientPlaying,
+      ambientAudioUrl: baseDisplayState.ambientAudioUrl,
+      lastSfx: null,
+      lightningTrigger: 0,
+      shakeTrigger: 0,
+      isBlackout: false,
+      locationBanner: { ...baseDisplayState.locationBanner! },
+      lighting: baseDisplayState.lighting,
+      weatherIntensity: baseDisplayState.weatherIntensity,
+      weather: baseDisplayState.weather,
+      characters: [...baseDisplayState.characters],
+      backgroundUrl: baseDisplayState.backgroundUrl,
+      sceneName: baseDisplayState.sceneName,
+    };
 
-    const chkA = computeStateChecksum(stateA);
-    const chkB = computeStateChecksum(stateB);
+    const chkA = await computeStateChecksum(stateA);
+    const chkB = await computeStateChecksum(stateB);
 
     expect(chkA).toBe(chkB);
-    expect(chkA.startsWith('chk_')).toBe(true);
+    expect(chkA.startsWith('sha256:')).toBe(true);
   });
 
-  it('2. Changes checksum when visual, narrative, or combat state changes', () => {
-    const originalChecksum = computeStateChecksum(baseDisplayState);
+  it('2. Changes SHA-256 checksum when any persistent visual, narrative, or combat state changes', async () => {
+    const originalChecksum = await computeStateChecksum(baseDisplayState);
 
     const modifiedScene = { ...baseDisplayState, sceneName: 'La Cueva Oscura' };
     const modifiedWeather = { ...baseDisplayState, weather: 'rain' as const };
@@ -64,13 +82,13 @@ describe('Android ↔ Web Handshake, Canonical Checksum & Reconciliation Engine'
       combatState: { ...baseDisplayState.combatState, round: 4 },
     };
 
-    expect(computeStateChecksum(modifiedScene)).not.toBe(originalChecksum);
-    expect(computeStateChecksum(modifiedWeather)).not.toBe(originalChecksum);
-    expect(computeStateChecksum(modifiedCombat)).not.toBe(originalChecksum);
+    expect(await computeStateChecksum(modifiedScene)).not.toBe(originalChecksum);
+    expect(await computeStateChecksum(modifiedWeather)).not.toBe(originalChecksum);
+    expect(await computeStateChecksum(modifiedCombat)).not.toBe(originalChecksum);
   });
 
-  it('3. Handshake evaluates to SYNCHRONIZED when Android Master and Web Display share exact revision and checksum', () => {
-    const checksum = computeStateChecksum(baseDisplayState);
+  it('3. Handshake evaluates to SYNCHRONIZED when Android Master and Web Display share exact revision and checksum', async () => {
+    const checksum = await computeStateChecksum(baseDisplayState);
 
     const masterHello: HandshakeHelloPayload = {
       deviceRole: 'master',
@@ -110,7 +128,7 @@ describe('Android ↔ Web Handshake, Canonical Checksum & Reconciliation Engine'
       sessionId: 'sess_VP-8822',
       connectionEpoch: 1700000000,
       sessionRevision: 12,
-      stateChecksum: 'chk_master_new',
+      stateChecksum: 'sha256:master_new',
       capabilities: { isHardwareKeystore: true, hasWakeLock: true, isImmersiveSupported: true },
     };
 
@@ -122,7 +140,7 @@ describe('Android ↔ Web Handshake, Canonical Checksum & Reconciliation Engine'
       sessionId: 'sess_VP-8822',
       connectionEpoch: 1700000000,
       sessionRevision: 9,
-      stateChecksum: 'chk_display_old',
+      stateChecksum: 'sha256:display_old',
       capabilities: { isHardwareKeystore: false, hasWakeLock: true, isImmersiveSupported: false },
     };
 
@@ -140,7 +158,7 @@ describe('Android ↔ Web Handshake, Canonical Checksum & Reconciliation Engine'
       sessionId: 'sess_VP-8822',
       connectionEpoch: 1700000000,
       sessionRevision: 5,
-      stateChecksum: 'chk_master_stale',
+      stateChecksum: 'sha256:master_stale',
       capabilities: { isHardwareKeystore: false, hasWakeLock: true, isImmersiveSupported: false },
     };
 
@@ -152,7 +170,7 @@ describe('Android ↔ Web Handshake, Canonical Checksum & Reconciliation Engine'
       sessionId: 'sess_VP-8822',
       connectionEpoch: 1700000000,
       sessionRevision: 9,
-      stateChecksum: 'chk_display_ahead',
+      stateChecksum: 'sha256:display_ahead',
       capabilities: { isHardwareKeystore: true, hasWakeLock: true, isImmersiveSupported: true },
     };
 
@@ -161,22 +179,44 @@ describe('Android ↔ Web Handshake, Canonical Checksum & Reconciliation Engine'
     expect(plan.targetRevision).toBe(9);
   });
 
-  it('6. Full safe state resumption mutes ambient audio, resets shake/lightning triggers, but preserves combat and visual scene', () => {
-    const stateWithLiveTriggers: DisplayState = {
-      ...baseDisplayState,
-      ambientPlaying: true,
-      shakeTrigger: 4,
-      lightningTrigger: 7,
-      lastSfx: { id: 's1', type: 'synth', audioUrl: 'thunder.mp3', timestamp: 123 },
+  it('6. Transmits HANDSHAKE_HELLO through SimulatedNetworkTransport with chaos & packet reordering', async () => {
+    const transport = new SimulatedNetworkTransport({ latencyMs: 20, jitterMs: 10, packetLossRate: 0 });
+    const endpointA = transport.getEndpointA();
+    const endpointB = transport.getEndpointB();
+    const receivedMessages: any[] = [];
+
+    endpointB.onReceive((msg) => {
+      receivedMessages.push(msg);
+    });
+
+    const handshakeMsg = {
+      protocolVersion: 1 as const,
+      messageId: 'msg-h1',
+      sequenceNumber: 1,
+      sessionRevision: 1,
+      sentAt: Date.now(),
+      tier: 'critical' as const,
+      requiresAck: true,
+      type: 'HANDSHAKE_HELLO' as const,
+      payload: {
+        deviceRole: 'master' as const,
+        platform: 'android' as const,
+        appVersion: '1.0.0',
+        protocolVersion: 1,
+        sessionId: 'sess-test',
+        connectionEpoch: Date.now(),
+        sessionRevision: 1,
+        stateChecksum: 'sha256:test',
+        capabilities: { isHardwareKeystore: true, hasWakeLock: true, isImmersiveSupported: true },
+      },
     };
 
-    const safeState = sessionRecoveryService.prepareSafeResumptionState(stateWithLiveTriggers);
+    endpointA.send(handshakeMsg);
 
-    expect(safeState.ambientPlaying).toBe(false);
-    expect(safeState.shakeTrigger).toBe(0);
-    expect(safeState.lightningTrigger).toBe(0);
-    expect(safeState.lastSfx).toBeNull();
-    expect(safeState.sceneName).toBe('El Bosque Susurrante');
-    expect(safeState.combatState.round).toBe(3);
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    expect(receivedMessages.length).toBe(1);
+    expect(receivedMessages[0].type).toBe('HANDSHAKE_HELLO');
+    expect(receivedMessages[0].payload.platform).toBe('android');
   });
 });
