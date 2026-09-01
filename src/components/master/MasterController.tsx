@@ -1,13 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   Campaign,
   Character,
   CharacterOnScreen,
   CharacterPosition,
-  CombatState,
+  CinematicMacro,
   ConnectionStatus,
+  DisplayState,
+  HistoryEvent,
   LightingFilter,
+  MacroStep,
+  PublishCategoryKey,
   Scene,
+  SessionCheckpoint,
   WeatherType,
 } from '../../types';
 import { peerService } from '../../services/peerService';
@@ -18,6 +23,7 @@ import {
   DEMO_CAMPAIGN,
   DEMO_SCENES,
   DEMO_CHARACTERS,
+  DEMO_MACROS,
   initDefaultDataIfNeeded,
   getAllCampaigns,
   createCampaign,
@@ -25,8 +31,18 @@ import {
   duplicateCampaign,
   deleteCampaign,
   setActiveCampaignId,
+  getCampaignCheckpoints,
+  saveCheckpoint,
+  deleteCheckpoint,
 } from '../../db';
 import { CombatTab } from './CombatTab';
+import { MomentsTab } from './MomentsTab';
+import { QuickMomentsDropdown } from './QuickMomentsDropdown';
+import { SelectivePublishModal } from './SelectivePublishModal';
+import { LiveMiniPreview } from './LiveMiniPreview';
+import { FullScreenPreviewModal } from './FullScreenPreviewModal';
+import { HistoryModal } from './HistoryModal';
+import { CheckpointsModal } from './CheckpointsModal';
 import {
   Zap,
   Activity,
@@ -63,6 +79,14 @@ import {
   Swords,
   Music,
   FolderSync,
+  Send,
+  RotateCcw,
+  RotateCw,
+  Layers,
+  Radio,
+  History,
+  Bookmark,
+  CheckCheck,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -75,8 +99,36 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
   const [roomCode, setRoomCode] = useState<string>(initialRoomCode || '');
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [latencyMs, setLatencyMs] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState<'live' | 'combat' | 'notes' | 'library'>('live');
+  const [activeTab, setActiveTab] = useState<'live' | 'moments' | 'combat' | 'notes' | 'library'>('live');
   const [showQRModal, setShowQRModal] = useState<boolean>(false);
+
+  // Operation Mode: Live vs Staging (Preparación)
+  const [operationMode, setOperationMode] = useState<'live' | 'staging'>('live');
+  const [previewTab, setPreviewTab] = useState<'live' | 'staged'>('live');
+  const [showFullScreenPreview, setShowFullScreenPreview] = useState<boolean>(false);
+  const [showUnsavedStagingDialog, setShowUnsavedStagingDialog] = useState<boolean>(false);
+  const [showSelectivePublishModal, setShowSelectivePublishModal] = useState<boolean>(false);
+
+  // History & Checkpoints Modals
+  const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+  const [showCheckpointsModal, setShowCheckpointsModal] = useState<boolean>(false);
+  const [showQuickMoments, setShowQuickMoments] = useState<boolean>(false);
+  const [checkpointsList, setCheckpointsList] = useState<SessionCheckpoint[]>([]);
+
+  // History Stacks (Past & Future for Undo/Redo)
+  const [pastEvents, setPastEvents] = useState<HistoryEvent[]>([]);
+  const [futureEvents, setFutureEvents] = useState<HistoryEvent[]>([]);
+
+  // Macro Sequence Engine State
+  const [runningMacro, setRunningMacro] = useState<{
+    macro: CinematicMacro;
+    currentStepIndex: number;
+    totalSteps: number;
+    isPaused: boolean;
+    backupState: DisplayState;
+  } | null>(null);
+
+  const macroTimerRef = useRef<number | null>(null);
 
   // Campaigns & DB State
   const [campaignList, setCampaignList] = useState<Campaign[]>([]);
@@ -86,30 +138,42 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
   const [newCampaignTitle, setNewCampaignTitle] = useState<string>('');
   const [newCampaignDesc, setNewCampaignDesc] = useState<string>('');
 
-  // Live Stage State
-  const [currentScene, setCurrentScene] = useState<Scene | null>(null);
-  const [activeCharacters, setActiveCharacters] = useState<CharacterOnScreen[]>([]);
-  const [weather, setWeather] = useState<WeatherType>('none');
-  const [weatherIntensity, setWeatherIntensity] = useState<number>(0.5);
-  const [lighting, setLighting] = useState<LightingFilter>('normal');
-  const [isBlackout, setIsBlackout] = useState<boolean>(false);
-  const [locationTitle, setLocationTitle] = useState<string>('');
-  const [locationSubtitle, setLocationSubtitle] = useState<string>('');
-  const [bannerVisible, setBannerVisible] = useState<boolean>(true);
-
-  // Audio State
-  const [ambientPlaying, setAmbientPlaying] = useState<boolean>(false);
-  const [ambientVolume, setAmbientVolume] = useState<number>(0.5);
-
-  // Combat State
-  const [combatState, setCombatState] = useState<CombatState>({
-    isActive: false,
-    round: 1,
-    currentTurnIndex: 0,
-    combatants: [],
-    turnTimerSeconds: 60,
-    showTurnTimerToPlayers: true,
+  // Live Display State (Synced with Tablet)
+  const [liveState, setLiveState] = useState<DisplayState>({
+    sceneName: 'Cargando Aventura...',
+    backgroundUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80',
+    characters: [],
+    weather: 'none',
+    weatherIntensity: 0.5,
+    lighting: 'normal',
+    locationBanner: {
+      text: 'TABERNA DEL DRAGÓN DURMIENTE',
+      subtitle: 'Valle de Oakhaven',
+      visible: true,
+    },
+    isBlackout: false,
+    shakeTrigger: 0,
+    lightningTrigger: 0,
+    ambientAudioUrl: '',
+    ambientPlaying: false,
+    ambientVolume: 0.5,
+    lastSfx: null,
+    combatState: {
+      isActive: false,
+      round: 1,
+      currentTurnIndex: 0,
+      combatants: [],
+      turnTimerSeconds: 60,
+      showTurnTimerToPlayers: true,
+    },
   });
+
+  // Staged State (Local draft when in Staging Mode)
+  const [stagedState, setStagedState] = useState<DisplayState>(liveState);
+
+  // Active form / current working parameters
+  const activeDisplay = operationMode === 'live' ? liveState : stagedState;
+  const currentScene = campaign?.scenes.find((s) => s.id === activeDisplay.currentSceneId) || campaign?.scenes[0] || null;
 
   // Modals & Forms
   const [showSummonModal, setShowSummonModal] = useState<boolean>(false);
@@ -140,6 +204,32 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
     maxHp: 30,
   });
 
+  // Calculate Pending Changes
+  const calculatePendingChanges = (): number => {
+    if (operationMode === 'live') return 0;
+    let count = 0;
+    if (stagedState.currentSceneId !== liveState.currentSceneId || stagedState.backgroundUrl !== liveState.backgroundUrl) count++;
+    if (JSON.stringify(stagedState.characters) !== JSON.stringify(liveState.characters)) count++;
+    if (stagedState.weather !== liveState.weather || stagedState.weatherIntensity !== liveState.weatherIntensity) count++;
+    if (stagedState.lighting !== liveState.lighting) count++;
+    if (
+      stagedState.locationBanner.text !== liveState.locationBanner.text ||
+      stagedState.locationBanner.subtitle !== liveState.locationBanner.subtitle ||
+      stagedState.locationBanner.visible !== liveState.locationBanner.visible
+    )
+      count++;
+    if (
+      stagedState.ambientAudioUrl !== liveState.ambientAudioUrl ||
+      stagedState.ambientPlaying !== liveState.ambientPlaying ||
+      stagedState.ambientVolume !== liveState.ambientVolume
+    )
+      count++;
+    if (stagedState.isBlackout !== liveState.isBlackout) count++;
+    return count;
+  };
+
+  const pendingChangesCount = calculatePendingChanges();
+
   // Load campaign & all campaigns from IndexedDB
   useEffect(() => {
     const loadData = async () => {
@@ -147,8 +237,42 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
       setCampaignList(all);
       const camp = await initDefaultDataIfNeeded();
       setCampaign(camp);
+      const checkpoints = await getCampaignCheckpoints(camp.id);
+      setCheckpointsList(checkpoints);
+
       if (camp.scenes.length > 0) {
-        selectScene(camp.scenes[0], false);
+        const initialScene = camp.scenes[0];
+        const initialState: DisplayState = {
+          currentSceneId: initialScene.id,
+          sceneName: initialScene.name,
+          backgroundUrl: initialScene.backgroundUrl,
+          characters: [],
+          weather: initialScene.weather || 'none',
+          weatherIntensity: initialScene.weatherIntensity ?? 0.5,
+          lighting: initialScene.lighting || 'normal',
+          locationBanner: {
+            text: initialScene.locationBanner || initialScene.name,
+            subtitle: initialScene.subtitle || '',
+            visible: true,
+          },
+          isBlackout: false,
+          shakeTrigger: 0,
+          lightningTrigger: 0,
+          ambientAudioUrl: initialScene.ambientAudioUrl || '',
+          ambientPlaying: false,
+          ambientVolume: 0.5,
+          lastSfx: null,
+          combatState: {
+            isActive: false,
+            round: 1,
+            currentTurnIndex: 0,
+            combatants: [],
+            turnTimerSeconds: 60,
+            showTurnTimerToPlayers: true,
+          },
+        };
+        setLiveState(initialState);
+        setStagedState(initialState);
       }
     };
     loadData();
@@ -167,13 +291,13 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
         setLatencyMs(lat);
       }
       if (status === 'connected') {
-        broadcastFullState();
+        broadcastFullState(liveState);
       }
     });
 
     const unsubMsg = peerService.onMessage((msg) => {
       if (msg.type === 'REQUEST_FULL_STATE') {
-        broadcastFullState();
+        broadcastFullState(liveState);
       }
     });
 
@@ -181,7 +305,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
       unsubStatus();
       unsubMsg();
     };
-  }, [initialRoomCode, currentScene, activeCharacters, weather, lighting, isBlackout, combatState]);
+  }, [initialRoomCode, liveState]);
 
   const connectToRoom = async (code: string) => {
     try {
@@ -191,46 +315,416 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
     }
   };
 
-  const broadcastFullState = () => {
+  const broadcastFullState = (stateToSend: DisplayState) => {
     peerService.send({
       type: 'FULL_STATE',
-      payload: {
-        currentSceneId: currentScene?.id,
-        sceneName: currentScene?.name || 'Escenario',
-        backgroundUrl: currentScene?.backgroundUrl || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80',
-        characters: activeCharacters,
-        weather,
-        weatherIntensity,
-        lighting,
-        locationBanner: {
-          text: locationTitle,
-          subtitle: locationSubtitle,
-          visible: bannerVisible,
-        },
-        isBlackout,
-        shakeTrigger: 0,
-        lightningTrigger: 0,
-        ambientAudioUrl: currentScene?.ambientAudioUrl || '',
-        ambientPlaying,
-        ambientVolume,
-        lastSfx: null,
-        combatState,
-      },
+      payload: stateToSend,
     });
   };
 
-  const selectScene = (scene: Scene, broadcast: boolean = true) => {
-    setCurrentScene(scene);
-    setWeather(scene.weather || 'none');
-    setWeatherIntensity(scene.weatherIntensity ?? 0.5);
-    setLighting(scene.lighting || 'normal');
-    setLocationTitle(scene.locationBanner || scene.name);
-    setLocationSubtitle(scene.subtitle || '');
+  // Helper: Create Auto-Checkpoint in Dexie
+  const createAutoCheckpoint = async (triggerName: string, stateToSave: DisplayState) => {
+    if (!campaign) return;
+    const autoCp: SessionCheckpoint = {
+      id: `cp-auto-${Date.now()}`,
+      campaignId: campaign.id,
+      name: `Auto: ${triggerName}`,
+      type: 'auto',
+      trigger: triggerName,
+      createdAt: Date.now(),
+      state: stateToSave,
+    };
+    await saveCheckpoint(autoCp);
+    const updated = await getCampaignCheckpoints(campaign.id);
+    setCheckpointsList(updated);
+  };
 
-    // Suggested NPCs
-    let charsToPlace = activeCharacters;
+  // State Update Wrapper with History push
+  const updateActiveDisplay = (
+    updater: (prev: DisplayState) => DisplayState,
+    actionDescription: string = 'Modificación de Escena',
+    broadcastImmediate: boolean = true
+  ) => {
+    const currentState = operationMode === 'live' ? liveState : stagedState;
+    const nextState = updater(currentState);
+
+    // Push into History
+    const historyItem: HistoryEvent = {
+      id: `evt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      timestamp: Date.now(),
+      description: actionDescription,
+      mode: operationMode,
+      stateSnapshot: currentState,
+    };
+
+    setPastEvents((prev) => [historyItem, ...prev.slice(0, 19)]);
+    setFutureEvents([]);
+
+    if (operationMode === 'live') {
+      setLiveState(nextState);
+      setStagedState(nextState);
+      if (broadcastImmediate) {
+        broadcastFullState(nextState);
+      }
+    } else {
+      setStagedState(nextState);
+      setPreviewTab('staged');
+    }
+  };
+
+  // Undo Handler
+  const handleUndo = useCallback(() => {
+    if (pastEvents.length === 0) return;
+
+    const [lastEvent, ...remainingPast] = pastEvents;
+    const currentSnapshot = operationMode === 'live' ? liveState : stagedState;
+
+    const redoItem: HistoryEvent = {
+      id: `redo-${Date.now()}`,
+      timestamp: Date.now(),
+      description: `Rehacer: ${lastEvent.description}`,
+      mode: operationMode,
+      stateSnapshot: currentSnapshot,
+    };
+
+    setPastEvents(remainingPast);
+    setFutureEvents((prev) => [redoItem, ...prev]);
+
+    if (operationMode === 'live') {
+      setLiveState(lastEvent.stateSnapshot);
+      setStagedState(lastEvent.stateSnapshot);
+      broadcastFullState(lastEvent.stateSnapshot);
+      if (lastEvent.stateSnapshot.ambientAudioUrl && lastEvent.stateSnapshot.ambientPlaying) {
+        soundEngine.setAmbient(lastEvent.stateSnapshot.ambientAudioUrl, true, lastEvent.stateSnapshot.ambientVolume, true);
+      }
+    } else {
+      setStagedState(lastEvent.stateSnapshot);
+      setPreviewTab('staged');
+    }
+    soundEngine.playSynth('heartbeat');
+  }, [pastEvents, operationMode, liveState, stagedState]);
+
+  // Redo Handler
+  const handleRedo = useCallback(() => {
+    if (futureEvents.length === 0) return;
+
+    const [nextEvent, ...remainingFuture] = futureEvents;
+    const currentSnapshot = operationMode === 'live' ? liveState : stagedState;
+
+    const undoItem: HistoryEvent = {
+      id: `undo-${Date.now()}`,
+      timestamp: Date.now(),
+      description: nextEvent.description,
+      mode: operationMode,
+      stateSnapshot: currentSnapshot,
+    };
+
+    setFutureEvents(remainingFuture);
+    setPastEvents((prev) => [undoItem, ...prev]);
+
+    if (operationMode === 'live') {
+      setLiveState(nextEvent.stateSnapshot);
+      setStagedState(nextEvent.stateSnapshot);
+      broadcastFullState(nextEvent.stateSnapshot);
+      if (nextEvent.stateSnapshot.ambientAudioUrl && nextEvent.stateSnapshot.ambientPlaying) {
+        soundEngine.setAmbient(nextEvent.stateSnapshot.ambientAudioUrl, true, nextEvent.stateSnapshot.ambientVolume, true);
+      }
+    } else {
+      setStagedState(nextEvent.stateSnapshot);
+      setPreviewTab('staged');
+    }
+    soundEngine.playSynth('heartbeat');
+  }, [futureEvents, operationMode, liveState, stagedState]);
+
+  // Keyboard shortcuts listener for Undo (Ctrl+Z) & Redo (Ctrl+Y / Ctrl+Shift+Z)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (e.shiftKey) {
+          e.preventDefault();
+          handleRedo();
+        } else {
+          e.preventDefault();
+          handleUndo();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
+
+  // Macro Sequencer
+  const applyStepToState = (step: MacroStep, baseState: DisplayState): DisplayState => {
+    let next = { ...baseState };
+
+    if (step.sceneId) next.currentSceneId = step.sceneId;
+    if (step.backgroundUrl) next.backgroundUrl = step.backgroundUrl;
+    if (step.weather !== undefined) next.weather = step.weather;
+    if (step.weatherIntensity !== undefined) next.weatherIntensity = step.weatherIntensity;
+    if (step.lighting !== undefined) next.lighting = step.lighting;
+    if (step.blackout !== undefined) next.isBlackout = step.blackout;
+    if (step.locationBanner) next.locationBanner = step.locationBanner;
+
+    if (step.charactersToAdd && step.charactersToAdd.length > 0) {
+      const existingIds = next.characters.map((c) => c.id);
+      const additions = step.charactersToAdd.filter((c) => !existingIds.includes(c.id));
+      next.characters = [...next.characters, ...additions];
+    }
+
+    if (step.charactersToRemove && step.charactersToRemove.length > 0) {
+      next.characters = next.characters.filter((c) => !step.charactersToRemove?.includes(c.id));
+    }
+
+    if (step.speakerId) {
+      next.characters = next.characters.map((c) => ({
+        ...c,
+        isSpeaking: c.id === step.speakerId,
+      }));
+    }
+
+    if (step.ambientAudioUrl !== undefined) {
+      next.ambientAudioUrl = step.ambientAudioUrl;
+      next.ambientPlaying = step.ambientPlaying ?? true;
+      if (step.ambientVolume !== undefined) next.ambientVolume = step.ambientVolume;
+    }
+
+    if (step.sfxPreset) {
+      soundEngine.playSynth(step.sfxPreset);
+      peerService.send({
+        type: 'PLAY_SFX',
+        payload: {
+          id: `sfx-${Date.now()}`,
+          name: step.sfxPreset,
+          synthPreset: step.sfxPreset,
+          timestamp: Date.now(),
+        },
+      });
+    }
+
+    if (step.lightning) {
+      next.lightningTrigger = Date.now();
+      peerService.send({ type: 'TRIGGER_LIGHTNING' });
+    }
+
+    if (step.shake) {
+      next.shakeTrigger = Date.now();
+      peerService.send({ type: 'TRIGGER_SHAKE' });
+    }
+
+    return next;
+  };
+
+  const executeMacroStepIndex = (macro: CinematicMacro, stepIdx: number, backup: DisplayState) => {
+    if (stepIdx >= macro.steps.length) {
+      setRunningMacro(null);
+      return;
+    }
+
+    const step = macro.steps[stepIdx];
+    setRunningMacro({
+      macro,
+      currentStepIndex: stepIdx,
+      totalSteps: macro.steps.length,
+      isPaused: false,
+      backupState: backup,
+    });
+
+    setLiveState((prev) => {
+      const next = applyStepToState(step, prev);
+      broadcastFullState(next);
+      if (next.ambientAudioUrl && next.ambientPlaying) {
+        soundEngine.setAmbient(next.ambientAudioUrl, true, next.ambientVolume, true);
+      }
+      return next;
+    });
+
+    if (step.delayMs > 0 && stepIdx + 1 < macro.steps.length) {
+      macroTimerRef.current = window.setTimeout(() => {
+        executeMacroStepIndex(macro, stepIdx + 1, backup);
+      }, step.delayMs);
+    } else if (stepIdx + 1 < macro.steps.length) {
+      executeMacroStepIndex(macro, stepIdx + 1, backup);
+    } else {
+      setRunningMacro(null);
+    }
+  };
+
+  const handleExecuteMacro = (macro: CinematicMacro) => {
+    if (macroTimerRef.current) {
+      clearTimeout(macroTimerRef.current);
+    }
+
+    const backup = { ...liveState };
+    createAutoCheckpoint(`Antes de ejecutar Momento: ${macro.name}`, backup);
+
+    const historyItem: HistoryEvent = {
+      id: `evt-macro-${Date.now()}`,
+      timestamp: Date.now(),
+      description: `Momento: ${macro.name}`,
+      mode: 'live',
+      stateSnapshot: backup,
+    };
+    setPastEvents((prev) => [historyItem, ...prev.slice(0, 19)]);
+    setFutureEvents([]);
+
+    executeMacroStepIndex(macro, 0, backup);
+  };
+
+  const handleCancelMacro = () => {
+    if (macroTimerRef.current) {
+      clearTimeout(macroTimerRef.current);
+      macroTimerRef.current = null;
+    }
+    if (runningMacro) {
+      setLiveState(runningMacro.backupState);
+      setStagedState(runningMacro.backupState);
+      broadcastFullState(runningMacro.backupState);
+      if (runningMacro.backupState.ambientAudioUrl && runningMacro.backupState.ambientPlaying) {
+        soundEngine.setAmbient(runningMacro.backupState.ambientAudioUrl, true, runningMacro.backupState.ambientVolume, true);
+      }
+      setRunningMacro(null);
+      soundEngine.playSynth('heartbeat');
+    }
+  };
+
+  const handleLoadMacroToStaging = (macro: CinematicMacro) => {
+    let accumulated = { ...stagedState };
+    for (const step of macro.steps) {
+      accumulated = applyStepToState(step, accumulated);
+    }
+    setStagedState(accumulated);
+    setOperationMode('staging');
+    setPreviewTab('staged');
+    soundEngine.playSynth('magic_spell');
+  };
+
+  const handleUpdateMacros = async (updatedMacros: CinematicMacro[]) => {
+    if (!campaign) return;
+    const updatedCamp = { ...campaign, macros: updatedMacros };
+    await updateCampaign(updatedCamp);
+    setCampaign(updatedCamp);
+  };
+
+  // ==========================================
+  // SELECTIVE PUBLISHING HANDLER
+  // ==========================================
+  const handleSelectivePublish = (selectedKeys: PublishCategoryKey[]) => {
+    if (selectedKeys.length === 0) return;
+
+    soundEngine.playSynth('magic_spell');
+    createAutoCheckpoint(`Publicación Selectiva (${selectedKeys.length} categorías)`, liveState);
+
+    // Build the merged liveState
+    const newLive: DisplayState = { ...liveState };
+
+    if (selectedKeys.includes('background')) {
+      newLive.currentSceneId = stagedState.currentSceneId;
+      newLive.sceneName = stagedState.sceneName;
+      newLive.backgroundUrl = stagedState.backgroundUrl;
+    }
+    if (selectedKeys.includes('characters')) {
+      newLive.characters = stagedState.characters;
+    }
+    if (selectedKeys.includes('weather')) {
+      newLive.weather = stagedState.weather;
+      newLive.weatherIntensity = stagedState.weatherIntensity;
+    }
+    if (selectedKeys.includes('lighting')) {
+      newLive.lighting = stagedState.lighting;
+    }
+    if (selectedKeys.includes('locationBanner')) {
+      newLive.locationBanner = stagedState.locationBanner;
+    }
+    if (selectedKeys.includes('ambientAudio')) {
+      newLive.ambientAudioUrl = stagedState.ambientAudioUrl;
+      newLive.ambientPlaying = stagedState.ambientPlaying;
+      newLive.ambientVolume = stagedState.ambientVolume;
+    }
+    if (selectedKeys.includes('blackout')) {
+      newLive.isBlackout = stagedState.isBlackout;
+    }
+
+    // Apply & Broadcast
+    setLiveState(newLive);
+    broadcastFullState(newLive);
+
+    if (selectedKeys.includes('ambientAudio') && newLive.ambientAudioUrl && newLive.ambientPlaying) {
+      soundEngine.setAmbient(newLive.ambientAudioUrl, true, newLive.ambientVolume, true);
+    }
+
+    // Push into history
+    const historyItem: HistoryEvent = {
+      id: `evt-publish-selective-${Date.now()}`,
+      timestamp: Date.now(),
+      description: `Publicación Selectiva: ${selectedKeys.join(', ')}`,
+      mode: 'live',
+      stateSnapshot: liveState,
+    };
+    setPastEvents((prev) => [historyItem, ...prev.slice(0, 19)]);
+    setFutureEvents([]);
+
+    // Check if any changes remain in stagedState
+    const remainingAfterPublish = calculatePendingChanges();
+    if (remainingAfterPublish === 0) {
+      setPreviewTab('live');
+    }
+  };
+
+  // Full Publish of all staged changes
+  const handleSendStagedToScreen = () => {
+    soundEngine.playSynth('magic_spell');
+    createAutoCheckpoint(`Publicación Completa: ${stagedState.sceneName}`, liveState);
+
+    const historyItem: HistoryEvent = {
+      id: `evt-publish-all-${Date.now()}`,
+      timestamp: Date.now(),
+      description: `Publicado: ${stagedState.sceneName}`,
+      mode: 'live',
+      stateSnapshot: liveState,
+    };
+    setPastEvents((prev) => [historyItem, ...prev.slice(0, 19)]);
+    setFutureEvents([]);
+
+    setLiveState(stagedState);
+    broadcastFullState(stagedState);
+    if (stagedState.ambientAudioUrl && stagedState.ambientPlaying) {
+      soundEngine.setAmbient(stagedState.ambientAudioUrl, true, stagedState.ambientVolume, true);
+    }
+    setPreviewTab('live');
+  };
+
+  // Discard Staged changes
+  const handleDiscardStaged = () => {
+    setStagedState(liveState);
+    setPreviewTab('live');
+  };
+
+  // Mode Toggle with confirmation if pending changes
+  const handleToggleOperationMode = (newMode: 'live' | 'staging') => {
+    if (newMode === operationMode) return;
+
+    if (operationMode === 'staging' && pendingChangesCount > 0) {
+      setShowUnsavedStagingDialog(true);
+      return;
+    }
+
+    setOperationMode(newMode);
+    setPreviewTab(newMode === 'staging' ? 'staged' : 'live');
+  };
+
+  // Scene Selection
+  const selectScene = (scene: Scene) => {
+    let suggestedCharacters: CharacterOnScreen[] = [];
     if (scene.suggestedNpcIds && scene.suggestedNpcIds.length > 0 && campaign) {
-      const suggested = campaign.characters
+      suggestedCharacters = campaign.characters
         .filter((c) => scene.suggestedNpcIds?.includes(c.id))
         .map((c, idx) => {
           const positions: CharacterPosition[] = ['center-left', 'center-right', 'left', 'right'];
@@ -243,31 +737,92 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
             isSpeaking: false,
           };
         });
-      charsToPlace = suggested;
-      setActiveCharacters(suggested);
     }
 
-    // Ambient audio change with crossfade
-    if (scene.ambientAudioUrl) {
-      setAmbientPlaying(true);
-      soundEngine.setAmbient(scene.ambientAudioUrl, true, ambientVolume, true);
+    if (operationMode === 'live') {
+      createAutoCheckpoint(`Cambio de Escena a "${scene.name}"`, liveState);
     }
 
-    if (broadcast) {
-      peerService.send({
-        type: 'SET_SCENE',
-        payload: scene,
-        characters: charsToPlace,
-      });
+    updateActiveDisplay(
+      (prev) => ({
+        ...prev,
+        currentSceneId: scene.id,
+        sceneName: scene.name,
+        backgroundUrl: scene.backgroundUrl,
+        weather: scene.weather || 'none',
+        weatherIntensity: scene.weatherIntensity ?? 0.5,
+        lighting: scene.lighting || 'normal',
+        locationBanner: {
+          text: scene.locationBanner || scene.name,
+          subtitle: scene.subtitle || '',
+          visible: true,
+        },
+        characters: suggestedCharacters.length > 0 ? suggestedCharacters : prev.characters,
+        ambientAudioUrl: scene.ambientAudioUrl || prev.ambientAudioUrl,
+        ambientPlaying: scene.ambientAudioUrl ? true : prev.ambientPlaying,
+      }),
+      `Cambio de Escena a "${scene.name}"`
+    );
+
+    if (operationMode === 'live' && scene.ambientAudioUrl) {
+      soundEngine.setAmbient(scene.ambientAudioUrl, true, activeDisplay.ambientVolume, true);
     }
+  };
+
+  // Checkpoints Management
+  const handleSaveManualCheckpoint = async (name: string) => {
+    if (!campaign) return;
+    const cp: SessionCheckpoint = {
+      id: `cp-manual-${Date.now()}`,
+      campaignId: campaign.id,
+      name,
+      type: 'manual',
+      trigger: 'Manual',
+      createdAt: Date.now(),
+      state: activeDisplay,
+    };
+    await saveCheckpoint(cp);
+    const updated = await getCampaignCheckpoints(campaign.id);
+    setCheckpointsList(updated);
+    soundEngine.playSynth('church_bell');
+  };
+
+  const handleRestoreCheckpoint = async (checkpoint: SessionCheckpoint) => {
+    await createAutoCheckpoint(`Seguridad: Antes de restaurar "${checkpoint.name}"`, liveState);
+
+    setLiveState(checkpoint.state);
+    setStagedState(checkpoint.state);
+    broadcastFullState(checkpoint.state);
+
+    if (checkpoint.state.ambientAudioUrl && checkpoint.state.ambientPlaying) {
+      soundEngine.setAmbient(checkpoint.state.ambientAudioUrl, true, checkpoint.state.ambientVolume, true);
+    }
+    soundEngine.playSynth('fanfare_victory');
+  };
+
+  const handleDeleteCheckpoint = async (id: string) => {
+    if (!campaign) return;
+    await deleteCheckpoint(id);
+    const updated = await getCampaignCheckpoints(campaign.id);
+    setCheckpointsList(updated);
+  };
+
+  // Restore state from History Modal
+  const handleRestoreFromHistory = (evt: HistoryEvent) => {
+    updateActiveDisplay(
+      () => evt.stateSnapshot,
+      `Restaurado a: ${evt.description}`
+    );
   };
 
   // Switch Active Campaign
   const handleSwitchCampaign = async (selected: Campaign) => {
     setCampaign(selected);
     await setActiveCampaignId(selected.id);
+    const cps = await getCampaignCheckpoints(selected.id);
+    setCheckpointsList(cps);
     if (selected.scenes.length > 0) {
-      selectScene(selected.scenes[0], true);
+      selectScene(selected.scenes[0]);
     }
     setShowCampaignPickerModal(false);
   };
@@ -286,13 +841,14 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
       scenes: [DEMO_SCENES[0]],
       characters: DEMO_CHARACTERS.slice(0, 3),
       customSfx: BUILTIN_SFX,
+      macros: DEMO_MACROS,
     };
 
     await createCampaign(newCamp);
     const all = await getAllCampaigns();
     setCampaignList(all);
     setCampaign(newCamp);
-    selectScene(newCamp.scenes[0], true);
+    selectScene(newCamp.scenes[0]);
     setShowNewCampaignModal(false);
     setShowCampaignPickerModal(false);
     setNewCampaignTitle('');
@@ -321,7 +877,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
       setCampaignList(all);
       if (campaign?.id === id) {
         setCampaign(all[0]);
-        selectScene(all[0].scenes[0], true);
+        selectScene(all[0].scenes[0]);
       }
     }
   };
@@ -349,8 +905,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
       const updatedCamp = { ...campaign, scenes: updatedScenes };
       await updateCampaign(updatedCamp);
       setCampaign(updatedCamp);
-      if (currentScene?.id === updatedScene.id) {
-        selectScene(updatedScene, true);
+      if (activeDisplay.currentSceneId === updatedScene.id) {
+        selectScene(updatedScene);
       }
     } else {
       const newScene: Scene = {
@@ -446,7 +1002,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
   // Character Management
   const summonCharacter = (char: Character) => {
     const positions: CharacterPosition[] = ['left', 'center-left', 'center-right', 'right'];
-    const usedPositions = activeCharacters.map((c) => c.position);
+    const usedPositions = activeDisplay.characters.map((c) => c.position);
     const availablePos = positions.find((p) => !usedPositions.includes(p)) || 'center-left';
 
     const newOnScreen: CharacterOnScreen = {
@@ -458,69 +1014,105 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
       isSpeaking: false,
     };
 
-    const updated = [...activeCharacters, newOnScreen];
-    setActiveCharacters(updated);
-    peerService.send({ type: 'ADD_CHARACTER', payload: newOnScreen });
+    updateActiveDisplay(
+      (prev) => ({
+        ...prev,
+        characters: [...prev.characters, newOnScreen],
+      }),
+      `Invocado ${char.name}`
+    );
     setShowSummonModal(false);
   };
 
   const dismissCharacter = (id: string) => {
-    const updated = activeCharacters.filter((c) => c.id !== id);
-    setActiveCharacters(updated);
-    peerService.send({ type: 'REMOVE_CHARACTER', payload: { id } });
+    const charName = activeDisplay.characters.find((c) => c.id === id)?.name || 'Personaje';
+    updateActiveDisplay(
+      (prev) => ({
+        ...prev,
+        characters: prev.characters.filter((c) => c.id !== id),
+      }),
+      `Retirado ${charName}`
+    );
   };
 
   const toggleSpeaking = (id: string) => {
-    const char = activeCharacters.find((c) => c.id === id);
+    const char = activeDisplay.characters.find((c) => c.id === id);
     const newSpeaking = !char?.isSpeaking;
 
-    const updated = activeCharacters.map((c) => ({
-      ...c,
-      isSpeaking: c.id === id ? newSpeaking : false,
-    }));
-
-    setActiveCharacters(updated);
-    peerService.send({ type: 'SET_SPEAKING', payload: { id, isSpeaking: newSpeaking } });
+    updateActiveDisplay(
+      (prev) => ({
+        ...prev,
+        characters: prev.characters.map((c) => ({
+          ...c,
+          isSpeaking: c.id === id ? newSpeaking : false,
+        })),
+      }),
+      `${newSpeaking ? 'Foco de voz' : 'Silenciado'}: ${char?.name}`
+    );
   };
 
   const changeCharacterPosition = (id: string, position: CharacterPosition) => {
-    const updated = activeCharacters.map((c) => (c.id === id ? { ...c, position } : c));
-    setActiveCharacters(updated);
-    peerService.send({ type: 'SET_CHARACTER_POSITION', payload: { id, position } });
+    const charName = activeDisplay.characters.find((c) => c.id === id)?.name || 'Personaje';
+    updateActiveDisplay(
+      (prev) => ({
+        ...prev,
+        characters: prev.characters.map((c) => (c.id === id ? { ...c, position } : c)),
+      }),
+      `Posición de ${charName} a ${position}`
+    );
   };
 
   const changeCharacterExpression = (id: string, expressionName: string, avatarUrl: string) => {
-    const updated = activeCharacters.map((c) =>
-      c.id === id ? { ...c, avatarUrl, activeExpression: expressionName } : c
+    const charName = activeDisplay.characters.find((c) => c.id === id)?.name || 'Personaje';
+    updateActiveDisplay(
+      (prev) => ({
+        ...prev,
+        characters: prev.characters.map((c) =>
+          c.id === id ? { ...c, avatarUrl, activeExpression: expressionName } : c
+        ),
+      }),
+      `Expresión de ${charName}: ${expressionName}`
     );
-    setActiveCharacters(updated);
-    peerService.send({
-      type: 'SET_CHARACTER_EXPRESSION',
-      payload: { id, expressionName, avatarUrl },
-    });
   };
 
   // Weather & Atmosphere
   const setWeatherEffect = (type: WeatherType) => {
-    setWeather(type);
-    peerService.send({ type: 'SET_WEATHER', payload: { weather: type, intensity: weatherIntensity } });
+    updateActiveDisplay(
+      (prev) => ({
+        ...prev,
+        weather: type,
+      }),
+      `Clima: ${type}`
+    );
   };
 
   const setWeatherIntensityVal = (val: number) => {
-    setWeatherIntensity(val);
-    peerService.send({ type: 'SET_WEATHER', payload: { weather, intensity: val } });
+    updateActiveDisplay(
+      (prev) => ({
+        ...prev,
+        weatherIntensity: val,
+      }),
+      `Intensidad del Clima: ${Math.round(val * 100)}%`
+    );
   };
 
   const setLightingPreset = (filter: LightingFilter) => {
-    setLighting(filter);
-    peerService.send({ type: 'SET_LIGHTING', payload: filter });
+    updateActiveDisplay(
+      (prev) => ({
+        ...prev,
+        lighting: filter,
+      }),
+      `Iluminación: ${filter}`
+    );
   };
 
-  // Panic & Triggers
+  // Panic & Direct SFX
   const toggleBlackout = () => {
-    const next = !isBlackout;
-    setIsBlackout(next);
-    peerService.send({ type: 'SET_BLACKOUT', payload: next });
+    const next = !activeDisplay.isBlackout;
+    updateActiveDisplay(
+      (prev) => ({ ...prev, isBlackout: next }),
+      next ? 'Blackout Activado' : 'Blackout Desactivado'
+    );
   };
 
   const triggerLightning = () => {
@@ -533,32 +1125,37 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
   };
 
   const updateBanner = () => {
-    peerService.send({
-      type: 'SET_BANNER',
-      payload: { text: locationTitle, subtitle: locationSubtitle, visible: bannerVisible },
-    });
+    updateActiveDisplay(
+      (prev) => ({
+        ...prev,
+        locationBanner: {
+          ...prev.locationBanner,
+        },
+      }),
+      `Actualizado Cartel: ${activeDisplay.locationBanner.text}`
+    );
   };
 
   // Audio Controls
   const toggleAmbientPlay = () => {
-    if (!currentScene?.ambientAudioUrl) return;
-    const next = !ambientPlaying;
-    setAmbientPlaying(next);
-    soundEngine.setAmbient(currentScene.ambientAudioUrl, next, ambientVolume, true);
-    peerService.send({
-      type: 'SET_AMBIENT',
-      payload: { url: currentScene.ambientAudioUrl, playing: next, volume: ambientVolume, crossfade: true },
-    });
+    if (!activeDisplay.ambientAudioUrl) return;
+    const next = !activeDisplay.ambientPlaying;
+    updateActiveDisplay(
+      (prev) => ({ ...prev, ambientPlaying: next }),
+      next ? 'Música Reanudada' : 'Música Pausada'
+    );
+    if (operationMode === 'live') {
+      soundEngine.setAmbient(activeDisplay.ambientAudioUrl, next, activeDisplay.ambientVolume, true);
+    }
   };
 
   const handleAmbientVolumeChange = (vol: number) => {
-    setAmbientVolume(vol);
-    if (currentScene?.ambientAudioUrl) {
-      soundEngine.setAmbient(currentScene.ambientAudioUrl, ambientPlaying, vol, false);
-      peerService.send({
-        type: 'SET_AMBIENT',
-        payload: { url: currentScene.ambientAudioUrl, playing: ambientPlaying, volume: vol, crossfade: false },
-      });
+    updateActiveDisplay(
+      (prev) => ({ ...prev, ambientVolume: vol }),
+      `Volumen Música: ${Math.round(vol * 100)}%`
+    );
+    if (operationMode === 'live' && activeDisplay.ambientAudioUrl) {
+      soundEngine.setAmbient(activeDisplay.ambientAudioUrl, activeDisplay.ambientPlaying, vol, false);
     }
   };
 
@@ -602,7 +1199,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
       const all = await getAllCampaigns();
       setCampaignList(all);
       if (DEMO_CAMPAIGN.scenes.length > 0) {
-        selectScene(DEMO_CAMPAIGN.scenes[0], true);
+        selectScene(DEMO_CAMPAIGN.scenes[0]);
       }
     }
   };
@@ -665,7 +1262,61 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
             <span className="app-badge">Cambiar</span>
           </div>
 
-          <div className="connection-group" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <div className="connection-group" style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+            {/* Quick Moments Button */}
+            <button
+              className="icon-action-btn moments-btn"
+              onClick={() => setShowQuickMoments(true)}
+              title="Disparador Rápido de Momentos / Macros"
+            >
+              <Sparkles size={15} className="text-amber-400" />
+            </button>
+
+            {/* Quick Undo / Redo / History / Checkpoint Actions */}
+            <button
+              className="icon-action-btn"
+              onClick={handleUndo}
+              disabled={pastEvents.length === 0}
+              title={
+                pastEvents.length > 0
+                  ? `Deshacer: ${pastEvents[0].description} (Ctrl+Z)`
+                  : 'Deshacer (Ctrl+Z)'
+              }
+              style={{ opacity: pastEvents.length === 0 ? 0.4 : 1 }}
+            >
+              <RotateCcw size={15} />
+            </button>
+
+            <button
+              className="icon-action-btn"
+              onClick={handleRedo}
+              disabled={futureEvents.length === 0}
+              title={
+                futureEvents.length > 0
+                  ? `Rehacer: ${futureEvents[0].description} (Ctrl+Y)`
+                  : 'Rehacer (Ctrl+Y)'
+              }
+              style={{ opacity: futureEvents.length === 0 ? 0.4 : 1 }}
+            >
+              <RotateCw size={15} />
+            </button>
+
+            <button
+              className="icon-action-btn"
+              onClick={() => setShowHistoryModal(true)}
+              title="Ver Historial de Acciones"
+            >
+              <History size={15} />
+            </button>
+
+            <button
+              className="icon-action-btn"
+              onClick={() => setShowCheckpointsModal(true)}
+              title="Puntos de Restauración (Checkpoints)"
+            >
+              <Bookmark size={15} />
+            </button>
+
             <button
               className={`status-chip ${connectionStatus}`}
               onClick={() => setShowQRModal(true)}
@@ -690,14 +1341,104 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
           </div>
         </div>
 
+        {/* ACTIVE RUNNING MACRO SEQUENCE BAR */}
+        {runningMacro && (
+          <div className="running-macro-banner">
+            <div className="running-macro-info">
+              <Sparkles size={16} className="text-amber-400 animate-spin" />
+              <span>
+                Momento: <strong>{runningMacro.macro.name}</strong> (Paso {runningMacro.currentStepIndex + 1}/{runningMacro.totalSteps})
+              </span>
+            </div>
+            <div className="running-macro-actions">
+              <button
+                className="macro-ctrl-btn danger"
+                onClick={handleCancelMacro}
+                title="Cancelar secuencia y restaurar estado anterior"
+              >
+                <X size={14} />
+                <span>Cancelar</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Operation Mode Selector Bar: Live vs Staging */}
+        <div className="operation-mode-switcher-bar">
+          <div className="mode-switch-group">
+            <button
+              className={`mode-switch-btn ${operationMode === 'live' ? 'active-live' : ''}`}
+              onClick={() => handleToggleOperationMode('live')}
+            >
+              <Radio size={14} className={operationMode === 'live' ? 'animate-pulse' : ''} />
+              <span>⚡ EN VIVO</span>
+            </button>
+
+            <button
+              className={`mode-switch-btn ${operationMode === 'staging' ? 'active-staging' : ''}`}
+              onClick={() => handleToggleOperationMode('staging')}
+            >
+              <Layers size={14} />
+              <span>🛠️ PREPARACIÓN</span>
+              {pendingChangesCount > 0 && (
+                <span className="pending-badge-count">{pendingChangesCount}</span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Live Mini Preview Carousel in Header */}
+        <LiveMiniPreview
+          liveState={liveState}
+          stagedState={stagedState}
+          operationMode={operationMode}
+          previewTab={previewTab}
+          onChangePreviewTab={setPreviewTab}
+          onOpenFullScreen={() => setShowFullScreenPreview(true)}
+        />
+
+        {/* Floating / Sticky Staging Publish Bar when in Staging Mode with changes */}
+        {operationMode === 'staging' && pendingChangesCount > 0 && (
+          <div className="staging-publish-sticky-bar">
+            <div className="staging-info">
+              <span className="staging-badge">BORRADOR</span>
+              <span className="staging-count">{pendingChangesCount} cambios preparados</span>
+            </div>
+            <div className="staging-actions">
+              <button className="btn-discard-staging" onClick={handleDiscardStaged} title="Descartar borrador">
+                <RotateCcw size={14} />
+                <span>Descartar</span>
+              </button>
+
+              <button
+                className="btn-review-staging"
+                onClick={() => setShowSelectivePublishModal(true)}
+                title="Revisar diferencias e incoherencias antes de publicar"
+              >
+                <CheckCheck size={14} />
+                <span>Revisar y Publicar</span>
+              </button>
+
+              <button
+                className="btn-send-staging"
+                onClick={handleSendStagedToScreen}
+                title="Enviar todos los cambios a la Tablet de un golpe"
+              >
+                <Send size={14} />
+                <span>Publicar Todo</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Quick Action Triggers Row */}
         <div className="quick-actions-bar">
           <button
-            className={`action-pill ${isBlackout ? 'blackout-active' : 'blackout-btn'}`}
+            className={`action-pill ${activeDisplay.isBlackout ? 'blackout-active' : 'blackout-btn'}`}
             onClick={toggleBlackout}
           >
             <EyeOff size={16} />
-            <span>{isBlackout ? 'Encender Pantalla' : 'Blackout (Pánico)'}</span>
+            <span>{activeDisplay.isBlackout ? 'Encender Pantalla' : 'Blackout (Pánico)'}</span>
           </button>
 
           <button className="action-pill trigger-lightning-btn" onClick={triggerLightning}>
@@ -711,14 +1452,21 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
           </button>
         </div>
 
-        {/* Navigation Tabs (4 Tabs) */}
-        <nav className="tab-navigation four-tabs">
+        {/* Navigation Tabs (5 Tabs) */}
+        <nav className="tab-navigation five-tabs">
           <button
             className={`nav-tab ${activeTab === 'live' ? 'active' : ''}`}
             onClick={() => setActiveTab('live')}
           >
             <Sliders size={16} />
             <span>En Vivo</span>
+          </button>
+          <button
+            className={`nav-tab ${activeTab === 'moments' ? 'active' : ''}`}
+            onClick={() => setActiveTab('moments')}
+          >
+            <Sparkles size={16} />
+            <span>Momentos</span>
           </button>
           <button
             className={`nav-tab ${activeTab === 'combat' ? 'active' : ''}`}
@@ -749,37 +1497,78 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
         {/* TAB 1: LIVE STAGE */}
         {activeTab === 'live' && (
           <div className="live-panel">
+            {/* Quick Moments Shortcuts in Live Panel */}
+            {campaign?.macros && campaign.macros.length > 0 && (
+              <section className="control-section quick-moments-live-section">
+                <div className="section-header">
+                  <div className="flex-align-gap">
+                    <Sparkles size={16} className="text-amber-400" />
+                    <span className="section-title">Momentos Rápidos</span>
+                  </div>
+                  <button className="link-button" onClick={() => setActiveTab('moments')}>
+                    Ver todos ({campaign.macros.length})
+                  </button>
+                </div>
+                <div className="quick-moments-scroll-row">
+                  {campaign.macros.map((m) => (
+                    <button
+                      key={m.id}
+                      className="quick-moment-chip"
+                      onClick={() => handleExecuteMacro(m)}
+                      title={m.description}
+                    >
+                      <Sparkles size={14} className="text-amber-400" />
+                      <span>{m.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* 1. Location Banner Quick Control */}
             <section className="control-section banner-section">
               <div className="section-header">
                 <span className="section-title">Cartel de Ubicación en Pantalla</span>
                 <button
-                  className={`mini-toggle ${bannerVisible ? 'on' : 'off'}`}
+                  className={`mini-toggle ${activeDisplay.locationBanner.visible ? 'on' : 'off'}`}
                   onClick={() => {
-                    setBannerVisible(!bannerVisible);
-                    peerService.send({
-                      type: 'SET_BANNER',
-                      payload: { text: locationTitle, subtitle: locationSubtitle, visible: !bannerVisible },
-                    });
+                    const next = !activeDisplay.locationBanner.visible;
+                    updateActiveDisplay(
+                      (prev) => ({
+                        ...prev,
+                        locationBanner: { ...prev.locationBanner, visible: next },
+                      }),
+                      `Cartel: ${next ? 'Visible' : 'Oculto'}`
+                    );
                   }}
                 >
-                  {bannerVisible ? 'Visible' : 'Oculto'}
+                  {activeDisplay.locationBanner.visible ? 'Visible' : 'Oculto'}
                 </button>
               </div>
               <div className="banner-inputs">
                 <input
                   type="text"
                   placeholder="Título (Ej. RUINAS DE ELDORIA)"
-                  value={locationTitle}
-                  onChange={(e) => setLocationTitle(e.target.value)}
+                  value={activeDisplay.locationBanner.text}
+                  onChange={(e) =>
+                    updateActiveDisplay((prev) => ({
+                      ...prev,
+                      locationBanner: { ...prev.locationBanner, text: e.target.value },
+                    }))
+                  }
                   onBlur={updateBanner}
                   className="master-input"
                 />
                 <input
                   type="text"
                   placeholder="Subtítulo (Ej. Sala del Trono Olvidado)"
-                  value={locationSubtitle}
-                  onChange={(e) => setLocationSubtitle(e.target.value)}
+                  value={activeDisplay.locationBanner.subtitle || ''}
+                  onChange={(e) =>
+                    updateActiveDisplay((prev) => ({
+                      ...prev,
+                      locationBanner: { ...prev.locationBanner, subtitle: e.target.value },
+                    }))
+                  }
                   onBlur={updateBanner}
                   className="master-input secondary"
                 />
@@ -794,18 +1583,22 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
               </div>
               <div className="scenes-carousel">
                 {campaign?.scenes.map((sc) => {
-                  const isSelected = currentScene?.id === sc.id;
+                  const isSelected = activeDisplay.currentSceneId === sc.id;
                   return (
                     <button
                       key={sc.id}
                       className={`scene-card ${isSelected ? 'selected' : ''}`}
-                      onClick={() => selectScene(sc, true)}
+                      onClick={() => selectScene(sc)}
                     >
                       <div
                         className="scene-thumb"
                         style={{ backgroundImage: `url(${sc.backgroundUrl})` }}
                       >
-                        {isSelected && <div className="active-badge">EN PANTALLA</div>}
+                        {isSelected && (
+                          <div className="active-badge">
+                            {operationMode === 'live' ? 'EN PANTALLA' : 'BORRADOR'}
+                          </div>
+                        )}
                       </div>
                       <span className="scene-name">{sc.name}</span>
                     </button>
@@ -815,34 +1608,34 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
             </section>
 
             {/* 3. Ambient Audio Bar for Current Scene */}
-            {currentScene?.ambientAudioUrl && (
+            {activeDisplay.ambientAudioUrl && (
               <section className="control-section audio-control-section">
                 <div className="section-header">
                   <div className="flex-align-gap">
                     <Music size={16} className="text-amber-400" />
                     <span className="section-title">
-                      {currentScene.ambientAudioName || 'Música Ambiental'}
+                      {currentScene?.ambientAudioName || 'Música Ambiental'}
                     </span>
                   </div>
                   <button
-                    className={`mini-toggle ${ambientPlaying ? 'on' : 'off'}`}
+                    className={`mini-toggle ${activeDisplay.ambientPlaying ? 'on' : 'off'}`}
                     onClick={toggleAmbientPlay}
                   >
-                    {ambientPlaying ? 'Reproduciendo' : 'Pausado'}
+                    {activeDisplay.ambientPlaying ? 'Reproduciendo' : 'Pausado'}
                   </button>
                 </div>
                 <div className="audio-slider-row">
-                  {ambientPlaying ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                  {activeDisplay.ambientPlaying ? <Volume2 size={16} /> : <VolumeX size={16} />}
                   <input
                     type="range"
                     min="0.05"
                     max="1.0"
                     step="0.05"
-                    value={ambientVolume}
+                    value={activeDisplay.ambientVolume}
                     onChange={(e) => handleAmbientVolumeChange(parseFloat(e.target.value))}
                     className="master-range"
                   />
-                  <span className="slider-label">{Math.round(ambientVolume * 100)}%</span>
+                  <span className="slider-label">{Math.round(activeDisplay.ambientVolume * 100)}%</span>
                 </div>
               </section>
             )}
@@ -850,7 +1643,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
             {/* 4. Stage Characters */}
             <section className="control-section">
               <div className="section-header">
-                <span className="section-title">Personajes en Escena ({activeCharacters.length})</span>
+                <span className="section-title">Personajes en Escena ({activeDisplay.characters.length})</span>
                 <button
                   className="btn-primary-sm"
                   onClick={() => setShowSummonModal(true)}
@@ -860,7 +1653,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
                 </button>
               </div>
 
-              {activeCharacters.length === 0 ? (
+              {activeDisplay.characters.length === 0 ? (
                 <div className="empty-roster-box">
                   <p>No hay personajes en la pantalla.</p>
                   <button className="btn-secondary-sm" onClick={() => setShowSummonModal(true)}>
@@ -869,7 +1662,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
                 </div>
               ) : (
                 <div className="active-chars-grid">
-                  {activeCharacters.map((char) => {
+                  {activeDisplay.characters.map((char) => {
                     const originalChar = campaign?.characters.find((c) => c.id === char.characterId);
                     return (
                       <div
@@ -939,49 +1732,49 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
               <span className="section-title">Clima y Partículas</span>
               <div className="weather-grid">
                 <button
-                  className={`weather-btn ${weather === 'none' ? 'active' : ''}`}
+                  className={`weather-btn ${activeDisplay.weather === 'none' ? 'active' : ''}`}
                   onClick={() => setWeatherEffect('none')}
                 >
                   <Sun size={18} />
                   <span>Despejado</span>
                 </button>
                 <button
-                  className={`weather-btn ${weather === 'rain' ? 'active' : ''}`}
+                  className={`weather-btn ${activeDisplay.weather === 'rain' ? 'active' : ''}`}
                   onClick={() => setWeatherEffect('rain')}
                 >
                   <CloudRain size={18} />
                   <span>Lluvia</span>
                 </button>
                 <button
-                  className={`weather-btn ${weather === 'storm' ? 'active' : ''}`}
+                  className={`weather-btn ${activeDisplay.weather === 'storm' ? 'active' : ''}`}
                   onClick={() => setWeatherEffect('storm')}
                 >
                   <CloudLightning size={18} />
                   <span>Tormenta</span>
                 </button>
                 <button
-                  className={`weather-btn ${weather === 'snow' ? 'active' : ''}`}
+                  className={`weather-btn ${activeDisplay.weather === 'snow' ? 'active' : ''}`}
                   onClick={() => setWeatherEffect('snow')}
                 >
                   <Snowflake size={18} />
                   <span>Nieve</span>
                 </button>
                 <button
-                  className={`weather-btn ${weather === 'fog' ? 'active' : ''}`}
+                  className={`weather-btn ${activeDisplay.weather === 'fog' ? 'active' : ''}`}
                   onClick={() => setWeatherEffect('fog')}
                 >
                   <Wind size={18} />
                   <span>Niebla</span>
                 </button>
                 <button
-                  className={`weather-btn ${weather === 'embers' ? 'active' : ''}`}
+                  className={`weather-btn ${activeDisplay.weather === 'embers' ? 'active' : ''}`}
                   onClick={() => setWeatherEffect('embers')}
                 >
                   <Flame size={18} />
                   <span>Ascuas</span>
                 </button>
                 <button
-                  className={`weather-btn ${weather === 'fireflies' ? 'active' : ''}`}
+                  className={`weather-btn ${activeDisplay.weather === 'fireflies' ? 'active' : ''}`}
                   onClick={() => setWeatherEffect('fireflies')}
                 >
                   <Sparkles size={18} />
@@ -989,15 +1782,15 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
                 </button>
               </div>
 
-              {weather !== 'none' && (
+              {activeDisplay.weather !== 'none' && (
                 <div className="intensity-slider-row">
-                  <span className="slider-label">Intensidad: {Math.round(weatherIntensity * 100)}%</span>
+                  <span className="slider-label">Intensidad: {Math.round(activeDisplay.weatherIntensity * 100)}%</span>
                   <input
                     type="range"
                     min="0.1"
                     max="1.0"
                     step="0.05"
-                    value={weatherIntensity}
+                    value={activeDisplay.weatherIntensity}
                     onChange={(e) => setWeatherIntensityVal(parseFloat(e.target.value))}
                     className="master-range"
                   />
@@ -1010,42 +1803,42 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
               <span className="section-title">Filtro de Luz e Iluminación</span>
               <div className="lighting-grid">
                 <button
-                  className={`light-btn ${lighting === 'normal' ? 'active' : ''}`}
+                  className={`light-btn ${activeDisplay.lighting === 'normal' ? 'active' : ''}`}
                   onClick={() => setLightingPreset('normal')}
                 >
                   <Sun size={16} />
                   <span>Día / Normal</span>
                 </button>
                 <button
-                  className={`light-btn ${lighting === 'torch_flicker' ? 'active' : ''}`}
+                  className={`light-btn ${activeDisplay.lighting === 'torch_flicker' ? 'active' : ''}`}
                   onClick={() => setLightingPreset('torch_flicker')}
                 >
                   <Flame size={16} />
                   <span>Antorchas</span>
                 </button>
                 <button
-                  className={`light-btn ${lighting === 'night' ? 'active' : ''}`}
+                  className={`light-btn ${activeDisplay.lighting === 'night' ? 'active' : ''}`}
                   onClick={() => setLightingPreset('night')}
                 >
                   <Moon size={16} />
                   <span>Noche</span>
                 </button>
                 <button
-                  className={`light-btn ${lighting === 'sunset' ? 'active' : ''}`}
+                  className={`light-btn ${activeDisplay.lighting === 'sunset' ? 'active' : ''}`}
                   onClick={() => setLightingPreset('sunset')}
                 >
                   <Sunset size={16} />
                   <span>Atardecer</span>
                 </button>
                 <button
-                  className={`light-btn ${lighting === 'blood_moon' ? 'active' : ''}`}
+                  className={`light-btn ${activeDisplay.lighting === 'blood_moon' ? 'active' : ''}`}
                   onClick={() => setLightingPreset('blood_moon')}
                 >
                   <Skull size={16} />
                   <span>Luna de Sangre</span>
                 </button>
                 <button
-                  className={`light-btn ${lighting === 'mystic_violet' ? 'active' : ''}`}
+                  className={`light-btn ${activeDisplay.lighting === 'mystic_violet' ? 'active' : ''}`}
                   onClick={() => setLightingPreset('mystic_violet')}
                 >
                   <Sparkles size={16} />
@@ -1073,14 +1866,33 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
           </div>
         )}
 
-        {/* TAB 2: COMBAT & INITIATIVE TRACKER */}
+        {/* TAB 2: MOMENTS / MACROS */}
+        {activeTab === 'moments' && (
+          <MomentsTab
+            campaign={campaign}
+            onExecuteMacro={handleExecuteMacro}
+            onLoadMacroToStaging={handleLoadMacroToStaging}
+            onUpdateMacros={handleUpdateMacros}
+          />
+        )}
+
+        {/* TAB 3: COMBAT & INITIATIVE TRACKER */}
         {activeTab === 'combat' && (
           <CombatTab
-            combatState={combatState}
+            combatState={activeDisplay.combatState}
             campaign={campaign}
             currentScene={currentScene}
             onUpdateCombatState={(newState) => {
-              setCombatState(newState);
+              if (activeDisplay.combatState.isActive !== newState.isActive) {
+                createAutoCheckpoint(
+                  newState.isActive ? 'Inicio de Combate' : 'Finalización de Combate',
+                  liveState
+                );
+              }
+              updateActiveDisplay(
+                (prev) => ({ ...prev, combatState: newState }),
+                `Combate: Ronda ${newState.round}, Turno ${newState.currentTurnIndex + 1}`
+              );
               if (!newState.isActive) {
                 peerService.send({ type: 'END_COMBAT' });
               } else {
@@ -1090,7 +1902,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
           />
         )}
 
-        {/* TAB 3: DM NOTES & DICE */}
+        {/* TAB 4: DM NOTES & DICE */}
         {activeTab === 'notes' && (
           <div className="notes-panel">
             <div className="notes-card">
@@ -1102,7 +1914,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
                 onChange={(e) => {
                   if (!currentScene || !campaign) return;
                   const updatedScene = { ...currentScene, dmNotes: e.target.value };
-                  setCurrentScene(updatedScene);
                   const updatedScenes = campaign.scenes.map((s) => (s.id === updatedScene.id ? updatedScene : s));
                   const updatedCamp = { ...campaign, scenes: updatedScenes };
                   setCampaign(updatedCamp);
@@ -1139,7 +1950,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
           </div>
         )}
 
-        {/* TAB 4: LIBRARY & CAMPAIGNS */}
+        {/* TAB 5: LIBRARY & CAMPAIGNS */}
         {activeTab === 'library' && (
           <div className="library-panel">
             <div className="campaign-meta-box">
@@ -1294,6 +2105,111 @@ export const MasterController: React.FC<MasterControllerProps> = ({ initialRoomC
           </div>
         )}
       </main>
+
+      {/* SELECTIVE PUBLISH MODAL */}
+      {showSelectivePublishModal && (
+        <SelectivePublishModal
+          liveState={liveState}
+          stagedState={stagedState}
+          campaign={campaign}
+          onPublishSelective={handleSelectivePublish}
+          onPublishAll={handleSendStagedToScreen}
+          onClose={() => setShowSelectivePublishModal(false)}
+        />
+      )}
+
+      {/* FULL SCREEN PREVIEW MODAL */}
+      {showFullScreenPreview && (
+        <FullScreenPreviewModal
+          liveState={liveState}
+          stagedState={stagedState}
+          operationMode={operationMode}
+          previewTab={previewTab}
+          hasPendingChanges={pendingChangesCount > 0}
+          onChangePreviewTab={setPreviewTab}
+          onSendToScreen={handleSendStagedToScreen}
+          onClose={() => setShowFullScreenPreview(false)}
+        />
+      )}
+
+      {/* QUICK MOMENTS DROPDOWN */}
+      {showQuickMoments && (
+        <QuickMomentsDropdown
+          macros={campaign?.macros || []}
+          onExecuteMacro={handleExecuteMacro}
+          onLoadMacroToStaging={handleLoadMacroToStaging}
+          onClose={() => setShowQuickMoments(false)}
+        />
+      )}
+
+      {/* HISTORY MODAL */}
+      {showHistoryModal && (
+        <HistoryModal
+          pastEvents={pastEvents}
+          onRestoreEvent={handleRestoreFromHistory}
+          onClose={() => setShowHistoryModal(false)}
+        />
+      )}
+
+      {/* CHECKPOINTS MODAL */}
+      {showCheckpointsModal && (
+        <CheckpointsModal
+          checkpoints={checkpointsList}
+          onSaveManualCheckpoint={handleSaveManualCheckpoint}
+          onRestoreCheckpoint={handleRestoreCheckpoint}
+          onDeleteCheckpoint={handleDeleteCheckpoint}
+          onClose={() => setShowCheckpointsModal(false)}
+        />
+      )}
+
+      {/* DIALOG: UNSAVED STAGING CHANGES WHEN SWITCHING TO LIVE */}
+      {showUnsavedStagingDialog && (
+        <div className="modal-overlay" onClick={() => setShowUnsavedStagingDialog(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Cambios Pendientes en Borrador</h2>
+            </div>
+            <p className="modal-dialog-text">
+              Tienes <strong>{pendingChangesCount} cambios preparados</strong> que aún no se han enviado a la pantalla. ¿Qué deseas hacer al volver al modo En Vivo?
+            </p>
+            <div className="modal-dialog-actions-vertical">
+              <button
+                className="btn-primary full"
+                onClick={() => {
+                  handleSendStagedToScreen();
+                  setOperationMode('live');
+                  setShowUnsavedStagingDialog(false);
+                }}
+              >
+                <Send size={16} />
+                <span>Publicar y Enviar a Pantalla</span>
+              </button>
+
+              <button
+                className="btn-secondary full"
+                onClick={() => {
+                  setOperationMode('live');
+                  setShowUnsavedStagingDialog(false);
+                }}
+              >
+                <span>Conservar como Borrador (Sin Publicar)</span>
+              </button>
+
+              <button
+                className="btn-danger full"
+                onClick={() => {
+                  handleDiscardStaged();
+                  setOperationMode('live');
+                  setShowUnsavedStagingDialog(false);
+                }}
+              >
+                <Trash2 size={16} />
+                <span>Descartar Borrador</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: CAMPAIGN PICKER & MANAGER */}
       {showCampaignPickerModal && (

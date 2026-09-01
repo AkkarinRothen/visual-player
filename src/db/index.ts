@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Campaign, Character, Scene, SFXTrack } from '../types';
+import type { Campaign, Character, Scene, SFXTrack, SessionCheckpoint, CinematicMacro, SavedEncounter } from '../types';
 
 export interface StoredAsset {
   id: string;
@@ -20,15 +20,19 @@ export class VisualPlayerDB extends Dexie {
   scenes!: Table<Scene, string>;
   assets!: Table<StoredAsset, string>;
   settings!: Table<AppSetting, string>;
+  checkpoints!: Table<SessionCheckpoint, string>;
+  encounters!: Table<SavedEncounter, string>;
 
   constructor() {
     super('VisualPlayerDB');
-    this.version(2).stores({
+    this.version(4).stores({
       campaigns: 'id, title, createdAt, updatedAt',
       characters: 'id, name, roleOrTitle',
       scenes: 'id, name',
       assets: 'id, name, type, createdAt',
       settings: 'key',
+      checkpoints: 'id, campaignId, type, createdAt',
+      encounters: 'id, campaignId, name, difficulty',
     });
   }
 }
@@ -48,7 +52,7 @@ export const BUILTIN_SFX: SFXTrack[] = [
   { id: 'sfx-heartbeat', name: 'Latido / Tensión', category: 'mystery', icon: 'Heart', soundType: 'synthesized', synthPreset: 'heartbeat' },
 ];
 
-// Initial Demo Campaign Data
+// Initial Demo Campaign Characters
 export const DEMO_CHARACTERS: Character[] = [
   {
     id: 'char-eldrin',
@@ -108,6 +112,7 @@ export const DEMO_CHARACTERS: Character[] = [
   },
 ];
 
+// Initial Demo Scenes
 export const DEMO_SCENES: Scene[] = [
   {
     id: 'scene-tavern',
@@ -118,7 +123,7 @@ export const DEMO_SCENES: Scene[] = [
     weather: 'embers',
     weatherIntensity: 0.4,
     lighting: 'torch_flicker',
-    dmNotes: 'El tabernero Gromm tiene la llave del sótano donde se oculta la entrada a las catacumbas. Hay un bardo cantando en una esquina y dos soldados sospechosos observando a los jugadores.',
+    dmNotes: 'El tabernero Gromm tiene la llave del sótano donde se oculta la entrada a las catacumbas.',
     ambientAudioUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=medieval-tavern-music-112349.mp3',
     ambientAudioName: 'Música de Taberna Medieval',
     suggestedNpcIds: ['char-tavernero', 'char-eldrin'],
@@ -132,7 +137,7 @@ export const DEMO_SCENES: Scene[] = [
     weather: 'fog',
     weatherIntensity: 0.7,
     lighting: 'mystic_violet',
-    dmNotes: 'Tirada de Percepción DC 14 para no perderse. A mitad del camino encontrarán un altar con runas cubiertas de musgo.',
+    dmNotes: 'Tirada de Percepción DC 14 para no perderse.',
     ambientAudioUrl: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=forest-wind-and-birds-6881.mp3',
     ambientAudioName: 'Viento en el Bosque Mágico',
     suggestedNpcIds: ['char-eldrin', 'char-morwen'],
@@ -146,22 +151,10 @@ export const DEMO_SCENES: Scene[] = [
     weather: 'storm',
     weatherIntensity: 0.9,
     lighting: 'night',
-    dmNotes: 'Lluvia intensa y relámpagos constantes. La visibilidad está reducida a 10 metros. Un eco mágico resuena cada vez que cae un rayo.',
+    dmNotes: 'Lluvia intensa y relámpagos constantes.',
     ambientAudioUrl: 'https://cdn.pixabay.com/download/audio/2022/10/30/audio_51c6b6d510.mp3?filename=heavy-rain-and-thunder-126296.mp3',
     ambientAudioName: 'Lluvia Fuerte y Truenos',
     suggestedNpcIds: ['char-morwen', 'char-thorin'],
-  },
-  {
-    id: 'scene-snow-mountain',
-    name: 'Pico del Viento Helado',
-    backgroundUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1600&auto=format&fit=crop&q=80',
-    locationBanner: 'PICO DEL VIENTO HELADO',
-    subtitle: 'Cumbre Septentrional - 3.200m de Altitud',
-    weather: 'snow',
-    weatherIntensity: 0.8,
-    lighting: 'normal',
-    dmNotes: 'Efecto de Frío Extremo (Tiradas de Salvación de Constitución al final de cada hora). El puente colgante cruje peligrosamente.',
-    suggestedNpcIds: ['char-thorin'],
   },
   {
     id: 'scene-dragon-lair',
@@ -172,8 +165,275 @@ export const DEMO_SCENES: Scene[] = [
     weather: 'embers',
     weatherIntensity: 1.0,
     lighting: 'blood_moon',
-    dmNotes: 'El suelo está cubierto de oro y huesos calcinados. El dragón despierta si los jugadores hacen ruido superior a Sigilo DC 16.',
+    dmNotes: 'El suelo está cubierto de oro y huesos calcinados.',
     suggestedNpcIds: ['char-ignis', 'char-morwen'],
+  },
+];
+
+// Initial Demo Macros
+export const DEMO_MACROS: CinematicMacro[] = [
+  {
+    id: 'macro-dragon-awakens',
+    name: 'Despertar de Vaelthazar',
+    description: 'Blackout, rugido aterrador, temblor y revelación del dragón ancestral entre ascuas y fuego carmesí.',
+    icon: 'Skull',
+    steps: [
+      {
+        id: 'step-1',
+        delayMs: 1800,
+        actionLabel: 'Blackout & Rugido Aterrador',
+        blackout: true,
+        sfxPreset: 'monster_roar',
+        shake: true,
+      },
+      {
+        id: 'step-2',
+        delayMs: 0,
+        actionLabel: 'Revelación del Santuario del Dragón',
+        sceneId: 'scene-dragon-lair',
+        backgroundUrl: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&auto=format&fit=crop&q=80',
+        weather: 'embers',
+        weatherIntensity: 1.0,
+        lighting: 'blood_moon',
+        blackout: false,
+        locationBanner: {
+          text: '¡DESPIERTA VAELTHAZAR!',
+          subtitle: 'Corazón Volcánico de la Montaña Roja',
+          visible: true,
+        },
+        charactersToAdd: [
+          {
+            id: 'macro-char-dragon',
+            characterId: 'char-ignis',
+            name: 'Vaelthazar el Devorador',
+            avatarUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=600&auto=format&fit=crop&q=80',
+            position: 'center-right',
+            isSpeaking: true,
+          },
+        ],
+        sfxPreset: 'thunder',
+        shake: true,
+      },
+    ],
+  },
+  {
+    id: 'macro-ruins-storm',
+    name: 'Tempestad en las Ruinas',
+    description: 'Tormenta nocturna, relámpago con trueno y llegada de Bromir en posición de guardia.',
+    icon: 'CloudLightning',
+    steps: [
+      {
+        id: 'step-1',
+        delayMs: 1400,
+        actionLabel: 'Comienzo de la Tormenta',
+        sceneId: 'scene-storm-ruins',
+        backgroundUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80',
+        weather: 'storm',
+        weatherIntensity: 0.9,
+        lighting: 'night',
+        ambientAudioUrl: 'https://cdn.pixabay.com/download/audio/2022/10/30/audio_51c6b6d510.mp3?filename=heavy-rain-and-thunder-126296.mp3',
+        ambientAudioName: 'Lluvia Fuerte y Truenos',
+        ambientPlaying: true,
+        ambientVolume: 0.6,
+      },
+      {
+        id: 'step-2',
+        delayMs: 0,
+        actionLabel: 'Rayo & Aparición del Capitán Enano',
+        lightning: true,
+        shake: true,
+        sfxPreset: 'thunder',
+        locationBanner: {
+          text: 'RUINAS DE LA TORRE QUEBRADA',
+          subtitle: 'Tempestad en el Paso del Trueno',
+          visible: true,
+        },
+        charactersToAdd: [
+          {
+            id: 'macro-char-thorin',
+            characterId: 'char-thorin',
+            name: 'Bromir Rompehierro',
+            avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80',
+            position: 'center-left',
+            isSpeaking: false,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'macro-tavern-arrival',
+    name: 'Llegada a la Taberna',
+    description: 'Campanadas de fondo, calor de antorchas, música festiva y bienvenida del tabernero Gromm.',
+    icon: 'Flame',
+    steps: [
+      {
+        id: 'step-1',
+        delayMs: 1200,
+        actionLabel: 'Campana & Puerta',
+        sfxPreset: 'church_bell',
+      },
+      {
+        id: 'step-2',
+        delayMs: 0,
+        actionLabel: 'Ambiente Cálido y Bienvenida',
+        sceneId: 'scene-tavern',
+        backgroundUrl: 'https://images.unsplash.com/photo-1572025442646-866d16c84a54?w=1600&auto=format&fit=crop&q=80',
+        weather: 'embers',
+        weatherIntensity: 0.4,
+        lighting: 'torch_flicker',
+        ambientAudioUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=medieval-tavern-music-112349.mp3',
+        ambientAudioName: 'Música de Taberna Medieval',
+        ambientPlaying: true,
+        ambientVolume: 0.5,
+        locationBanner: {
+          text: 'TABERNA DEL DRAGÓN DURMIENTE',
+          subtitle: 'Valle de Oakhaven - Rumores y Cerveza Enana',
+          visible: true,
+        },
+        charactersToAdd: [
+          {
+            id: 'macro-char-tavernero',
+            characterId: 'char-tavernero',
+            name: 'Gromm el Tabernero',
+            avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80',
+            position: 'center-left',
+            isSpeaking: true,
+          },
+        ],
+      },
+    ],
+  },
+];
+
+// Initial Demo Saved Encounters
+export const DEMO_ENCOUNTERS: SavedEncounter[] = [
+  {
+    id: 'enc-wolves',
+    campaignId: 'campaign-demo',
+    name: 'Emboscada de los Lobos Sombríos',
+    description: 'Una jauría de lobos hambrientos rodea el campamento mientras el lobo alfa acecha en las sombras.',
+    difficulty: 'medio',
+    rewardsSummary: '350 XP, 45 PO, 2 Pieles de Lobo Huargo de Calidad',
+    turnTimerSeconds: 60,
+    dmNotes: 'Los lobos atacan en manada (tienen ventaja si hay otro lobo a 1.5m de la víctima). El Alfa entra en la Ronda 2.',
+    combatants: [
+      {
+        id: 'wolf-1',
+        name: 'Lobo Huargo A',
+        avatarUrl: 'https://images.unsplash.com/photo-1564865878688-9a244444042a?w=600&auto=format&fit=crop&q=80',
+        maxHp: 26,
+        currentHp: 26,
+        isMonster: true,
+        showHpToPlayers: false,
+        initiativeType: 'roll_d20',
+        initiativeModifier: 2,
+      },
+      {
+        id: 'wolf-2',
+        name: 'Lobo Huargo B',
+        avatarUrl: 'https://images.unsplash.com/photo-1564865878688-9a244444042a?w=600&auto=format&fit=crop&q=80',
+        maxHp: 26,
+        currentHp: 26,
+        isMonster: true,
+        showHpToPlayers: false,
+        initiativeType: 'roll_d20',
+        initiativeModifier: 2,
+      },
+      {
+        id: 'wolf-alpha',
+        name: '🐺 Lobo Alfa Garraoscura (Refuerzo)',
+        avatarUrl: 'https://images.unsplash.com/photo-1590424744299-eb38b97d264e?w=600&auto=format&fit=crop&q=80',
+        maxHp: 48,
+        currentHp: 48,
+        isMonster: true,
+        showHpToPlayers: false,
+        initiativeType: 'roll_d20',
+        initiativeModifier: 3,
+        isWaveReinforcement: true,
+        triggerRound: 2,
+      },
+      {
+        id: 'player-eldrin',
+        name: 'Eldrin Sombrasusurro',
+        avatarUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80',
+        maxHp: 38,
+        currentHp: 38,
+        isMonster: false,
+        showHpToPlayers: true,
+        initiativeType: 'roll_d20',
+        initiativeModifier: 4,
+      },
+      {
+        id: 'player-bromir',
+        name: 'Bromir Rompehierro',
+        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80',
+        maxHp: 58,
+        currentHp: 58,
+        isMonster: false,
+        showHpToPlayers: true,
+        initiativeType: 'roll_d20',
+        initiativeModifier: 1,
+      },
+    ],
+  },
+  {
+    id: 'enc-dragon',
+    campaignId: 'campaign-demo',
+    name: 'El Juicio de Vaelthazar el Devorador',
+    description: 'Enfrentamiento culminante contra el dragón anciano en su trono de lava ardiente.',
+    difficulty: 'letal',
+    rewardsSummary: '3.800 XP, 2.400 PO, Corona de Rubíes del Rey Enano, Daga Llameante +2',
+    turnTimerSeconds: 60,
+    dmNotes: 'Aliento de Fuego (Recarga 5-6): 12d6 daño de fuego en cono de 18m (DC 18 Destreza mitad).',
+    combatants: [
+      {
+        id: 'boss-vaelthazar',
+        name: '🐉 Vaelthazar el Devorador',
+        avatarUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=600&auto=format&fit=crop&q=80',
+        maxHp: 180,
+        currentHp: 180,
+        isMonster: true,
+        showHpToPlayers: true,
+        initiativeType: 'fixed',
+        fixedInitiative: 20,
+      },
+      {
+        id: 'cultist-1',
+        name: 'Fanático del Fuego A',
+        avatarUrl: 'https://images.unsplash.com/photo-1509248961158-e54f6934749c?w=600&auto=format&fit=crop&q=80',
+        maxHp: 32,
+        currentHp: 32,
+        isMonster: true,
+        showHpToPlayers: false,
+        initiativeType: 'roll_d20',
+        initiativeModifier: 2,
+      },
+      {
+        id: 'cultist-2',
+        name: 'Fanático del Fuego B (Refuerzo)',
+        avatarUrl: 'https://images.unsplash.com/photo-1509248961158-e54f6934749c?w=600&auto=format&fit=crop&q=80',
+        maxHp: 32,
+        currentHp: 32,
+        isMonster: true,
+        showHpToPlayers: false,
+        initiativeType: 'roll_d20',
+        initiativeModifier: 2,
+        isWaveReinforcement: true,
+        triggerRound: 3,
+      },
+      {
+        id: 'p-morwen',
+        name: 'Morwen del Fuego Carmesí',
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80',
+        maxHp: 32,
+        currentHp: 32,
+        isMonster: false,
+        showHpToPlayers: true,
+        initiativeType: 'roll_d20',
+        initiativeModifier: 2,
+      },
+    ],
   },
 ];
 
@@ -186,9 +446,11 @@ export const DEMO_CAMPAIGN: Campaign = {
   scenes: DEMO_SCENES,
   characters: DEMO_CHARACTERS,
   customSfx: BUILTIN_SFX,
+  macros: DEMO_MACROS,
+  encounters: DEMO_ENCOUNTERS,
 };
 
-// Campaign CRUD & Multi-Campaign Database Helpers
+// Campaign CRUD
 export async function getAllCampaigns(): Promise<Campaign[]> {
   return await db.campaigns.toArray();
 }
@@ -237,6 +499,52 @@ export async function deleteCampaign(id: string): Promise<void> {
   }
 }
 
+// Checkpoints
+export async function getCampaignCheckpoints(campaignId: string): Promise<SessionCheckpoint[]> {
+  const all = await db.checkpoints.where('campaignId').equals(campaignId).toArray();
+  return all.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function saveCheckpoint(cp: SessionCheckpoint): Promise<void> {
+  await db.checkpoints.put(cp);
+  if (cp.type === 'auto') {
+    await cleanOldAutoCheckpoints(cp.campaignId, 30);
+  }
+}
+
+export async function deleteCheckpoint(id: string): Promise<void> {
+  await db.checkpoints.delete(id);
+}
+
+export async function cleanOldAutoCheckpoints(campaignId: string, limit: number = 30): Promise<void> {
+  const autoCheckpoints = await db.checkpoints
+    .where('campaignId')
+    .equals(campaignId)
+    .filter((cp) => cp.type === 'auto')
+    .toArray();
+
+  autoCheckpoints.sort((a, b) => b.createdAt - a.createdAt);
+  if (autoCheckpoints.length > limit) {
+    const toDelete = autoCheckpoints.slice(limit);
+    for (const item of toDelete) {
+      await db.checkpoints.delete(item.id);
+    }
+  }
+}
+
+// Saved Encounters
+export async function getCampaignEncounters(campaignId: string): Promise<SavedEncounter[]> {
+  return await db.encounters.where('campaignId').equals(campaignId).toArray();
+}
+
+export async function saveEncounter(encounter: SavedEncounter): Promise<void> {
+  await db.encounters.put(encounter);
+}
+
+export async function deleteEncounter(id: string): Promise<void> {
+  await db.encounters.delete(id);
+}
+
 export async function initDefaultDataIfNeeded(): Promise<Campaign> {
   const count = await db.campaigns.count();
   if (count === 0) {
@@ -248,11 +556,27 @@ export async function initDefaultDataIfNeeded(): Promise<Campaign> {
     for (const sc of DEMO_SCENES) {
       await db.scenes.put(sc);
     }
+    for (const enc of DEMO_ENCOUNTERS) {
+      await db.encounters.put(enc);
+    }
     return DEMO_CAMPAIGN;
   }
   const activeId = await getActiveCampaignId();
   const activeCamp = await db.campaigns.get(activeId);
-  if (activeCamp) return activeCamp;
+  if (activeCamp) {
+    if (!activeCamp.macros || activeCamp.macros.length === 0) {
+      activeCamp.macros = DEMO_MACROS;
+      await db.campaigns.put(activeCamp);
+    }
+    if (!activeCamp.encounters || activeCamp.encounters.length === 0) {
+      activeCamp.encounters = DEMO_ENCOUNTERS;
+      await db.campaigns.put(activeCamp);
+      for (const enc of DEMO_ENCOUNTERS) {
+        await db.encounters.put(enc);
+      }
+    }
+    return activeCamp;
+  }
 
   const campaigns = await db.campaigns.toArray();
   return campaigns[0] || DEMO_CAMPAIGN;

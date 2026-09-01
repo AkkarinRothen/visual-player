@@ -30,6 +30,9 @@ export interface Combatant {
   showHpToPlayers: boolean;
   conditions: CombatCondition[];
   isMonster: boolean;
+  isWaveReinforcement?: boolean;
+  triggerRound?: number;
+  isDeployed?: boolean;
 }
 
 export interface CombatState {
@@ -40,6 +43,37 @@ export interface CombatState {
   turnTimerSeconds?: number;
   isTimerRunning?: boolean;
   showTurnTimerToPlayers?: boolean;
+  encounterName?: string;
+  rewardsSummary?: string;
+}
+
+export interface EncounterCombatant {
+  id: string;
+  name: string;
+  avatarUrl: string;
+  maxHp: number;
+  currentHp: number;
+  isMonster: boolean;
+  showHpToPlayers: boolean;
+  initiativeType: 'fixed' | 'roll_d20' | 'manual';
+  fixedInitiative?: number;
+  initiativeModifier?: number;
+  initialConditions?: CombatCondition[];
+  isWaveReinforcement?: boolean;
+  triggerRound?: number;
+}
+
+export interface SavedEncounter {
+  id: string;
+  campaignId: string;
+  name: string;
+  description: string;
+  difficulty: 'facil' | 'medio' | 'dificil' | 'letal';
+  combatants: EncounterCombatant[];
+  dmNotes?: string;
+  rewardsSummary?: string;
+  turnTimerSeconds?: number;
+  backgroundSceneId?: string;
 }
 
 export interface CharacterExpression {
@@ -94,6 +128,39 @@ export interface SFXTrack {
   audioUrl?: string;
 }
 
+// Macro & Step Definitions
+export interface MacroStep {
+  id: string;
+  delayMs: number;
+  actionLabel?: string;
+  sceneId?: string;
+  backgroundUrl?: string;
+  weather?: WeatherType;
+  weatherIntensity?: number;
+  lighting?: LightingFilter;
+  charactersToAdd?: CharacterOnScreen[];
+  charactersToRemove?: string[];
+  speakerId?: string;
+  locationBanner?: { text: string; subtitle?: string; visible: boolean };
+  ambientAudioUrl?: string;
+  ambientAudioName?: string;
+  ambientPlaying?: boolean;
+  ambientVolume?: number;
+  sfxPreset?: string;
+  sfxAudioUrl?: string;
+  lightning?: boolean;
+  shake?: boolean;
+  blackout?: boolean;
+}
+
+export interface CinematicMacro {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  steps: MacroStep[];
+}
+
 export interface Campaign {
   id: string;
   title: string;
@@ -103,6 +170,8 @@ export interface Campaign {
   scenes: Scene[];
   characters: Character[];
   customSfx?: SFXTrack[];
+  macros?: CinematicMacro[];
+  encounters?: SavedEncounter[];
 }
 
 export interface DisplayState {
@@ -132,6 +201,54 @@ export interface DisplayState {
     timestamp: number;
   } | null;
   combatState: CombatState;
+}
+
+// History & Checkpoint Interfaces
+export interface HistoryEvent {
+  id: string;
+  timestamp: number;
+  description: string;
+  mode: 'live' | 'staging';
+  stateSnapshot: DisplayState;
+}
+
+export interface SessionCheckpoint {
+  id: string;
+  campaignId: string;
+  name: string;
+  type: 'manual' | 'auto';
+  trigger: string;
+  createdAt: number;
+  state: DisplayState;
+  previewThumbnailUrl?: string;
+}
+
+// Selective Publish & Diff Inspector Types
+export type PublishCategoryKey =
+  | 'background'
+  | 'characters'
+  | 'weather'
+  | 'lighting'
+  | 'locationBanner'
+  | 'ambientAudio'
+  | 'blackout';
+
+export interface CategoryDiff {
+  key: PublishCategoryKey;
+  label: string;
+  icon: string;
+  hasChanged: boolean;
+  liveSummary: string;
+  stagedSummary: string;
+  technicalError?: string;
+}
+
+export interface DependencyWarning {
+  id: string;
+  type: 'technical_blocker' | 'narrative_warning';
+  title: string;
+  description: string;
+  recommendedCategoryKeys: PublishCategoryKey[];
 }
 
 export type SyncMessage =

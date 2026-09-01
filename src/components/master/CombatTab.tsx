@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { Campaign, CombatCondition, CombatState, Combatant, Scene } from '../../types';
+import type { Campaign, CombatCondition, CombatState, Combatant, SavedEncounter, Scene } from '../../types';
 import { soundEngine } from '../../services/soundEngine';
 import { peerService } from '../../services/peerService';
+import { SavedEncountersModal } from './SavedEncountersModal';
 import {
   Swords,
   Play,
@@ -17,13 +18,21 @@ import {
   Trash2,
   Clock,
   RotateCcw,
+  BookOpen,
+  Award,
+  Sparkles,
+  X,
+  Copy,
 } from 'lucide-react';
 
 interface CombatTabProps {
   combatState: CombatState;
   campaign: Campaign | null;
   currentScene: Scene | null;
+  encounters?: SavedEncounter[];
   onUpdateCombatState: (state: CombatState) => void;
+  onSaveEncounter?: (encounter: SavedEncounter) => void;
+  onDeleteEncounter?: (id: string) => void;
 }
 
 const CONDITIONS_LIST: { id: CombatCondition; label: string; icon: string }[] = [
@@ -43,7 +52,10 @@ export const CombatTab: React.FC<CombatTabProps> = ({
   combatState,
   campaign,
   currentScene: _currentScene,
+  encounters = [],
   onUpdateCombatState,
+  onSaveEncounter = () => {},
+  onDeleteEncounter = () => {},
 }) => {
   const [timerSeconds, setTimerSeconds] = useState<number>(combatState.turnTimerSeconds ?? 60);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(combatState.isTimerRunning ?? false);
@@ -51,6 +63,17 @@ export const CombatTab: React.FC<CombatTabProps> = ({
     combatState.showTurnTimerToPlayers ?? true
   );
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [showEncountersModal, setShowEncountersModal] = useState<boolean>(false);
+
+  // Victory summary modal
+  const [showVictoryModal, setShowVictoryModal] = useState<boolean>(false);
+  const [victorySummary, setVictorySummary] = useState<{
+    rounds: number;
+    defeatedMonsters: string[];
+    survivors: string[];
+    rewards: string;
+  } | null>(null);
+
   const [newCombatant, setNewCombatant] = useState<{
     name: string;
     avatarUrl: string;
@@ -66,6 +89,15 @@ export const CombatTab: React.FC<CombatTabProps> = ({
   });
 
   const lastBroadcastRef = useRef<number>(0);
+
+  // Filter deployed vs undeployed (wave reinforcements)
+  const deployedCombatants = combatState.combatants.filter((c) => c.isDeployed !== false);
+  const pendingWaveReinforcements = combatState.combatants.filter((c) => c.isDeployed === false);
+
+  // Check if any wave reinforcement is ready to trigger in current round
+  const readyWaveReinforcements = pendingWaveReinforcements.filter(
+    (c) => (c.triggerRound || 2) <= combatState.round
+  );
 
   // Turn countdown timer with WebRTC broadcast
   useEffect(() => {
@@ -107,6 +139,60 @@ export const CombatTab: React.FC<CombatTabProps> = ({
     }
   }, [timerSeconds, isTimerRunning, showTimerToPlayers]);
 
+  // Launch Encounter Live from SavedEncountersModal
+  const handleLaunchEncounterLive = (encounter: SavedEncounter, combatants: Combatant[]) => {
+    soundEngine.playSynth('combat_start');
+    const newState: CombatState = {
+      isActive: true,
+      round: 1,
+      currentTurnIndex: 0,
+      combatants,
+      turnTimerSeconds: encounter.turnTimerSeconds || 60,
+      isTimerRunning: true,
+      showTurnTimerToPlayers: true,
+      encounterName: encounter.name,
+      rewardsSummary: encounter.rewardsSummary,
+    };
+    onUpdateCombatState(newState);
+    setTimerSeconds(encounter.turnTimerSeconds || 60);
+    setIsTimerRunning(true);
+  };
+
+  // Load Encounter to Staging
+  const handleLoadEncounterToStaging = (encounter: SavedEncounter, combatants: Combatant[]) => {
+    const newState: CombatState = {
+      isActive: true,
+      round: 1,
+      currentTurnIndex: 0,
+      combatants,
+      turnTimerSeconds: encounter.turnTimerSeconds || 60,
+      isTimerRunning: false,
+      showTurnTimerToPlayers: true,
+      encounterName: encounter.name,
+      rewardsSummary: encounter.rewardsSummary,
+    };
+    onUpdateCombatState(newState);
+  };
+
+  // Deploy Wave Reinforcement
+  const handleDeployReinforcement = (cbtId: string) => {
+    soundEngine.playSynth('gong');
+    const updated = combatState.combatants.map((c) =>
+      c.id === cbtId ? { ...c, isDeployed: true } : c
+    );
+    // Sort deployed combatants by initiative
+    onUpdateCombatState({ ...combatState, combatants: updated });
+  };
+
+  // Deploy All Ready Reinforcements
+  const handleDeployAllReady = () => {
+    soundEngine.playSynth('gong');
+    const updated = combatState.combatants.map((c) =>
+      (c.triggerRound || 2) <= combatState.round ? { ...c, isDeployed: true } : c
+    );
+    onUpdateCombatState({ ...combatState, combatants: updated });
+  };
+
   // Start / End Combat
   const handleToggleCombat = () => {
     if (!combatState.isActive) {
@@ -124,23 +210,37 @@ export const CombatTab: React.FC<CombatTabProps> = ({
       setTimerSeconds(60);
       setIsTimerRunning(true);
     } else {
-      if (window.confirm('¿Finalizar el combate actual?')) {
-        soundEngine.playSynth('fanfare_victory');
-        onUpdateCombatState({
-          ...combatState,
-          isActive: false,
-        });
-        setIsTimerRunning(false);
-      }
+      // Calculate Victory Summary
+      const defeated = combatState.combatants
+        .filter((c) => c.isMonster && c.currentHp <= 0)
+        .map((c) => c.name);
+      const survivors = combatState.combatants
+        .filter((c) => !c.isMonster && c.currentHp > 0)
+        .map((c) => c.name);
+
+      setVictorySummary({
+        rounds: combatState.round,
+        defeatedMonsters: defeated,
+        survivors,
+        rewards: combatState.rewardsSummary || 'Sin recompensas registradas',
+      });
+      setShowVictoryModal(true);
+
+      soundEngine.playSynth('fanfare_victory');
+      onUpdateCombatState({
+        ...combatState,
+        isActive: false,
+      });
+      setIsTimerRunning(false);
     }
   };
 
   // Next / Previous Turn
   const handleNextTurn = () => {
-    if (combatState.combatants.length === 0) return;
+    if (deployedCombatants.length === 0) return;
     soundEngine.playSynth('gong');
     const nextIndex = combatState.currentTurnIndex + 1;
-    const isNewRound = nextIndex >= combatState.combatants.length;
+    const isNewRound = nextIndex >= deployedCombatants.length;
 
     onUpdateCombatState({
       ...combatState,
@@ -155,14 +255,14 @@ export const CombatTab: React.FC<CombatTabProps> = ({
   };
 
   const handlePrevTurn = () => {
-    if (combatState.combatants.length === 0) return;
+    if (deployedCombatants.length === 0) return;
     const prevIndex = combatState.currentTurnIndex - 1;
     if (prevIndex < 0) {
       if (combatState.round > 1) {
         onUpdateCombatState({
           ...combatState,
           round: combatState.round - 1,
-          currentTurnIndex: combatState.combatants.length - 1,
+          currentTurnIndex: deployedCombatants.length - 1,
         });
       }
     } else {
@@ -217,6 +317,7 @@ export const CombatTab: React.FC<CombatTabProps> = ({
       showHpToPlayers: false,
       conditions: [],
       isMonster: false,
+      isDeployed: true,
     }));
 
     const merged = [...combatState.combatants, ...newCombatants].sort(
@@ -294,6 +395,7 @@ export const CombatTab: React.FC<CombatTabProps> = ({
       showHpToPlayers: false,
       conditions: [],
       isMonster: newCombatant.isMonster,
+      isDeployed: true,
     };
 
     const updated = [...combatState.combatants, created].sort(
@@ -327,6 +429,7 @@ export const CombatTab: React.FC<CombatTabProps> = ({
           {combatState.isActive && (
             <div className="round-counter-chip">
               <span>RONDA {combatState.round}</span>
+              {combatState.encounterName && <span className="enc-name-sub">({combatState.encounterName})</span>}
             </div>
           )}
         </div>
@@ -368,8 +471,17 @@ export const CombatTab: React.FC<CombatTabProps> = ({
         )}
       </section>
 
-      {/* 2. Setup Actions */}
+      {/* 2. Setup Tools Bar */}
       <div className="combat-setup-tools">
+        <button
+          className="setup-tool-btn highlight"
+          onClick={() => setShowEncountersModal(true)}
+          title="Biblioteca de Encuentros Guardados"
+        >
+          <BookOpen size={14} className="text-amber-400" />
+          <span>📚 Encuentros Guardados</span>
+        </button>
+
         <button className="setup-tool-btn" onClick={() => setShowAddModal(true)}>
           <Plus size={14} />
           <span>+ Combatiente</span>
@@ -384,18 +496,33 @@ export const CombatTab: React.FC<CombatTabProps> = ({
         </button>
       </div>
 
-      {/* 3. Combatants List */}
+      {/* 3. Wave Reinforcements Arrival Alert Banner */}
+      {combatState.isActive && readyWaveReinforcements.length > 0 && (
+        <div className="wave-arrival-banner">
+          <div className="flex-align-gap">
+            <span className="wave-icon-pulse">🌊</span>
+            <strong>
+              ¡Refuerzo en Ronda {combatState.round}! ({readyWaveReinforcements.length} enemigos listos)
+            </strong>
+          </div>
+          <button className="btn-deploy-wave" onClick={handleDeployAllReady}>
+            <span>📢 Desplegar a la Batalla</span>
+          </button>
+        </div>
+      )}
+
+      {/* 4. Active Deployed Combatants List */}
       <div className="combatants-list">
-        {combatState.combatants.length === 0 ? (
+        {deployedCombatants.length === 0 ? (
           <div className="empty-combat-state">
             <Swords size={36} className="text-amber-500/40 mb-2" />
-            <p>No hay combatientes en el encuentro.</p>
+            <p>No hay combatientes activos en el encuentro.</p>
             <span className="text-xs text-slate-400">
-              Pulsa "Importar Campaña" o "+ Combatiente" para armar el combate.
+              Pulsa "📚 Encuentros Guardados" o "Importar Campaña" para desplegar la batalla.
             </span>
           </div>
         ) : (
-          combatState.combatants.map((c, index) => {
+          deployedCombatants.map((c, index) => {
             const isActive = combatState.isActive && index === combatState.currentTurnIndex;
             return (
               <div
@@ -481,6 +608,115 @@ export const CombatTab: React.FC<CombatTabProps> = ({
           })
         )}
       </div>
+
+      {/* 5. Pending Hidden Reinforcements Section */}
+      {pendingWaveReinforcements.length > 0 && (
+        <section className="control-section wave-reinforcements-section">
+          <div className="section-header">
+            <span className="section-title">
+              🌊 Refuerzos Ocultos en Reserva ({pendingWaveReinforcements.length})
+            </span>
+          </div>
+          <div className="wave-reserve-list">
+            {pendingWaveReinforcements.map((c) => (
+              <div key={c.id} className="wave-reserve-card">
+                <img src={c.avatarUrl} alt={c.name} className="cbt-avatar" />
+                <div className="wave-reserve-info">
+                  <strong>{c.name}</strong>
+                  <span>
+                    {c.maxHp} HP • Programado para Ronda {c.triggerRound || 2}
+                  </span>
+                </div>
+                <button
+                  className="btn-primary-sm deploy-single-btn"
+                  onClick={() => handleDeployReinforcement(c.id)}
+                >
+                  <span>📢 Desplegar Ahora</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* MODAL: SAVED ENCOUNTERS LIBRARY */}
+      {showEncountersModal && (
+        <SavedEncountersModal
+          campaign={campaign}
+          encounters={encounters}
+          isCombatActive={combatState.isActive}
+          onLaunchEncounterLive={handleLaunchEncounterLive}
+          onLoadEncounterToStaging={handleLoadEncounterToStaging}
+          onSaveEncounter={onSaveEncounter}
+          onDeleteEncounter={onDeleteEncounter}
+          onClose={() => setShowEncountersModal(false)}
+        />
+      )}
+
+      {/* MODAL: VICTORY SUMMARY */}
+      {showVictoryModal && victorySummary && (
+        <div className="modal-overlay victory-modal-overlay" onClick={() => setShowVictoryModal(false)}>
+          <div className="modal-content victory-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="flex-align-gap">
+                <Sparkles size={20} className="text-amber-400" />
+                <h2>¡Victoria en Combate!</h2>
+              </div>
+              <button className="modal-close" onClick={() => setShowVictoryModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="victory-summary-body">
+              <div className="summary-stat-box">
+                <span className="stat-num">{victorySummary.rounds}</span>
+                <span className="stat-label">Rondas de Batalla</span>
+              </div>
+
+              <div className="summary-details-section">
+                <strong>💀 Enemigos Derrotados ({victorySummary.defeatedMonsters.length}):</strong>
+                <p>
+                  {victorySummary.defeatedMonsters.length > 0
+                    ? victorySummary.defeatedMonsters.join(', ')
+                    : 'Ningún enemigo caído.'}
+                </p>
+
+                <strong>🛡️ Supervivientes ({victorySummary.survivors.length}):</strong>
+                <p>
+                  {victorySummary.survivors.length > 0
+                    ? victorySummary.survivors.join(', ')
+                    : 'No hubo supervivientes.'}
+                </p>
+
+                <div className="victory-rewards-card">
+                  <div className="flex-between mb-1">
+                    <div className="flex-align-gap">
+                      <Award size={16} className="text-amber-400" />
+                      <strong>Recompensas Asignadas:</strong>
+                    </div>
+                    <button
+                      className="copy-rewards-btn"
+                      onClick={() => {
+                        navigator.clipboard.writeText(victorySummary.rewards);
+                        alert('¡Recompensas copiadas al portapapeles!');
+                      }}
+                      title="Copiar recompensas"
+                    >
+                      <Copy size={13} />
+                      <span>Copiar</span>
+                    </button>
+                  </div>
+                  <p className="rewards-text">{victorySummary.rewards}</p>
+                </div>
+              </div>
+            </div>
+
+            <button className="btn-primary full" onClick={() => setShowVictoryModal(false)}>
+              Cerrar Resumen
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal: Add Combatant */}
       {showAddModal && (
