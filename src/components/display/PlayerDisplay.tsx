@@ -3,6 +3,7 @@ import type { ConnectionStatus, DisplayState } from '../../types';
 import { peerService } from '../../services/peerService';
 import { soundEngine } from '../../services/soundEngine';
 import { startTurnRenewalWatcher } from '../../services/iceConfig';
+import { getPlatformBridge } from '../../platform';
 import { AtmosphereCanvas } from '../canvas/AtmosphereCanvas';
 import { InitiativeRibbon } from './InitiativeRibbon';
 import { Maximize2, Minimize2, Wifi, WifiOff, Volume2, Sparkles, Activity } from 'lucide-react';
@@ -23,14 +24,14 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
   // Core Display State
   const [state, setState] = useState<DisplayState>({
     sceneName: 'Cargando Aventura...',
-    backgroundUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80',
+    backgroundUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80',
     characters: [],
-    weather: 'fog',
+    weather: 'none',
     weatherIntensity: 0.5,
-    lighting: 'torch_flicker',
+    lighting: 'normal',
     locationBanner: {
-      text: 'ESPERANDO CONEXIÓN DEL MASTER',
-      subtitle: 'Escanea el código QR o ingresa el PIN desde tu celular',
+      text: 'Visual Player',
+      subtitle: 'Conectando con el Master...',
       visible: true,
     },
     isBlackout: false,
@@ -56,7 +57,21 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
   const [isCrossfading, setIsCrossfading] = useState<boolean>(false);
   const hideControlsTimeout = useRef<number | null>(null);
 
-  // Initialize WebRTC Display Peer
+  // 1. Platform Bridge: Keep Awake, Landscape Lock, Immersive Mode for Players Display
+  useEffect(() => {
+    const bridge = getPlatformBridge();
+    bridge.screen.setKeepAwake(true);
+    bridge.screen.setOrientation('landscape');
+    bridge.screen.setImmersive(true);
+
+    return () => {
+      bridge.screen.setKeepAwake(false);
+      bridge.screen.setOrientation('unlocked');
+      bridge.screen.setImmersive(false);
+    };
+  }, []);
+
+  // 2. Initialize WebRTC Display Peer
   useEffect(() => {
     let unmounted = false;
     const stopWatcher = startTurnRenewalWatcher(roomCode || initialRoomCode || 'VP-DEMO');

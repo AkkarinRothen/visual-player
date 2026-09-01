@@ -15,6 +15,7 @@ import type {
 } from '../../types';
 import { soundEngine } from '../../services/soundEngine';
 import { peerService } from '../../services/peerService';
+import { getPlatformBridge } from '../../platform';
 import {
   db,
   BUILTIN_SFX,
@@ -287,6 +288,44 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     };
     loadData();
   }, [initSessionState]);
+
+  // Platform Bridge: Unlock Orientation & Handle Native Back Button on Modals
+  useEffect(() => {
+    const bridge = getPlatformBridge();
+    bridge.screen.setOrientation('unlocked');
+
+    const unbindBack = bridge.lifecycle.onBackButton(() => {
+      // If any modal is open, close it and prevent app exit
+      if (showQRModal) { setShowQRModal(false); return true; }
+      if (showDiagnosticsModal) { setShowDiagnosticsModal(false); return true; }
+      if (showHistoryModal) { setShowHistoryModal(false); return true; }
+      if (showCheckpointsModal) { setShowCheckpointsModal(false); return true; }
+      if (showQuickMoments) { setShowQuickMoments(false); return true; }
+      if (showSummonModal) { setShowSummonModal(false); return true; }
+      if (showNewSceneModal) { setShowNewSceneModal(false); return true; }
+      if (showNewCharModal) { setShowNewCharModal(false); return true; }
+      if (showCampaignPickerModal) { setShowCampaignPickerModal(false); return true; }
+      if (showSelectivePublishModal) { setShowSelectivePublishModal(false); return true; }
+      if (showFullScreenPreview) { setShowFullScreenPreview(false); return true; }
+      return false;
+    });
+
+    return () => {
+      unbindBack();
+    };
+  }, [
+    showQRModal,
+    showDiagnosticsModal,
+    showHistoryModal,
+    showCheckpointsModal,
+    showQuickMoments,
+    showSummonModal,
+    showNewSceneModal,
+    showNewCharModal,
+    showCampaignPickerModal,
+    showSelectivePublishModal,
+    showFullScreenPreview,
+  ]);
 
   // Mode Toggle with confirmation if pending changes
   const handleToggleOperationMode = (newMode: 'live' | 'staging') => {
