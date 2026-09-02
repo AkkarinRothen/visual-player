@@ -6,7 +6,9 @@ import { startTurnRenewalWatcher } from '../../services/iceConfig';
 import { getPlatformBridge } from '../../platform';
 import { AtmosphereCanvas } from '../canvas/AtmosphereCanvas';
 import { InitiativeRibbon } from './InitiativeRibbon';
-import { Maximize2, Minimize2, Wifi, WifiOff, Volume2, Sparkles, Activity } from 'lucide-react';
+import { Maximize2, Minimize2, Wifi, WifiOff, Volume2, Sparkles, Activity, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { ConnectionDiagnosticModal } from '../common/ConnectionDiagnosticModal';
 
 interface PlayerDisplayProps {
   initialRoomCode?: string;
@@ -20,6 +22,7 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(true);
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(false);
+  const [showDiagnosticModal, setShowDiagnosticModal] = useState<boolean>(false);
 
   // Core Display State
   const [state, setState] = useState<DisplayState>({
@@ -441,10 +444,101 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
         </button>
       )}
 
+      {/* DM Connection Waiting Overlay (Shows Room Code & QR for Master) */}
+      {connectionStatus !== 'connected' && roomCode && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'radial-gradient(circle at center, rgba(15, 23, 42, 0.85) 0%, rgba(0, 0, 0, 0.95) 100%)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 40,
+          padding: '24px',
+        }}>
+          <div style={{
+            background: 'rgba(23, 23, 23, 0.9)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            borderRadius: '24px',
+            padding: '32px',
+            maxWidth: '480px',
+            width: '100%',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 40px rgba(245, 158, 11, 0.1)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px',
+            color: '#f5f5f5',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: '#f59e0b',
+              fontSize: '13px',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}>
+              <QrCode size={18} />
+              <span>Sala de Jugadores Lista</span>
+            </div>
+
+            <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0 }}>
+              Conecta el Control del Master (DM)
+            </h2>
+
+            {/* QR Code Container */}
+            <div style={{
+              background: '#ffffff',
+              padding: '16px',
+              borderRadius: '16px',
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
+              display: 'inline-flex',
+            }}>
+              <QRCodeSVG
+                value={typeof window !== 'undefined' ? `${window.location.origin}/?join=${roomCode}&role=master` : roomCode}
+                size={180}
+                level="M"
+              />
+            </div>
+
+            {/* Room Code Big Display */}
+            <div>
+              <p style={{ fontSize: '12px', color: '#a3a3a3', margin: '0 0 6px 0' }}>O introduce este PIN en tu celular:</p>
+              <div style={{
+                fontSize: '28px',
+                fontWeight: 800,
+                letterSpacing: '0.15em',
+                color: '#fbbf24',
+                fontFamily: 'monospace',
+                background: 'rgba(0, 0, 0, 0.4)',
+                padding: '8px 24px',
+                borderRadius: '12px',
+                border: '1px solid rgba(251, 191, 36, 0.3)',
+              }}>
+                {roomCode}
+              </div>
+            </div>
+
+            <p style={{ fontSize: '12px', color: '#737373', margin: 0, lineHeight: 1.4 }}>
+              Abre <strong>visual-player.vercel.app</strong> en tu celular, pulsa &quot;Escanear QR&quot; o introduce el PIN para controlar escenas, combates y música.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Top HUD Controls */}
       <div className={`display-hud ${showControls ? 'visible' : 'hidden'}`}>
         <div className="hud-left">
-          <div className={`connection-pill ${connectionStatus}`}>
+          <button
+            onClick={() => setShowDiagnosticModal(true)}
+            className={`connection-pill ${connectionStatus}`}
+            style={{ cursor: 'pointer', background: 'none', border: 'none', textAlign: 'left' }}
+            title="Abrir Diagnóstico de Conexión"
+          >
             {connectionStatus === 'connected' ? (
               <>
                 <Wifi size={16} className="text-emerald-400" />
@@ -466,7 +560,7 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
                 <span>Esperando Master (PIN: {roomCode})</span>
               </>
             )}
-          </div>
+          </button>
         </div>
 
         <div className="hud-right">
@@ -480,6 +574,12 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
           </button>
         </div>
       </div>
+
+      {/* Connection Diagnostic Modal */}
+      <ConnectionDiagnosticModal
+        isOpen={showDiagnosticModal}
+        onClose={() => setShowDiagnosticModal(false)}
+      />
     </div>
   );
 };

@@ -42,14 +42,31 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
 
       scanner.render(
         (decodedText) => {
-          let code = decodedText;
-          if (decodedText.includes('join=')) {
-            const url = new URL(decodedText);
-            code = url.searchParams.get('join') || decodedText;
+          let code = decodedText.trim();
+          try {
+            if (decodedText.includes('join=')) {
+              // Parse URL or hash fragments
+              if (decodedText.startsWith('http://') || decodedText.startsWith('https://')) {
+                const url = new URL(decodedText);
+                code = url.searchParams.get('join') || '';
+                if (!code && url.hash) {
+                  const hashParams = new URLSearchParams(url.hash.replace('#', ''));
+                  code = hashParams.get('join') || '';
+                }
+              } else {
+                const searchParams = new URLSearchParams(decodedText.replace(/^.*\?/, '').replace(/^.*#/, ''));
+                code = searchParams.get('join') || decodedText;
+              }
+            }
+          } catch {
+            // Keep plain text
           }
-          scanner.clear();
-          setShowScanner(false);
-          onSelectRole('master', code.toUpperCase().trim());
+
+          if (code) {
+            scanner.clear().catch(() => {});
+            setShowScanner(false);
+            onSelectRole('master', code.toUpperCase().trim());
+          }
         },
         () => {
           // Ignored per frame scan error
@@ -58,7 +75,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
 
       return () => {
         if (scannerRef.current) {
-          scannerRef.current.clear().catch(console.warn);
+          scannerRef.current.clear().catch(() => {});
         }
       };
     }
