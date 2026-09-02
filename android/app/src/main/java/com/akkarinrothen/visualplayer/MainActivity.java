@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(VisualPlayerScreenPlugin.class);
         registerPlugin(VisualPlayerKeystorePlugin.class);
+        registerPlugin(VisualPlayerNetworkPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

@@ -6,10 +6,13 @@ import type {
   PlatformBridge,
   IScreenBridge,
   ISecureStorageBridge,
+  INetworkBridge,
   ILifecycleBridge,
   IDeepLinkBridge,
   ScreenOrientationMode,
+  NetworkStatusInfo,
   NetworkStatusCallback,
+  LegacyNetworkStatusCallback,
   BackButtonCallback,
   DeepLinkCallback,
 } from './types';
@@ -27,8 +30,14 @@ interface VisualPlayerKeystorePlugin {
   getSecurityInfo(): Promise<{ isHardwareBacked: boolean; securityLevel: string; keyAlias: string }>;
 }
 
+interface VisualPlayerNetworkPlugin {
+  getNetworkStatus(): Promise<NetworkStatusInfo>;
+  addListener(eventName: 'onNetworkChanged', listenerFunc: (status: NetworkStatusInfo) => void): Promise<{ remove: () => void }>;
+}
+
 const NativeScreen = registerPlugin<VisualPlayerScreenPlugin>('VisualPlayerScreen');
 const NativeKeystore = registerPlugin<VisualPlayerKeystorePlugin>('VisualPlayerKeystore');
+const NativeNetwork = registerPlugin<VisualPlayerNetworkPlugin>('VisualPlayerNetwork');
 
 class AndroidScreenBridge implements IScreenBridge {
   private isAwake = false;
@@ -97,7 +106,7 @@ class AndroidSecureStorageBridge implements ISecureStorageBridge {
 }
 
 class AndroidLifecycleBridge implements ILifecycleBridge {
-  public onNetworkChange(callback: NetworkStatusCallback): () => void {
+  public onNetworkChange(callback: LegacyNetworkStatusCallback): () => void {
     let handle: { remove: () => void } | null = null;
 
     Network.addListener('networkStatusChange', (status) => {
@@ -166,6 +175,68 @@ class AndroidLifecycleBridge implements ILifecycleBridge {
   }
 }
 
+class AndroidNetworkBridge implements INetworkBridge {
+  public async getStatus(): Promise<NetworkStatusInfo> {
+    try {
+      return await NativeNetwork.getNetworkStatus();
+    } catch {
+      return {
+        connected: navigator.onLine,
+        networkEpoch: 'net-epoch-fallback',
+        transport: 'unknown',
+        validated: navigator.onLine,
+        isMetered: false,
+        isCaptivePortal: false,
+        hasInternet: navigator.onLine,
+      };
+    }
+  }
+
+  public onNetworkChange(callback: NetworkStatusCallback): () => void {
+    let handle: { remove: () => void } | null = null;
+
+    NativeNetwork.addListener('onNetworkChanged', (status) => {
+      callback(status);
+    }).then((h) => {
+      handle = h;
+    }).catch(() => {
+      // Fallback to Capacitor Network or window online/offline
+      const onOnline = () => callback({
+        connected: true,
+        networkEpoch: `net-epoch-${Date.now()}`,
+        transport: 'unknown',
+        validated: true,
+        isMetered: false,
+        isCaptivePortal: false,
+        hasInternet: true,
+      });
+      const onOffline = () => callback({
+        connected: false,
+        networkEpoch: `net-epoch-${Date.now()}`,
+        transport: 'none',
+        validated: false,
+        isMetered: false,
+        isCaptivePortal: false,
+        hasInternet: false,
+      });
+      window.addEventListener('online', onOnline);
+      window.addEventListener('offline', onOffline);
+      handle = {
+        remove: () => {
+          window.removeEventListener('online', onOnline);
+          window.removeEventListener('offline', onOffline);
+        },
+      };
+    });
+
+    return () => {
+      if (handle) {
+        handle.remove();
+      }
+    };
+  }
+}
+
 class AndroidDeepLinkBridge implements IDeepLinkBridge {
   public onDeepLink(callback: DeepLinkCallback): () => void {
     let handle: { remove: () => void } | null = null;
@@ -192,6 +263,7 @@ export function createAndroidPlatformBridge(): PlatformBridge {
     platformName: 'android',
     screen: new AndroidScreenBridge(),
     storage: new AndroidSecureStorageBridge(),
+    network: new AndroidNetworkBridge(),
     lifecycle: new AndroidLifecycleBridge(),
     deepLink: new AndroidDeepLinkBridge(),
   };

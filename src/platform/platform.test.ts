@@ -74,6 +74,34 @@ describe('Platform Bridge & Native Adaptations Suite', () => {
       unsubscribe();
     });
 
+    it('manages native network status and sanitized networkEpoch changes', async () => {
+      const mock = createMockPlatformBridge();
+      setPlatformBridge(mock);
+
+      const bridge = getPlatformBridge();
+      const initial = await bridge.network.getStatus();
+      expect(initial.connected).toBe(true);
+      expect(initial.transport).toBe('wifi');
+      expect(initial.validated).toBe(true);
+
+      let lastStatus: any = null;
+      const unsub = bridge.network.onNetworkChange((st) => {
+        lastStatus = st;
+      });
+
+      mock.mockNetwork.triggerNetworkChange({
+        transport: 'cellular',
+        networkEpoch: 'mock-epoch-2',
+        isMetered: true,
+      });
+
+      expect(lastStatus.transport).toBe('cellular');
+      expect(lastStatus.networkEpoch).toBe('mock-epoch-2');
+      expect(lastStatus.isMetered).toBe(true);
+
+      unsub();
+    });
+
     it('intercepts back button presses when handlers return true', () => {
       const mock = createMockPlatformBridge();
       setPlatformBridge(mock);

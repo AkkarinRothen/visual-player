@@ -14,11 +14,29 @@ export interface ISecureStorageBridge {
   getSecurityInfo?(): Promise<{ isHardwareBacked: boolean; securityLevel: string; keyAlias: string }>;
 }
 
-export type NetworkStatusCallback = (connected: boolean, connectionType: string) => void;
+export type NetworkTransport = 'wifi' | 'cellular' | 'ethernet' | 'vpn' | 'other' | 'none' | 'unknown';
+
+export interface NetworkStatusInfo {
+  connected: boolean;
+  networkEpoch: string;
+  transport: NetworkTransport;
+  validated: boolean;
+  isMetered: boolean;
+  isCaptivePortal: boolean;
+  hasInternet: boolean;
+}
+
+export type NetworkStatusCallback = (status: NetworkStatusInfo) => void;
+export type LegacyNetworkStatusCallback = (connected: boolean, connectionType: string) => void;
 export type BackButtonCallback = () => boolean; // return true if handled, false to let system handle
 
-export interface ILifecycleBridge {
+export interface INetworkBridge {
+  getStatus(): Promise<NetworkStatusInfo>;
   onNetworkChange(callback: NetworkStatusCallback): () => void;
+}
+
+export interface ILifecycleBridge {
+  onNetworkChange(callback: LegacyNetworkStatusCallback): () => void;
   onAppResume(callback: () => void): () => void;
   onAppPause(callback: () => void): () => void;
   onBackButton(callback: BackButtonCallback): () => void;
@@ -35,6 +53,7 @@ export interface PlatformBridge {
   platformName: 'web' | 'android' | 'ios' | 'mock';
   screen: IScreenBridge;
   storage: ISecureStorageBridge;
+  network: INetworkBridge;
   lifecycle: ILifecycleBridge;
   deepLink: IDeepLinkBridge;
 }

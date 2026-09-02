@@ -2,10 +2,13 @@ import type {
   PlatformBridge,
   IScreenBridge,
   ISecureStorageBridge,
+  INetworkBridge,
   ILifecycleBridge,
   IDeepLinkBridge,
   ScreenOrientationMode,
+  NetworkStatusInfo,
   NetworkStatusCallback,
+  LegacyNetworkStatusCallback,
   BackButtonCallback,
   DeepLinkCallback,
 } from './types';
@@ -104,7 +107,7 @@ class WebSecureStorageBridge implements ISecureStorageBridge {
 }
 
 class WebLifecycleBridge implements ILifecycleBridge {
-  public onNetworkChange(callback: NetworkStatusCallback): () => void {
+  public onNetworkChange(callback: LegacyNetworkStatusCallback): () => void {
     if (typeof window === 'undefined') return () => {};
 
     const handleOnline = () => callback(true, 'wifi');
@@ -159,6 +162,58 @@ class WebLifecycleBridge implements ILifecycleBridge {
   }
 }
 
+class WebNetworkBridge implements INetworkBridge {
+  private networkEpoch = `web-epoch-${Date.now()}`;
+
+  public async getStatus(): Promise<NetworkStatusInfo> {
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    const conn = typeof navigator !== 'undefined' && 'connection' in navigator ? (navigator as any).connection : null;
+
+    let transport: any = 'unknown';
+    if (conn && conn.type) {
+      transport = conn.type;
+    } else if (conn && conn.effectiveType) {
+      transport = conn.effectiveType.includes('2g') || conn.effectiveType.includes('3g') || conn.effectiveType.includes('4g') ? 'cellular' : 'wifi';
+    }
+
+    return {
+      connected: isOnline,
+      networkEpoch: this.networkEpoch,
+      transport: isOnline ? transport : 'none',
+      validated: isOnline,
+      isMetered: conn ? Boolean(conn.saveData) : false,
+      isCaptivePortal: false,
+      hasInternet: isOnline,
+    };
+  }
+
+  public onNetworkChange(callback: NetworkStatusCallback): () => void {
+    if (typeof window === 'undefined') return () => {};
+
+    const notify = async () => {
+      this.networkEpoch = `web-epoch-${Date.now()}`;
+      const status = await this.getStatus();
+      callback(status);
+    };
+
+    window.addEventListener('online', notify);
+    window.addEventListener('offline', notify);
+
+    const conn = 'connection' in navigator ? (navigator as any).connection : null;
+    if (conn && typeof conn.addEventListener === 'function') {
+      conn.addEventListener('change', notify);
+    }
+
+    return () => {
+      window.removeEventListener('online', notify);
+      window.removeEventListener('offline', notify);
+      if (conn && typeof conn.removeEventListener === 'function') {
+        conn.removeEventListener('change', notify);
+      }
+    };
+  }
+}
+
 class WebDeepLinkBridge implements IDeepLinkBridge {
   public onDeepLink(callback: DeepLinkCallback): () => void {
     if (typeof window === 'undefined') return () => {};
@@ -180,6 +235,7 @@ export function createWebPlatformBridge(): PlatformBridge {
     platformName: 'web',
     screen: new WebScreenBridge(),
     storage: new WebSecureStorageBridge(),
+    network: new WebNetworkBridge(),
     lifecycle: new WebLifecycleBridge(),
     deepLink: new WebDeepLinkBridge(),
   };

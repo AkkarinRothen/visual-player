@@ -62,6 +62,14 @@ export class ConnectivityStateMachine {
     return this.isAppInBackground;
   }
 
+  public reset(state: ConnectivityState = 'OFFLINE'): void {
+    this.currentState = state;
+    this.reconnectAttempts = 0;
+    this.lastSuccessfulHeartbeat = Date.now();
+    this.isAppInBackground = false;
+    this.isLeaseLocallyValid = false;
+  }
+
   public onStateChange(listener: StateChangeListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

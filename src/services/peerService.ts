@@ -18,6 +18,9 @@ import { iceTelemetry, type IceTelemetrySnapshot } from './iceTelemetry';
 import { connectionDiagnostics } from './connectionDiagnostics';
 import { connectivityStateMachine } from './connectivityStateMachine';
 
+import { getPlatformBridge } from '../platform';
+import type { NetworkStatusInfo } from '../platform/types';
+
 export type MessageHandler = (msg: SyncMessage | VersionedSyncMessage) => void;
 export type StatusHandler = (status: ConnectionStatus, peerId?: string, latencyMs?: number) => void;
 
@@ -44,6 +47,10 @@ class PeerService {
   private unavailableIdRetries: number = 0;
   private maxUnavailableIdRetries: number = 3;
 
+  // Native Network Transition Tracking
+  private lastObservedNetworkEpoch: string = '';
+  private networkDebounceTimer: number | null = null;
+
   // WebRTC ICE / TURN Configuration
   private forceRelayOnly: boolean = false;
   private connectionEpoch: number = Date.now();
@@ -58,6 +65,52 @@ class PeerService {
 
   constructor() {
     this.reliableQueue = new ReliableDeliveryQueue((msg) => this.sendRaw(msg));
+    this.initNetworkObserver();
+  }
+
+  private initNetworkObserver() {
+    try {
+      getPlatformBridge().network.onNetworkChange((status) => {
+        this.handleNetworkTransition(status);
+      });
+    } catch {
+      // Graceful fallback if platform bridge is not yet initialized
+    }
+  }
+
+  public handleNetworkTransition(status: NetworkStatusInfo) {
+    if (!this.currentRoomId || this.isIntentionalDestroy) return;
+
+    if (status.networkEpoch === this.lastObservedNetworkEpoch) return;
+    this.lastObservedNetworkEpoch = status.networkEpoch;
+
+    if (!status.connected || !status.validated) {
+      console.warn(`[PeerService] Network lost or unvalidated (Transport: ${status.transport}). Transitioning to READ_ONLY.`);
+      connectivityStateMachine.dispatch({ type: 'NETWORK_LOST' });
+      return;
+    }
+
+    console.log(`[PeerService] Default network transition detected: ${status.transport} (Epoch: ${status.networkEpoch}). Re-establishing single-flight connection.`);
+    connectionDiagnostics.logEvent('signaling', 'NETWORK_TRANSITION_RECOVERY', {
+      epoch: status.networkEpoch,
+      transport: status.transport,
+      roomId: this.currentRoomId,
+    });
+
+    // Invalidate stale in-flight callbacks from dead network interface
+    this.connectionGeneration++;
+
+    if (this.networkDebounceTimer) {
+      clearTimeout(this.networkDebounceTimer);
+    }
+
+    this.networkDebounceTimer = window.setTimeout(() => {
+      if (this.isDisplayRole) {
+        this.initDisplay(this.currentRoomId);
+      } else {
+        this.connectAsMaster(this.currentRoomId);
+      }
+    }, 500);
   }
 
   public getStatus(): ConnectionStatus {

@@ -2,10 +2,13 @@ import type {
   PlatformBridge,
   IScreenBridge,
   ISecureStorageBridge,
+  INetworkBridge,
   ILifecycleBridge,
   IDeepLinkBridge,
   ScreenOrientationMode,
+  NetworkStatusInfo,
   NetworkStatusCallback,
+  LegacyNetworkStatusCallback,
   BackButtonCallback,
   DeepLinkCallback,
 } from './types';
@@ -62,12 +65,12 @@ export class MockSecureStorageBridge implements ISecureStorageBridge {
 }
 
 export class MockLifecycleBridge implements ILifecycleBridge {
-  public networkListeners = new Set<NetworkStatusCallback>();
+  public networkListeners = new Set<LegacyNetworkStatusCallback>();
   public resumeListeners = new Set<() => void>();
   public pauseListeners = new Set<() => void>();
   public backButtonListeners = new Set<BackButtonCallback>();
 
-  public onNetworkChange(callback: NetworkStatusCallback): () => void {
+  public onNetworkChange(callback: LegacyNetworkStatusCallback): () => void {
     this.networkListeners.add(callback);
     return () => this.networkListeners.delete(callback);
   }
@@ -100,6 +103,33 @@ export class MockLifecycleBridge implements ILifecycleBridge {
   }
 }
 
+export class MockNetworkBridge implements INetworkBridge {
+  public listeners = new Set<NetworkStatusCallback>();
+  public currentStatus: NetworkStatusInfo = {
+    connected: true,
+    networkEpoch: 'mock-epoch-1',
+    transport: 'wifi',
+    validated: true,
+    isMetered: false,
+    isCaptivePortal: false,
+    hasInternet: true,
+  };
+
+  public async getStatus(): Promise<NetworkStatusInfo> {
+    return { ...this.currentStatus };
+  }
+
+  public onNetworkChange(callback: NetworkStatusCallback): () => void {
+    this.listeners.add(callback);
+    return () => this.listeners.delete(callback);
+  }
+
+  public triggerNetworkChange(status: Partial<NetworkStatusInfo>): void {
+    this.currentStatus = { ...this.currentStatus, ...status };
+    this.listeners.forEach((cb) => cb({ ...this.currentStatus }));
+  }
+}
+
 export class MockDeepLinkBridge implements IDeepLinkBridge {
   public listeners = new Set<DeepLinkCallback>();
 
@@ -116,11 +146,13 @@ export class MockDeepLinkBridge implements IDeepLinkBridge {
 export function createMockPlatformBridge(): PlatformBridge & {
   mockScreen: MockScreenBridge;
   mockStorage: MockSecureStorageBridge;
+  mockNetwork: MockNetworkBridge;
   mockLifecycle: MockLifecycleBridge;
   mockDeepLink: MockDeepLinkBridge;
 } {
   const mockScreen = new MockScreenBridge();
   const mockStorage = new MockSecureStorageBridge();
+  const mockNetwork = new MockNetworkBridge();
   const mockLifecycle = new MockLifecycleBridge();
   const mockDeepLink = new MockDeepLinkBridge();
 
@@ -129,10 +161,12 @@ export function createMockPlatformBridge(): PlatformBridge & {
     platformName: 'mock',
     screen: mockScreen,
     storage: mockStorage,
+    network: mockNetwork,
     lifecycle: mockLifecycle,
     deepLink: mockDeepLink,
     mockScreen,
     mockStorage,
+    mockNetwork,
     mockLifecycle,
     mockDeepLink,
   };
