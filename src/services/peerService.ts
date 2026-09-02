@@ -15,6 +15,8 @@ import { ReliableDeliveryQueue } from '../domain/protocol/reliableQueue';
 import { type ChaosConfig, DEFAULT_CHAOS_CONFIG } from '../domain/protocol/transport';
 import { getIceConfiguration } from './iceConfig';
 import { iceTelemetry, type IceTelemetrySnapshot } from './iceTelemetry';
+import { connectionDiagnostics } from './connectionDiagnostics';
+import { connectivityStateMachine } from './connectivityStateMachine';
 
 export type MessageHandler = (msg: SyncMessage | VersionedSyncMessage) => void;
 export type StatusHandler = (status: ConnectionStatus, peerId?: string, latencyMs?: number) => void;
@@ -34,6 +36,13 @@ class PeerService {
   private reconnectTimeout: number | null = null;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 10;
+
+  // Anti-Storm & Single-Flight State
+  private connectionGeneration: number = 0;
+  private isIntentionalDestroy: boolean = false;
+  private activeConnectPromise: Promise<any> | null = null;
+  private unavailableIdRetries: number = 0;
+  private maxUnavailableIdRetries: number = 3;
 
   // WebRTC ICE / TURN Configuration
   private forceRelayOnly: boolean = false;
@@ -80,6 +89,7 @@ class PeerService {
 
   private notifyStatus(status: ConnectionStatus, peerId?: string) {
     this.status = status;
+    connectionDiagnostics.setStatus(status);
     this.statusListeners.forEach((fn) => fn(status, peerId || this.currentRoomId, this.latencyMs));
   }
 
@@ -100,59 +110,103 @@ class PeerService {
     return `visual-player-${code.toUpperCase().trim()}`;
   }
 
-  // Initialize DISPLAY mode (Tablet / Screen)
+  /**
+   * Initialize DISPLAY mode (Tablet / Screen) with single-flight and generation control.
+   */
   public async initDisplay(customCode?: string): Promise<string> {
+    const roomCode = customCode || this.currentRoomId || this.generateRoomCode();
+
+    if (this.activeConnectPromise && this.isDisplayRole && this.currentRoomId === roomCode) {
+      return this.activeConnectPromise;
+    }
+
     this.destroy();
+    this.isIntentionalDestroy = false;
+    this.connectionGeneration++;
+    const currentGen = this.connectionGeneration;
+
     this.isDisplayRole = true;
-    const roomCode = customCode || this.generateRoomCode();
     this.currentRoomId = roomCode;
+    this.connectionEpoch = Date.now();
     const fullPeerId = this.getFullPeerId(roomCode);
 
+    connectionDiagnostics.initSession('display', roomCode, fullPeerId);
     this.notifyStatus('connecting');
-    const iceConfig = await getIceConfiguration({ forceRelay: this.forceRelayOnly });
 
-    return new Promise((resolve, reject) => {
-      try {
-        this.peer = new Peer(fullPeerId, {
-          debug: 1,
-          config: iceConfig,
-        });
+    this.activeConnectPromise = (async () => {
+      const iceConfig = await getIceConfiguration({ forceRelay: this.forceRelayOnly });
 
-        this.peer.on('open', (id) => {
-          console.log('[PeerDisplay] Ready with ID:', id);
-          this.reconnectAttempts = 0;
-          this.notifyStatus('disconnected');
-          resolve(this.currentRoomId);
-        });
+      return new Promise<string>((resolve, reject) => {
+        if (currentGen !== this.connectionGeneration || this.isIntentionalDestroy) {
+          return reject(new Error('Aborted by newer connection generation'));
+        }
 
-        this.peer.on('connection', (conn) => {
-          console.log('[PeerDisplay] Incoming connection from Master:', conn.peer);
-          this.handleIncomingConnection(conn);
-        });
+        try {
+          this.peer = new Peer(fullPeerId, {
+            debug: 1,
+            config: iceConfig,
+          });
 
-        this.peer.on('error', (err) => {
-          console.error('[PeerDisplay] Peer error:', err);
-          if (err.type === 'unavailable-id') {
-            const newCode = this.generateRoomCode();
-            this.initDisplay(newCode).then(resolve).catch(reject);
-          } else {
-            this.notifyStatus('error');
-            this.scheduleReconnect(() => this.initDisplay(roomCode));
-          }
-        });
+          this.peer.on('open', (id) => {
+            if (currentGen !== this.connectionGeneration || this.isIntentionalDestroy) return;
+            console.log('[PeerDisplay] Ready with ID:', id);
+            this.reconnectAttempts = 0;
+            this.unavailableIdRetries = 0;
+            this.notifyStatus('disconnected');
+            connectivityStateMachine.dispatch({ type: 'DATA_CHANNEL_CLOSED' });
+            resolve(this.currentRoomId);
+          });
 
-        this.peer.on('disconnected', () => {
-          console.warn('[PeerDisplay] Disconnected from signaling server, reconnecting...');
-          this.peer?.reconnect();
-        });
-      } catch (err) {
-        this.notifyStatus('error');
-        reject(err);
-      }
-    });
+          this.peer.on('connection', (conn) => {
+            if (currentGen !== this.connectionGeneration || this.isIntentionalDestroy) return;
+            console.log('[PeerDisplay] Incoming connection from Master:', conn.peer);
+            this.handleIncomingConnection(conn, currentGen);
+          });
+
+          this.peer.on('error', (err) => {
+            if (currentGen !== this.connectionGeneration || this.isIntentionalDestroy) return;
+            console.error('[PeerDisplay] Peer error:', err);
+            connectionDiagnostics.logEvent('error', 'PEER_ERROR', { type: err.type, message: err.message });
+
+            if (err.type === 'unavailable-id') {
+              if (this.unavailableIdRetries < this.maxUnavailableIdRetries) {
+                this.unavailableIdRetries++;
+                console.log(`[PeerDisplay] Room ID busy, waiting for release (Attempt ${this.unavailableIdRetries}/${this.maxUnavailableIdRetries})...`);
+                this.scheduleReconnect(() => this.initDisplay(roomCode), currentGen, 1500);
+              } else {
+                console.warn('[PeerDisplay] Room ID persistently busy on signaling server.');
+                this.notifyStatus('error');
+                connectivityStateMachine.dispatch({ type: 'NETWORK_LOST' });
+                reject(err);
+              }
+            } else {
+              this.notifyStatus('error');
+              this.scheduleReconnect(() => this.initDisplay(roomCode), currentGen);
+            }
+          });
+
+          this.peer.on('disconnected', () => {
+            if (currentGen !== this.connectionGeneration || this.isIntentionalDestroy) return;
+            console.warn('[PeerDisplay] Disconnected from signaling server, reconnecting...');
+            connectionDiagnostics.logEvent('signaling', 'DISCONNECTED_SIGNALING', {});
+            this.peer?.reconnect();
+          });
+        } catch (err) {
+          this.notifyStatus('error');
+          reject(err);
+        }
+      });
+    })();
+
+    try {
+      const result = await this.activeConnectPromise;
+      return result;
+    } finally {
+      this.activeConnectPromise = null;
+    }
   }
 
-  private handleIncomingConnection(conn: DataConnection) {
+  private handleIncomingConnection(conn: DataConnection, generation: number) {
     const existing = this.connections.get(conn.peer);
     if (existing) {
       existing.close();
@@ -161,72 +215,114 @@ class PeerService {
     this.connections.set(conn.peer, conn);
 
     conn.on('open', () => {
+      if (generation !== this.connectionGeneration || this.isIntentionalDestroy) return;
       console.log('[PeerDisplay] Master connected:', conn.peer);
       this.notifyStatus('connected');
+      connectivityStateMachine.dispatch({ type: 'DATA_CHANNEL_OPEN' });
+
       if ((conn as unknown as { peerConnection?: RTCPeerConnection }).peerConnection) {
-        iceTelemetry.attach((conn as unknown as { peerConnection: RTCPeerConnection }).peerConnection);
+        const pc = (conn as unknown as { peerConnection: RTCPeerConnection }).peerConnection;
+        iceTelemetry.attach(pc);
       }
       this.send({ type: 'REQUEST_FULL_STATE' as SyncMessageType });
     });
 
     conn.on('data', (data) => {
+      if (generation !== this.connectionGeneration || this.isIntentionalDestroy) return;
       this.processIncomingData(data, conn);
     });
 
     conn.on('close', () => {
+      if (generation !== this.connectionGeneration || this.isIntentionalDestroy) return;
       console.log('[PeerDisplay] Master connection closed:', conn.peer);
       this.connections.delete(conn.peer);
       if (this.connections.size === 0) {
         this.notifyStatus('disconnected');
+        connectivityStateMachine.dispatch({ type: 'DATA_CHANNEL_CLOSED' });
       }
     });
 
     conn.on('error', (err) => {
+      if (generation !== this.connectionGeneration || this.isIntentionalDestroy) return;
       console.error('[PeerDisplay] Connection error:', err);
+      connectionDiagnostics.logEvent('error', 'DATA_CONNECTION_ERROR', { error: String(err) });
     });
   }
 
-  // Initialize MASTER mode (Cell Phone / DM Remote)
+  /**
+   * Initialize MASTER mode (Cell Phone / DM Remote) with single-flight and generation control.
+   */
   public async connectAsMaster(roomCode: string): Promise<boolean> {
+    const formattedCode = roomCode.toUpperCase().trim();
+
+    if (this.activeConnectPromise && !this.isDisplayRole && this.currentRoomId === formattedCode) {
+      return this.activeConnectPromise;
+    }
+
     this.destroy();
+    this.isIntentionalDestroy = false;
+    this.connectionGeneration++;
+    const currentGen = this.connectionGeneration;
+
     this.isDisplayRole = false;
-    this.currentRoomId = roomCode.toUpperCase().trim();
-    const targetPeerId = this.getFullPeerId(this.currentRoomId);
+    this.currentRoomId = formattedCode;
+    this.connectionEpoch = Date.now();
+    const targetPeerId = this.getFullPeerId(formattedCode);
 
+    connectionDiagnostics.initSession('master', formattedCode, targetPeerId);
     this.notifyStatus('connecting');
-    const iceConfig = await getIceConfiguration({ forceRelay: this.forceRelayOnly });
 
-    return new Promise((resolve, reject) => {
-      try {
-        this.peer = new Peer({
-          debug: 1,
-          config: iceConfig,
-        });
+    this.activeConnectPromise = (async () => {
+      const iceConfig = await getIceConfiguration({ forceRelay: this.forceRelayOnly });
 
-        this.peer.on('open', (id) => {
-          console.log('[PeerMaster] Opened with ID:', id, 'Connecting to Display:', targetPeerId);
-          this.establishConnectionToDisplay(targetPeerId, resolve, reject);
-        });
+      return new Promise<boolean>((resolve, reject) => {
+        if (currentGen !== this.connectionGeneration || this.isIntentionalDestroy) {
+          return reject(new Error('Aborted by newer connection generation'));
+        }
 
-        this.peer.on('error', (err) => {
-          console.error('[PeerMaster] Peer error:', err);
+        try {
+          this.peer = new Peer({
+            debug: 1,
+            config: iceConfig,
+          });
+
+          this.peer.on('open', (id) => {
+            if (currentGen !== this.connectionGeneration || this.isIntentionalDestroy) return;
+            console.log('[PeerMaster] Opened with ID:', id, 'Connecting to Display:', targetPeerId);
+            this.establishConnectionToDisplay(targetPeerId, currentGen, resolve, reject);
+          });
+
+          this.peer.on('error', (err) => {
+            if (currentGen !== this.connectionGeneration || this.isIntentionalDestroy) return;
+            console.error('[PeerMaster] Peer error:', err);
+            connectionDiagnostics.logEvent('error', 'MASTER_PEER_ERROR', { type: err.type, message: err.message });
+            this.notifyStatus('error');
+            this.scheduleReconnect(() => this.connectAsMaster(formattedCode), currentGen);
+          });
+
+          this.peer.on('disconnected', () => {
+            if (currentGen !== this.connectionGeneration || this.isIntentionalDestroy) return;
+            console.warn('[PeerMaster] Disconnected from signaling server, reconnecting...');
+            this.peer?.reconnect();
+          });
+        } catch (err) {
           this.notifyStatus('error');
-          this.scheduleReconnect(() => this.connectAsMaster(roomCode));
-        });
+          reject(err);
+        }
+      });
+    })();
 
-        this.peer.on('disconnected', () => {
-          console.warn('[PeerMaster] Disconnected from signaling server, reconnecting...');
-          this.peer?.reconnect();
-        });
-      } catch (err) {
-        this.notifyStatus('error');
-        reject(err);
-      }
-    });
+    try {
+      const result = await this.activeConnectPromise;
+      return result;
+    } finally {
+      this.activeConnectPromise = null;
+    }
   }
 
   private establishConnectionToDisplay(
     targetPeerId: string,
+    generation: number,
     resolve?: (value: boolean) => void,
     reject?: (reason?: unknown) => void
   ) {
@@ -242,28 +338,36 @@ class PeerService {
     this.connection = conn;
 
     conn.on('open', () => {
+      if (generation !== this.connectionGeneration || this.isIntentionalDestroy) return;
       console.log('[PeerMaster] Connected to Display successfully!');
       this.reconnectAttempts = 0;
       this.notifyStatus('connected');
+      connectivityStateMachine.dispatch({ type: 'DATA_CHANNEL_OPEN' });
+
       if ((conn as unknown as { peerConnection?: RTCPeerConnection }).peerConnection) {
-        iceTelemetry.attach((conn as unknown as { peerConnection: RTCPeerConnection }).peerConnection);
+        const pc = (conn as unknown as { peerConnection: RTCPeerConnection }).peerConnection;
+        iceTelemetry.attach(pc);
       }
       this.startHeartbeat();
       if (resolve) resolve(true);
     });
 
     conn.on('data', (data) => {
+      if (generation !== this.connectionGeneration || this.isIntentionalDestroy) return;
       this.processIncomingData(data, conn);
     });
 
     conn.on('close', () => {
+      if (generation !== this.connectionGeneration || this.isIntentionalDestroy) return;
       console.warn('[PeerMaster] Connection to Display closed');
       this.notifyStatus('disconnected');
+      connectivityStateMachine.dispatch({ type: 'DATA_CHANNEL_CLOSED' });
       this.stopHeartbeat();
-      this.scheduleReconnect(() => this.establishConnectionToDisplay(targetPeerId));
+      this.scheduleReconnect(() => this.establishConnectionToDisplay(targetPeerId, generation), generation);
     });
 
     conn.on('error', (err) => {
+      if (generation !== this.connectionGeneration || this.isIntentionalDestroy) return;
       console.error('[PeerMaster] Connection error:', err);
       this.notifyStatus('error');
       if (reject) reject(err);
@@ -293,6 +397,9 @@ class PeerService {
         ? (msg.payload as { timestamp: number }).timestamp
         : msg.sentAt;
       this.latencyMs = Math.max(1, Math.round((Date.now() - sentTime) / 2));
+      connectionDiagnostics.recordRtt(this.latencyMs);
+      connectivityStateMachine.dispatch({ type: 'LATENCY_SAMPLE', payload: { latencyMs: this.latencyMs } });
+      connectivityStateMachine.dispatch({ type: 'HEARTBEAT_ACK' });
       this.notifyStatus(this.status);
       return;
     }
@@ -332,16 +439,21 @@ class PeerService {
     this.notifyMessage(msg);
   }
 
-  private scheduleReconnect(action: () => void) {
+  private scheduleReconnect(action: () => void, generation: number, customDelayMs?: number) {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
     }
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+
+    if (this.reconnectAttempts < this.maxReconnectAttempts && !this.isIntentionalDestroy) {
       this.reconnectAttempts++;
-      const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000);
-      console.log(`[PeerService] Scheduling auto-reconnect in ${Math.round(delay)}ms (Attempt ${this.reconnectAttempts})`);
+      const delay = customDelayMs !== undefined ? customDelayMs : connectivityStateMachine.getReconnectDelay();
+      console.log(`[PeerService] Scheduling auto-reconnect in ${Math.round(delay)}ms (Attempt ${this.reconnectAttempts}, Gen ${generation})`);
+
       this.reconnectTimeout = window.setTimeout(() => {
-        action();
+        if (generation === this.connectionGeneration && !this.isIntentionalDestroy) {
+          action();
+        }
       }, delay);
     }
   }
@@ -456,7 +568,12 @@ class PeerService {
     }
   }
 
+  /**
+   * Explicit and intentional teardown, preventing orphan reconnect triggers.
+   */
   public destroy() {
+    this.isIntentionalDestroy = true;
+    this.connectionGeneration++;
     this.stopHeartbeat();
     this.reliableQueue.clear();
     this.deduplicator.clear();
@@ -478,6 +595,7 @@ class PeerService {
     }
     this.status = 'disconnected';
     this.latencyMs = 0;
+    this.unavailableIdRetries = 0;
   }
 }
 

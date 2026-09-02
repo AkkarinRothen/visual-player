@@ -1,3 +1,5 @@
+import { connectionDiagnostics } from './connectionDiagnostics';
+
 export interface IceServerConfig {
   urls: string | string[];
   username?: string;
@@ -24,40 +26,63 @@ let renewalTimer: number | null = null;
 let activeRoomId: string = 'VP-DEMO';
 let activeSessionToken: string | null = null;
 let isSessionActive: boolean = false;
+let pendingTokenPromise: Promise<string | null> | null = null;
+let pendingTurnPromise: Promise<IceServerConfig[]> | null = null;
 
 /**
- * Requests a cryptographically signed session token from the server.
+ * Requests a cryptographically signed session token from the server with single-flight deduplication.
  */
 export async function acquireServerSessionToken(
   roomId: string = activeRoomId,
   roomSecret?: string,
   role: 'display' | 'master' | 'spectator' = 'display'
 ): Promise<string | null> {
-  try {
-    const action = role === 'display' ? 'create' : 'join';
-    const body: Record<string, string> = { action, roomId: roomId.toUpperCase().trim() };
-    if (role === 'display') {
-      body.customCode = roomId;
-    } else if (roomSecret) {
-      body.roomSecret = roomSecret;
-    }
-
-    const response = await fetch('/api/session-token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      activeSessionToken = data.sessionToken || null;
-      return activeSessionToken;
-    }
-  } catch (err) {
-    console.log('[IceConfig] Server session token endpoint unavailable, using local STUN.');
+  if (pendingTokenPromise) {
+    return pendingTokenPromise;
   }
 
-  return null;
+  pendingTokenPromise = (async () => {
+    try {
+      const action = role === 'display' ? 'create' : 'join';
+      const body: Record<string, string> = { action, roomId: roomId.toUpperCase().trim() };
+      if (role === 'display') {
+        body.customCode = roomId;
+      } else if (roomSecret) {
+        body.roomSecret = roomSecret;
+      }
+
+      const response = await fetch('/api/session-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        activeSessionToken = data.sessionToken || null;
+        connectionDiagnostics.logEvent('signaling', 'TOKEN_ACQUIRED', { role, roomId });
+        return activeSessionToken;
+      } else if (response.status === 500) {
+        connectionDiagnostics.logEvent('error', 'AUTH_SERVER_MISCONFIGURED', {
+          status: 500,
+          endpoint: '/api/session-token',
+          message: 'Falta configurar SERVER_SESSION_SECRET en variables de entorno de Vercel.',
+        });
+        console.error('[IceConfig] AUTH_SERVER_MISCONFIGURED: /api/session-token returned 500. Check SERVER_SESSION_SECRET in Vercel.');
+      }
+    } catch (err: any) {
+      connectionDiagnostics.logEvent('signaling', 'TOKEN_FETCH_FALLBACK', {
+        message: err?.message || 'Local STUN mode fallback',
+      });
+      console.log('[IceConfig] Server session token endpoint unavailable, using local STUN.');
+    } finally {
+      pendingTokenPromise = null;
+    }
+
+    return null;
+  })();
+
+  return pendingTokenPromise;
 }
 
 export function setSessionToken(token: string): void {
@@ -82,48 +107,64 @@ export async function fetchEphemeralTurnServers(
     return cachedTurnServers;
   }
 
-  if (!activeSessionToken) {
-    await acquireServerSessionToken(roomId);
+  if (pendingTurnPromise) {
+    return pendingTurnPromise;
   }
 
-  if (!activeSessionToken) {
-    return [];
-  }
-
-  try {
-    const response = await fetch('/api/turn-credentials', {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'X-Session-Token': activeSessionToken,
-      },
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data.iceServers && Array.isArray(data.iceServers)) {
-        cachedTurnServers = data.iceServers;
-        const ttlSec = data.ttl || 1800;
-        cacheExpiresAt = now + ttlSec * 1000;
-
-        // Schedule proactive renewal at 75% of TTL if session is active
-        if (isSessionActive) {
-          scheduleProactiveRenewal(roomId, ttlSec * 0.75 * 1000);
-        }
-
-        return cachedTurnServers!;
+  pendingTurnPromise = (async () => {
+    try {
+      if (!activeSessionToken) {
+        await acquireServerSessionToken(roomId);
       }
-    } else if (response.status === 429) {
-      console.warn('[IceConfig] Rate limit reached on TURN credentials endpoint.');
-    } else if (response.status === 401) {
-      console.warn('[IceConfig] Session token invalid or expired. Re-authenticating...');
-      activeSessionToken = null;
-    }
-  } catch (err) {
-    console.log('[IceConfig] Serverless TURN endpoint not reachable, operating in STUN direct mode.');
-  }
 
-  return [];
+      if (!activeSessionToken) {
+        return [];
+      }
+
+      const response = await fetch('/api/turn-credentials', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'X-Session-Token': activeSessionToken,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.iceServers && Array.isArray(data.iceServers)) {
+          cachedTurnServers = data.iceServers;
+          const ttlSec = data.ttl || 1800;
+          cacheExpiresAt = Date.now() + ttlSec * 1000;
+
+          // Schedule proactive renewal at 75% of TTL if session is active
+          if (isSessionActive) {
+            scheduleProactiveRenewal(roomId, ttlSec * 0.75 * 1000);
+          }
+
+          connectionDiagnostics.logEvent('ice', 'TURN_SERVERS_ACQUIRED', { count: cachedTurnServers?.length || 0 });
+          return cachedTurnServers!;
+        }
+      } else if (response.status === 429) {
+        console.warn('[IceConfig] Rate limit reached on TURN credentials endpoint.');
+      } else if (response.status === 401) {
+        console.warn('[IceConfig] Session token invalid or expired. Re-authenticating...');
+        activeSessionToken = null;
+      } else if (response.status === 500) {
+        connectionDiagnostics.logEvent('error', 'AUTH_SERVER_MISCONFIGURED', {
+          status: 500,
+          endpoint: '/api/turn-credentials',
+        });
+      }
+    } catch (err) {
+      console.log('[IceConfig] Serverless TURN endpoint not reachable, operating in STUN direct mode.');
+    } finally {
+      pendingTurnPromise = null;
+    }
+
+    return [];
+  })();
+
+  return pendingTurnPromise;
 }
 
 /**
