@@ -25,6 +25,10 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(false);
   const [showDiagnosticModal, setShowDiagnosticModal] = useState<boolean>(false);
   const [pairingInfo, setPairingInfo] = useState<PairingPhaseInfo>(pairingEngine.getPhaseInfo());
+  const pairingAuthorizationInProgress =
+    pairingInfo.phase !== 'IDLE_WAITING' && pairingInfo.phase !== 'CONTROL_READY';
+  const showPairingOverlay = Boolean(roomCode) &&
+    (connectionStatus !== 'connected' || pairingAuthorizationInProgress);
 
   // Core Display State
   const [state, setState] = useState<DisplayState>({
@@ -452,7 +456,7 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
       )}
 
       {/* DM Connection Waiting Overlay (Shows Room Code, QR & Pairing Progress) */}
-      {pairingInfo.phase !== 'CONTROL_READY' && roomCode && (
+      {showPairingOverlay && (
         <div style={{
           position: 'absolute',
           inset: 0,
