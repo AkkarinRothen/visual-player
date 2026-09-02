@@ -33,7 +33,12 @@ export function isAllowedOrigin(originHeader?: string, refererHeader?: string): 
       // 1. Exact Host Match
       if (ALLOWED_EXACT_HOSTS.has(host)) return true;
 
-      // 2. Strict Project Suffix Match (Previews under akkarinrothen account)
+      // 2. Allow any visual-player preview/production deployment on Vercel
+      if (host.startsWith('visual-player') && host.endsWith('.vercel.app')) {
+        return true;
+      }
+
+      // 3. Strict Project Suffix Match (Previews under akkarinrothen account)
       for (const suffix of ALLOWED_HOST_SUFFIXES) {
         if (host.endsWith(suffix) && (host.startsWith('visual-player') || suffix === '.visualplayer.app')) {
           return true;
@@ -93,16 +98,21 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('X-Content-Type-Options', 'nosniff');
 
-  // 1. Fail-Closed Check in Production
-  const isProd = process.env.NODE_ENV === 'production';
+  // 1. Fallback gracefully to STUN if TURN is not configured on this deployment
   const turnSecret = process.env.TURN_SECRET;
   const turnDomain = process.env.TURN_DOMAIN;
 
-  if (isProd && (!turnSecret || !turnDomain)) {
-    res.statusCode = 500;
+  if (!turnSecret || !turnDomain) {
+    res.statusCode = 200;
     res.end(
       JSON.stringify({
-        error: 'Server Configuration Error: TURN credentials service is not configured on this deployment.',
+        mode: 'stun_only',
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun.cloudflare.com:3478' },
+        ],
+        ttl: 1800,
+        warning: 'TURN server credentials not configured; operating in direct STUN mode.',
       })
     );
     return;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ConnectionStatus, DisplayState, SyncMessage } from '../types';
 import { peerService } from '../services/peerService';
 import { acquireServerSessionToken, startTurnRenewalWatcher } from '../services/iceConfig';
@@ -15,9 +15,17 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [latencyMs, setLatencyMs] = useState<number>(0);
 
+  // Store latest callback in a ref to avoid infinite re-render reconnection storms
+  const onFullStateRequestedRef = useRef(onFullStateRequested);
+  onFullStateRequestedRef.current = onFullStateRequested;
+
+  const hasConnectedRef = useRef<string | null>(null);
+
   const connectToRoom = useCallback(async (code: string, secret?: string) => {
+    if (!code) return;
     try {
       setRoomCode(code);
+      hasConnectedRef.current = code;
       if (secret) {
         await acquireServerSessionToken(code, secret, 'master');
       }
@@ -39,10 +47,10 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
   }, []);
 
   useEffect(() => {
-    const activeCode = roomCode || initialRoomCode || 'VP-DEMO';
+    const activeCode = initialRoomCode || roomCode || 'VP-DEMO';
     const stopWatcher = startTurnRenewalWatcher(activeCode);
 
-    if (initialRoomCode) {
+    if (initialRoomCode && hasConnectedRef.current !== initialRoomCode) {
       connectToRoom(initialRoomCode, pairingSecret);
     }
 
@@ -55,7 +63,7 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
 
     const unsubMsg = peerService.onMessage((msg) => {
       if (msg.type === 'REQUEST_FULL_STATE') {
-        onFullStateRequested?.();
+        onFullStateRequestedRef.current?.();
       }
     });
 
@@ -64,7 +72,7 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
       unsubStatus();
       unsubMsg();
     };
-  }, [initialRoomCode, connectToRoom, onFullStateRequested]);
+  }, [initialRoomCode, pairingSecret, connectToRoom]);
 
   return {
     roomCode,
