@@ -290,8 +290,32 @@ export interface HandoffToken {
   sessionRevision: number;
 }
 
+export type PairingPhase =
+  | 'IDLE_WAITING'
+  | 'TRANSPORT_CONNECTED'
+  | 'PIN_CHALLENGE_PENDING'
+  | 'AUTHENTICATED'
+  | 'LEASE_GRANTED'
+  | 'INITIAL_STATE_NEGOTIATED'
+  | 'SNAPSHOT_APPLIED'
+  | 'CONTROL_READY'
+  | 'FAILED';
+
+export interface PinChallenge {
+  challengeCode: string;
+  expiresAt: number;
+  attemptsRemaining: number;
+  requestedDeviceId: string;
+}
+
 export type SyncMessage =
   | { type: 'HANDSHAKE_HELLO'; payload: HandshakeHelloPayload }
+  | { type: 'PAIRING_PROGRESS'; payload: { phase: PairingPhase; progressPercent: number; message: string } }
+  | { type: 'PIN_CHALLENGE_REQUEST'; payload: { requestedDeviceId: string } }
+  | { type: 'PIN_CHALLENGE_ISSUED'; payload: { challengeCode: string; expiresAt: number } }
+  | { type: 'PIN_CHALLENGE_RESPONSE'; payload: { challengeCode: string } }
+  | { type: 'PIN_CHALLENGE_APPROVED'; payload: { sessionSecret: string } }
+  | { type: 'CONTROL_READY_CONFIRM'; payload: { confirmed: boolean; sessionRevision: number; checksum: string } }
   | { type: 'LEASE_ACQUIRE'; payload: { masterDeviceId: string; connectionEpoch: number } }
   | { type: 'LEASE_GRANTED'; payload: { lease: MasterLease } }
   | { type: 'LEASE_RENEW'; payload: { leaseId: string; connectionEpoch: number } }
