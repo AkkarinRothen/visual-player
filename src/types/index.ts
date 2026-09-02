@@ -323,5 +323,7 @@ export type SyncMessage =
   | { type: 'UPDATE_COMBAT'; payload: CombatState; leaseId?: string }
   | { type: 'TURN_TIMER_TICK'; payload: { seconds: number; isRunning: boolean; showToPlayers: boolean } }
   | { type: 'END_COMBAT'; leaseId?: string }
+  | { type: 'SYNC_TEST_PROBE'; payload: { probeId: string; timestamp: number; clientChecksum: string; sessionRevision: number } }
+  | { type: 'SYNC_TEST_ACK'; payload: { probeId: string; displayChecksum: string; sessionRevision: number; matched: boolean; rttMs: number } }
   | { type: 'PING'; timestamp: number }
   | { type: 'PONG'; timestamp: number };
