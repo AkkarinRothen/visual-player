@@ -57,6 +57,8 @@ import { SceneEditModal } from './modals/SceneEditModal';
 import { CharacterEditModal } from './modals/CharacterEditModal';
 import { SummonCharacterModal } from './modals/SummonCharacterModal';
 import { MasterQRModal } from './modals/MasterQRModal';
+import { TransportStatusChip } from '../common/TransportStatusChip';
+import type { TransportStatusState } from '../common/TransportStatusChip';
 import {
   Zap,
   Activity,
@@ -783,22 +785,24 @@ export const MasterController: React.FC<MasterControllerProps> = ({
               <Activity size={15} className={peerService.isChaosActive() ? 'text-rose-400 animate-pulse' : 'text-slate-400'} />
             </button>
 
-            <button
-              className={`status-chip ${connectionStatus}`}
-              onClick={() => setShowQRModal(true)}
-              title="Información de Conexión"
-            >
-              <span className="pulse-indicator"></span>
-              {connectionStatus === 'connected' ? (
-                <span>
-                  Conectado {latencyMs > 0 ? `(${latencyMs}ms)` : `(${roomCode})`}
-                </span>
-              ) : connectionStatus === 'connecting' ? (
-                <span>Conectando...</span>
-              ) : (
-                <span>PIN: {roomCode || '---'}</span>
-              )}
-            </button>
+            {/* Transport Status Chip - replaces plain status-chip button */}
+            {
+              (() => {
+                const transportStatus: TransportStatusState =
+                  connectionStatus === 'connected' ? 'internet'
+                  : connectionStatus === 'connecting' ? 'switching'
+                  : 'disconnected';
+                return (
+                  <TransportStatusChip
+                    status={transportStatus}
+                    transportLabel="Internet"
+                    latencyMs={latencyMs > 0 ? latencyMs : undefined}
+                    role="master"
+                    onOpenDiagnostic={() => setShowDiagnosticsModal(true)}
+                  />
+                );
+              })()
+            }
             {onExitToLobby && (
               <button
                 className="status-chip"

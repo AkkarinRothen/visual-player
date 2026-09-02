@@ -8,6 +8,17 @@ import type {
   TransportMessageHandler,
   TransportStatusHandler,
 } from '../../domain/transport/types';
+import { offlineDiagnosticService } from '../offlineDiagnosticService';
+
+export interface NearbyAuthChallengeEvent {
+  endpointId: string;
+  /** Exact authenticationDigits from Nearby — never log, transform, or persist */
+  authenticationDigits: string;
+  /** Sanitized device name (no full endpoint IDs) */
+  deviceName: string;
+}
+
+export type NearbyAuthChallengeHandler = (event: NearbyAuthChallengeEvent) => void;
 
 interface VisualPlayerNearbyPluginType {
   startAdvertising(options: { roomId: string }): Promise<{ status: string; roomId: string }>;
@@ -29,6 +40,7 @@ export class NearbyConnectionsTransport implements ISessionTransport {
   private status: ConnectionStatus = 'disconnected';
   private messageListeners: Set<TransportMessageHandler> = new Set();
   private statusListeners: Set<TransportStatusHandler> = new Set();
+  private authChallengeListeners: Set<NearbyAuthChallengeHandler> = new Set();
   private metrics: TransportMetrics = {
     type: 'nearby',
     latencyMs: 2,
@@ -38,6 +50,10 @@ export class NearbyConnectionsTransport implements ISessionTransport {
     bytesReceived: 0,
   };
   private isNativeSupported = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+  /** Endpoint awaiting authentication approval */
+  private pendingAuthEndpointId: string | null = null;
+  private connectionGeneration = 0;
+  private connectionEpochPrefix = '';
 
   constructor() {
     if (this.isNativeSupported) {
@@ -49,6 +65,16 @@ export class NearbyConnectionsTransport implements ISessionTransport {
     VisualPlayerNearby.addListener('onNearbyStatusChange', (data: { status: string; endpointId?: string }) => {
       const connStatus: ConnectionStatus = data.status === 'connected' ? 'connected' : 'disconnected';
       this.status = connStatus;
+      if (connStatus === 'connected') {
+        this.connectionGeneration++;
+      }
+      offlineDiagnosticService.record({
+        type: connStatus === 'connected' ? 'HANDSHAKE_COMPLETE' : 'CONNECTION_LOST',
+        transport: 'nearby',
+        connectionGeneration: this.connectionGeneration,
+        connectionEpochPrefix: this.connectionEpochPrefix,
+        success: connStatus === 'connected',
+      });
       this.statusListeners.forEach((h) => h(connStatus, data.endpointId, this.metrics.latencyMs));
     });
 
@@ -62,11 +88,39 @@ export class NearbyConnectionsTransport implements ISessionTransport {
       }
     });
 
-    VisualPlayerNearby.addListener('onConnectionInitiated', (data: { endpointId: string; authenticationDigits: string }) => {
-      console.log(`[NearbyTransport] Incoming connection with authDigits: ${data.authenticationDigits}`);
-      // Auto-accepting when digits are verified by local auth
-      VisualPlayerNearby.acceptConnection({ endpointId: data.endpointId });
-    });
+    VisualPlayerNearby.addListener(
+      'onConnectionInitiated',
+      (data: { endpointId: string; authenticationDigits: string; deviceName?: string }) => {
+        // Store pending endpoint — do NOT auto-accept
+        this.pendingAuthEndpointId = data.endpointId;
+
+        // Record to diagnostic WITHOUT the digits (security rule)
+        offlineDiagnosticService.record({
+          type: 'AUTH_CHALLENGE_SHOWN',
+          transport: 'nearby',
+          connectionGeneration: this.connectionGeneration,
+          connectionEpochPrefix: this.connectionEpochPrefix,
+          meta: {
+            hasEndpoint: !!data.endpointId,
+            digitCount: data.authenticationDigits?.length ?? 0,
+          },
+        });
+
+        // Sanitize device name — never include full endpoint IDs
+        const sanitizedName = (data.deviceName ?? 'Dispositivo cercano')
+          .replace(/[<>"'&]/g, '')
+          .slice(0, 32);
+
+        // Emit to UI — UI decides to approve or reject
+        this.authChallengeListeners.forEach((h) =>
+          h({
+            endpointId: data.endpointId,
+            authenticationDigits: data.authenticationDigits,
+            deviceName: sanitizedName,
+          })
+        );
+      }
+    );
   }
 
   public async initHost(roomId: string = 'VP-NEARBY-HOST'): Promise<string> {
@@ -77,6 +131,7 @@ export class NearbyConnectionsTransport implements ISessionTransport {
       return roomId;
     }
 
+    offlineDiagnosticService.record({ type: 'ADVERTISING_STARTED', transport: 'nearby' });
     this.status = 'connecting';
     const result = await VisualPlayerNearby.startAdvertising({ roomId });
     return result.roomId || roomId;
@@ -90,8 +145,58 @@ export class NearbyConnectionsTransport implements ISessionTransport {
       return;
     }
 
+    offlineDiagnosticService.record({ type: 'DISCOVERY_STARTED', transport: 'nearby' });
     this.status = 'connecting';
     await VisualPlayerNearby.startDiscovery();
+  }
+
+  /**
+   * Called by the UI after the user approves the authenticationDigits.
+   * Only then does the transport call acceptConnection() on the native side.
+   */
+  public async approveConnection(endpointId: string): Promise<void> {
+    if (this.pendingAuthEndpointId !== endpointId) {
+      console.warn('[NearbyTransport] approveConnection called for unknown endpoint:', endpointId);
+      return;
+    }
+    offlineDiagnosticService.record({
+      type: 'AUTH_APPROVED',
+      transport: 'nearby',
+      connectionGeneration: this.connectionGeneration,
+      connectionEpochPrefix: this.connectionEpochPrefix,
+      success: true,
+    });
+    this.pendingAuthEndpointId = null;
+    await VisualPlayerNearby.acceptConnection({ endpointId });
+  }
+
+  /**
+   * Called by the UI after the user rejects the authenticationDigits.
+   */
+  public async rejectConnection(endpointId: string, reason: string = 'user_rejected'): Promise<void> {
+    if (this.pendingAuthEndpointId === endpointId) {
+      this.pendingAuthEndpointId = null;
+    }
+    offlineDiagnosticService.record({
+      type: 'AUTH_REJECTED',
+      transport: 'nearby',
+      connectionGeneration: this.connectionGeneration,
+      connectionEpochPrefix: this.connectionEpochPrefix,
+      success: false,
+      errorCode: reason,
+    });
+    await VisualPlayerNearby.rejectConnection({ endpointId });
+  }
+
+  /** Subscribe to authentication challenge events from Nearby */
+  public onAuthChallenge(handler: NearbyAuthChallengeHandler): () => void {
+    this.authChallengeListeners.add(handler);
+    return () => this.authChallengeListeners.delete(handler);
+  }
+
+  /** Update connection epoch prefix for diagnostic recording */
+  public setConnectionEpochPrefix(prefix: string): void {
+    this.connectionEpochPrefix = prefix.slice(0, 8);
   }
 
   public send(message: SyncMessage | VersionedSyncMessage): void {
