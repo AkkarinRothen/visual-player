@@ -97,6 +97,7 @@ import {
   History,
   Bookmark,
   CheckCheck,
+  WifiOff,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -983,6 +984,46 @@ export const MasterController: React.FC<MasterControllerProps> = ({
             )}
           </div>
         </div>
+
+        {/* NON-INVASIVE FLOATING RECONNECTION TOAST */}
+        {connectionStatus !== 'connected' && (
+          <div style={{
+            background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.18), rgba(239, 68, 68, 0.18))',
+            borderBottom: '1px solid rgba(245, 158, 11, 0.3)',
+            padding: '6px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '12px',
+            color: '#fbbf24',
+            backdropFilter: 'blur(8px)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <WifiOff size={14} className="animate-pulse" />
+              <span>
+                {connectionStatus === 'connecting'
+                  ? `Reconectando con la Mesa (${roomCode || '---'})... Los cambios se conservan.`
+                  : `Sin conexión con la Mesa (${roomCode || '---'}). Tus notas y fichas siguen disponibles.`}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => connectToRoom(roomCode, pairingSecret)}
+              style={{
+                background: 'rgba(245, 158, 11, 0.25)',
+                border: '1px solid rgba(245, 158, 11, 0.5)',
+                borderRadius: '6px',
+                color: '#fbbf24',
+                padding: '3px 10px',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Reconectar
+            </button>
+          </div>
+        )}
 
         {/* PERSISTENT CHAOS SIMULATION WARNING BANNER (DEV) */}
         {peerService.isChaosActive() && (

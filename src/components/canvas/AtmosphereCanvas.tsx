@@ -6,6 +6,7 @@ interface AtmosphereCanvasProps {
   intensity: number; // 0.0 to 1.0
   lighting: LightingFilter;
   lightningTrigger: number;
+  shakeTrigger?: number;
 }
 
 interface Particle {

@@ -6,7 +6,7 @@ import { startTurnRenewalWatcher } from '../../services/iceConfig';
 import { getPlatformBridge } from '../../platform';
 import { AtmosphereCanvas } from '../canvas/AtmosphereCanvas';
 import { InitiativeRibbon } from './InitiativeRibbon';
-import { Maximize2, Minimize2, Wifi, WifiOff, Volume2, Sparkles, Activity, QrCode, ShieldAlert } from 'lucide-react';
+import { Maximize2, Minimize2, Wifi, WifiOff, Volume2, Sparkles, Activity, QrCode, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { ConnectionDiagnosticModal } from '../common/ConnectionDiagnosticModal';
 import { pairingEngine, type PairingPhaseInfo } from '../../services/pairingEngine';
@@ -25,10 +25,34 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(false);
   const [showDiagnosticModal, setShowDiagnosticModal] = useState<boolean>(false);
   const [pairingInfo, setPairingInfo] = useState<PairingPhaseInfo>(pairingEngine.getPhaseInfo());
+  const [isOverlayMinimized, setIsOverlayMinimized] = useState<boolean>(false);
+  const hasPlayedChimeRef = useRef<boolean>(false);
+
   const pairingAuthorizationInProgress =
     pairingInfo.phase !== 'IDLE_WAITING' && pairingInfo.phase !== 'CONTROL_READY';
   const showPairingOverlay = Boolean(roomCode) &&
-    (connectionStatus !== 'connected' || pairingAuthorizationInProgress);
+    (connectionStatus !== 'connected' || pairingAuthorizationInProgress) &&
+    !isOverlayMinimized;
+
+  // Auto-minimize overlay and play subtle success chime on CONTROL_READY or connected
+  useEffect(() => {
+    if (connectionStatus === 'connected' || pairingInfo.phase === 'CONTROL_READY') {
+      if (!hasPlayedChimeRef.current) {
+        hasPlayedChimeRef.current = true;
+        try {
+          soundEngine.playSynth('magic_spell');
+        } catch {
+          // Ignore
+        }
+      }
+      const timer = window.setTimeout(() => {
+        setIsOverlayMinimized(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else {
+      hasPlayedChimeRef.current = false;
+    }
+  }, [connectionStatus, pairingInfo.phase]);
 
   // Core Display State
   const [state, setState] = useState<DisplayState>({
@@ -121,6 +145,18 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
       unsubPairing();
     };
   }, [initialRoomCode]);
+
+  // Background crossfade helper
+  const triggerBgTransition = (newBgUrl: string) => {
+    if (newBgUrl === activeBg) return;
+    setPrevBg(activeBg);
+    setActiveBg(newBgUrl);
+    setIsCrossfading(true);
+    setTimeout(() => {
+      setIsCrossfading(false);
+      setPrevBg(null);
+    }, 1000);
+  };
 
   // Handle incoming messages from Master Remote
   const handleIncomingMessage = (msg: any) => {
@@ -250,46 +286,11 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
         setState((prev) => ({ ...prev, locationBanner: msg.payload }));
         break;
 
-      case 'PLAY_SFX':
-        if (msg.payload.synthPreset) {
-          soundEngine.playSynth(msg.payload.synthPreset);
-        } else if (msg.payload.audioUrl) {
-          soundEngine.playAudioUrl(msg.payload.audioUrl);
-        }
-        break;
-
-      case 'SET_AMBIENT':
-        setState((prev) => ({
-          ...prev,
-          ambientAudioUrl: msg.payload.url,
-          ambientPlaying: msg.payload.playing,
-          ambientVolume: msg.payload.volume,
-        }));
-        soundEngine.setAmbient(
-          msg.payload.url,
-          msg.payload.playing,
-          msg.payload.volume,
-          msg.payload.crossfade ?? true
-        );
-        break;
-
       case 'START_COMBAT':
       case 'UPDATE_COMBAT':
         setState((prev) => ({
           ...prev,
           combatState: msg.payload,
-        }));
-        break;
-
-      case 'TURN_TIMER_TICK':
-        setState((prev) => ({
-          ...prev,
-          combatState: {
-            ...prev.combatState,
-            turnTimerSeconds: msg.payload.seconds,
-            isTimerRunning: msg.payload.isRunning,
-            showTurnTimerToPlayers: msg.payload.showToPlayers,
-          },
         }));
         break;
 
@@ -301,24 +302,69 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
             round: 1,
             currentTurnIndex: 0,
             combatants: [],
+            turnTimerSeconds: 60,
+            showTurnTimerToPlayers: true,
           },
         }));
         break;
+
+      case 'NEXT_TURN':
+      case 'PREV_TURN':
+        setState((prev) => ({
+          ...prev,
+          combatState: {
+            ...prev.combatState,
+            currentTurnIndex: msg.payload.currentTurnIndex,
+            round: msg.payload.round,
+          },
+        }));
+        break;
+
+      case 'PLAY_SFX':
+        soundEngine.playTrack(msg.payload);
+        setState((prev) => ({ ...prev, lastSfx: msg.payload }));
+        break;
+
+      case 'PLAY_SYNTH':
+        soundEngine.playSynth(msg.payload);
+        break;
+
+      case 'SET_AMBIENT':
+        soundEngine.setAmbient(
+          msg.payload.url,
+          msg.payload.playing,
+          msg.payload.volume,
+          msg.payload.crossfade
+        );
+        setState((prev) => ({
+          ...prev,
+          ambientAudioUrl: msg.payload.url,
+          ambientPlaying: msg.payload.playing,
+          ambientVolume: msg.payload.volume,
+        }));
+        break;
+
+      default:
+        console.warn('Unknown message received by Display:', msg);
     }
   };
 
-  const triggerBgTransition = (newUrl: string) => {
-    if (newUrl === activeBg) return;
-    setPrevBg(activeBg);
-    setActiveBg(newUrl);
-    setIsCrossfading(true);
-    setTimeout(() => {
-      setIsCrossfading(false);
-      setPrevBg(null);
-    }, 900);
+  // Fullscreen toggle handler
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.warn('Error attempting fullscreen:', err);
+      });
+      setIsFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    }
   };
 
-  // Auto-hide controls when cursor is idle
+  // Activity detection for auto-hiding controls
   const handleMouseMove = () => {
     setShowControls(true);
     if (hideControlsTimeout.current) {
@@ -329,148 +375,113 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
     }, 3500);
   };
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true));
-    } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false));
-    }
-  };
-
+  // Audio unlock banner
   const unlockAudio = () => {
-    soundEngine.playSynth('magic_spell');
+    soundEngine.unlockAudio();
     setAudioUnlocked(true);
-  };
-
-  // Group characters by position slot
-  const renderCharacterSlot = (pos: 'left' | 'center-left' | 'center-right' | 'right') => {
-    const chars = state.characters.filter((c) => c.position === pos);
-    if (chars.length === 0) return null;
-
-    return (
-      <div key={pos} className={`character-slot slot-${pos}`}>
-        {chars.map((char) => {
-          const hasAnySpeaker = state.characters.some((c) => c.isSpeaking);
-          const isDimmed = hasAnySpeaker && !char.isSpeaking;
-
-          return (
-            <div
-              key={char.id}
-              className={`character-card ${char.isSpeaking ? 'is-speaking' : ''} ${
-                isDimmed ? 'is-dimmed' : ''
-              }`}
-            >
-              {char.isSpeaking && (
-                <div className="speaking-aura">
-                  <div className="speaking-wave"></div>
-                </div>
-              )}
-
-              <div className="avatar-frame">
-                <img src={char.avatarUrl} alt={char.name} className="avatar-img" />
-                {char.activeExpression && char.activeExpression !== 'Neutral' && (
-                  <span className="expression-badge">{char.activeExpression}</span>
-                )}
-              </div>
-
-              <div className="nameplate">
-                <span className="character-name">{char.name}</span>
-                {char.statusBadge && <span className="status-tag">{char.statusBadge}</span>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
   };
 
   return (
     <div
-      className={`player-display-root ${state.shakeTrigger > 0 ? 'screen-shake' : ''}`}
-      key={state.shakeTrigger}
+      className={`player-display-root ${state.isBlackout ? 'blackout' : ''}`}
       onMouseMove={handleMouseMove}
+      style={{ cursor: showControls ? 'default' : 'none' }}
     >
-      {/* Background Layers with Crossfade */}
+      {/* Background Layers for Smooth Crossfade */}
       {prevBg && (
         <div
-          className="background-layer prev-bg"
+          className="display-bg prev-bg"
           style={{ backgroundImage: `url(${prevBg})` }}
         />
       )}
       <div
-        className={`background-layer current-bg ${isCrossfading ? 'crossfading' : ''}`}
+        className={`display-bg active-bg ${isCrossfading ? 'fade-in' : ''}`}
         style={{ backgroundImage: `url(${activeBg})` }}
       />
 
-      {/* Atmospheric Particles & Lighting Canvas */}
+      {/* Atmospheric Effects Canvas */}
       <AtmosphereCanvas
         weather={state.weather}
         intensity={state.weatherIntensity}
         lighting={state.lighting}
+        shakeTrigger={state.shakeTrigger}
         lightningTrigger={state.lightningTrigger}
       />
 
-      {/* Initiative & Combat Ribbon (Top) */}
+      {/* Location / Scene Title Banner */}
+      {state.locationBanner.visible && (
+        <div className="location-banner">
+          <h1 className="banner-title">{state.locationBanner.text}</h1>
+          {state.locationBanner.subtitle && (
+            <p className="banner-subtitle">{state.locationBanner.subtitle}</p>
+          )}
+        </div>
+      )}
+
+      {/* Active Characters Projection Layer */}
+      <div className="characters-container">
+        {state.characters.map((char) => (
+          <div
+            key={char.id}
+            className={`character-card ${char.isSpeaking ? 'speaking' : ''}`}
+            style={{
+              left: `${char.position}%`,
+            }}
+          >
+            <div className="avatar-wrapper">
+              <img
+                src={char.avatarUrl}
+                alt={char.name}
+                className="character-avatar"
+              />
+              {char.isSpeaking && (
+                <div className="speaking-indicator">
+                  <Sparkles size={16} />
+                </div>
+              )}
+            </div>
+            <div className="character-tag">
+              <span className="char-name">{char.name}</span>
+              {char.activeExpression && (
+                <span className="char-expression">({char.activeExpression})</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Combat Initiative Ribbon Overlay */}
       {state.combatState?.isActive && (
         <InitiativeRibbon combatState={state.combatState} />
       )}
 
-      {/* Cinematic Location Banner (Hidden during combat for clean view) */}
-      {!state.combatState?.isActive && state.locationBanner?.visible && state.locationBanner.text && (
-        <div className="cinematic-banner-container">
-          <div className="cinematic-banner">
-            <div className="banner-rune-left">✦</div>
-            <div className="banner-content">
-              <h1 className="banner-title">{state.locationBanner.text}</h1>
-              {state.locationBanner.subtitle && (
-                <p className="banner-subtitle">{state.locationBanner.subtitle}</p>
-              )}
-            </div>
-            <div className="banner-rune-right">✦</div>
-          </div>
-        </div>
-      )}
-
-      {/* Character Standees Stage */}
-      <div className="character-stage">
-        {renderCharacterSlot('left')}
-        {renderCharacterSlot('center-left')}
-        {renderCharacterSlot('center-right')}
-        {renderCharacterSlot('right')}
-      </div>
-
-      {/* Blackout Curtain */}
-      <div className={`blackout-curtain ${state.isBlackout ? 'active' : ''}`}>
-        <div className="blackout-rune">
-          <Sparkles size={48} className="spin-slow" />
-          <span>Momento de suspenso...</span>
-        </div>
-      </div>
-
-      {/* Audio Unlock Overlay */}
+      {/* Audio Unlock Dialog */}
       {!audioUnlocked && (
-        <button className="audio-unlock-btn" onClick={unlockAudio}>
-          <Volume2 size={20} />
-          <span>Activar Audio de la Sesión</span>
-        </button>
+        <div className="audio-unlock-overlay" onClick={unlockAudio}>
+          <button className="audio-unlock-btn">
+            <Volume2 size={24} />
+            <span>Haz clic para habilitar sonido en la mesa</span>
+          </button>
+        </div>
       )}
 
-      {/* DM Connection Waiting Overlay (Shows Room Code, QR & Pairing Progress) */}
+      {/* QR Code & Room PIN Pairing Overlay for PC/TV Display */}
       {showPairingOverlay && (
         <div style={{
-          position: 'absolute',
+          position: 'fixed',
           inset: 0,
+          background: 'radial-gradient(circle at center, rgba(15, 23, 42, 0.85) 0%, rgba(2, 6, 23, 0.95) 100%)',
+          backdropFilter: 'blur(12px)',
+          zIndex: 50,
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'radial-gradient(circle at center, rgba(15, 23, 42, 0.85) 0%, rgba(0, 0, 0, 0.95) 100%)',
-          backdropFilter: 'blur(8px)',
-          zIndex: 40,
           padding: '24px',
         }}>
           <div style={{
-            background: 'rgba(23, 23, 23, 0.95)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
+            background: 'rgba(23, 23, 23, 0.92)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
             borderRadius: '24px',
             padding: '32px',
             maxWidth: '500px',
@@ -482,7 +493,32 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
             alignItems: 'center',
             gap: '18px',
             color: '#f5f5f5',
+            position: 'relative',
           }}>
+            {/* Top Close / Minimize Button */}
+            <button
+              onClick={() => setIsOverlayMinimized(true)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: 'none',
+                borderRadius: '8px',
+                color: '#94a3b8',
+                padding: '6px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+              title="Ocultar QR y ver Escena"
+            >
+              <EyeOff size={14} />
+              <span>Ocultar</span>
+            </button>
+
             {/* Header */}
             <div style={{
               display: 'flex',
@@ -637,7 +673,7 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
 
       {/* Top HUD Controls */}
       <div className={`display-hud ${showControls ? 'visible' : 'hidden'}`}>
-        <div className="hud-left">
+        <div className="hud-left" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             onClick={() => setShowDiagnosticModal(true)}
             className={`connection-pill ${connectionStatus}`}
@@ -666,6 +702,19 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
               </>
             )}
           </button>
+
+          {/* Re-open QR Button if minimized */}
+          {isOverlayMinimized && (
+            <button
+              onClick={() => setIsOverlayMinimized(false)}
+              className="hud-btn"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '4px 10px' }}
+              title="Mostrar Código QR y PIN"
+            >
+              <Eye size={14} />
+              <span>Ver QR ({roomCode})</span>
+            </button>
+          )}
         </div>
 
         <div className="hud-right">

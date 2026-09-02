@@ -283,6 +283,26 @@ class SoundEngine {
     }
   }
 
+  public unlockAudio() {
+    try {
+      const ctx = this.getAudioContext();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(console.warn);
+      }
+    } catch (e) {
+      console.warn('Audio unlock error:', e);
+    }
+  }
+
+  public playTrack(track: { soundType?: string; synthPreset?: string; audioUrl?: string }) {
+    if (!track) return;
+    if (track.soundType === 'synthesized' && track.synthPreset) {
+      this.playSynth(track.synthPreset);
+    } else if (track.audioUrl) {
+      this.playAudioUrl(track.audioUrl);
+    }
+  }
+
   public playAudioUrl(url: string, volume: number = 0.8) {
     try {
       const audio = new Audio(url);
