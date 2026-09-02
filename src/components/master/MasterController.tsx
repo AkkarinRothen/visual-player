@@ -52,6 +52,11 @@ import { FullScreenPreviewModal } from './FullScreenPreviewModal';
 import { HistoryModal } from './HistoryModal';
 import { CheckpointsModal } from './CheckpointsModal';
 import { NetworkDiagnosticsModal } from './NetworkDiagnosticsModal';
+import { CampaignPickerModal } from './modals/CampaignPickerModal';
+import { SceneEditModal } from './modals/SceneEditModal';
+import { CharacterEditModal } from './modals/CharacterEditModal';
+import { SummonCharacterModal } from './modals/SummonCharacterModal';
+import { MasterQRModal } from './modals/MasterQRModal';
 import {
   Zap,
   Activity,
@@ -77,13 +82,10 @@ import {
   Plus,
   Trash2,
   Edit,
-  Copy,
   Upload,
   Download,
   Dices,
   RefreshCw,
-  Check,
-  ChevronRight,
   X,
   LogOut,
   Swords,
@@ -100,7 +102,6 @@ import {
   WifiOff,
   Tv,
 } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
 
 interface MasterControllerProps {
   initialRoomCode?: string;
@@ -132,9 +133,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const [checkpointsList, setCheckpointsList] = useState<SessionCheckpoint[]>([]);
   const [encountersList, setEncountersList] = useState<SavedEncounter[]>([]);
   const [showCampaignPickerModal, setShowCampaignPickerModal] = useState<boolean>(false);
-  const [showNewCampaignModal, setShowNewCampaignModal] = useState<boolean>(false);
-  const [newCampaignTitle, setNewCampaignTitle] = useState<string>('');
-  const [newCampaignDesc, setNewCampaignDesc] = useState<string>('');
 
   // Forms & Edit Modals
   const [showSummonModal, setShowSummonModal] = useState<boolean>(false);
@@ -143,26 +141,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const [showNewCharModal, setShowNewCharModal] = useState<boolean>(false);
   const [editingChar, setEditingChar] = useState<Character | null>(null);
   const [diceLog, setDiceLog] = useState<{ id: string; text: string; time: string }[]>([]);
-
-  const [sceneForm, setSceneForm] = useState({
-    name: '',
-    backgroundUrl: '',
-    locationBanner: '',
-    subtitle: '',
-    weather: 'none' as WeatherType,
-    lighting: 'normal' as LightingFilter,
-    ambientAudioUrl: '',
-    ambientAudioName: '',
-    dmNotes: '',
-  });
-
-  const [charForm, setCharForm] = useState({
-    name: '',
-    roleOrTitle: '',
-    defaultAvatarUrl: '',
-    bio: '',
-    maxHp: 30,
-  });
 
   // 1. Connection Hook
   const {
@@ -494,35 +472,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     setShowCampaignPickerModal(false);
   };
 
-  // Create Campaign
-  const handleCreateNewCampaign = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCampaignTitle) return;
-
-    const newCamp: Campaign = {
-      id: `camp-${Date.now()}`,
-      title: newCampaignTitle,
-      description: newCampaignDesc,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      scenes: [DEMO_SCENES[0]],
-      characters: DEMO_CHARACTERS.slice(0, 3),
-      customSfx: BUILTIN_SFX,
-      macros: DEMO_MACROS,
-      encounters: DEMO_ENCOUNTERS,
-    };
-
-    await createCampaign(newCamp);
-    const all = await getAllCampaigns();
-    setCampaignList(all);
-    setCampaign(newCamp);
-    selectScene(newCamp.scenes[0]);
-    setShowNewCampaignModal(false);
-    setShowCampaignPickerModal(false);
-    setNewCampaignTitle('');
-    setNewCampaignDesc('');
-  };
-
   // Duplicate Campaign
   const handleDuplicateCampaign = async (id: string) => {
     const dup = await duplicateCampaign(id);
@@ -550,120 +499,13 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     }
   };
 
-  // Edit or Create Scene Modal Save
-  const handleSaveSceneForm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!sceneForm.name || !sceneForm.backgroundUrl || !campaign) return;
-
-    if (editingScene) {
-      const updatedScene: Scene = {
-        ...editingScene,
-        name: sceneForm.name,
-        backgroundUrl: sceneForm.backgroundUrl,
-        locationBanner: sceneForm.locationBanner || sceneForm.name,
-        subtitle: sceneForm.subtitle,
-        weather: sceneForm.weather,
-        lighting: sceneForm.lighting,
-        ambientAudioUrl: sceneForm.ambientAudioUrl,
-        ambientAudioName: sceneForm.ambientAudioName,
-        dmNotes: sceneForm.dmNotes,
-      };
-
-      const updatedScenes = campaign.scenes.map((s) => (s.id === updatedScene.id ? updatedScene : s));
-      const updatedCamp = { ...campaign, scenes: updatedScenes };
-      await updateCampaign(updatedCamp);
-      setCampaign(updatedCamp);
-      if (activeDisplay.currentSceneId === updatedScene.id) {
-        selectScene(updatedScene);
-      }
-    } else {
-      const newScene: Scene = {
-        id: `scene-${Date.now()}`,
-        name: sceneForm.name,
-        backgroundUrl: sceneForm.backgroundUrl,
-        locationBanner: sceneForm.locationBanner || sceneForm.name,
-        subtitle: sceneForm.subtitle,
-        weather: sceneForm.weather,
-        lighting: sceneForm.lighting,
-        ambientAudioUrl: sceneForm.ambientAudioUrl,
-        ambientAudioName: sceneForm.ambientAudioName,
-        dmNotes: sceneForm.dmNotes,
-      };
-
-      const updatedScenes = [...campaign.scenes, newScene];
-      const updatedCamp = { ...campaign, scenes: updatedScenes };
-      await updateCampaign(updatedCamp);
-      setCampaign(updatedCamp);
-    }
-
-    setShowNewSceneModal(false);
-    setEditingScene(null);
-  };
-
   const openEditSceneModal = (sc: Scene) => {
     setEditingScene(sc);
-    setSceneForm({
-      name: sc.name,
-      backgroundUrl: sc.backgroundUrl,
-      locationBanner: sc.locationBanner || sc.name,
-      subtitle: sc.subtitle || '',
-      weather: sc.weather || 'none',
-      lighting: sc.lighting || 'normal',
-      ambientAudioUrl: sc.ambientAudioUrl || '',
-      ambientAudioName: sc.ambientAudioName || '',
-      dmNotes: sc.dmNotes || '',
-    });
     setShowNewSceneModal(true);
-  };
-
-  // Edit or Create Character Modal Save
-  const handleSaveCharForm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!charForm.name || !charForm.defaultAvatarUrl || !campaign) return;
-
-    if (editingChar) {
-      const updatedChar: Character = {
-        ...editingChar,
-        name: charForm.name,
-        roleOrTitle: charForm.roleOrTitle || 'Aventurero',
-        defaultAvatarUrl: charForm.defaultAvatarUrl,
-        bio: charForm.bio,
-        maxHp: charForm.maxHp,
-      };
-
-      const updatedChars = campaign.characters.map((c) => (c.id === updatedChar.id ? updatedChar : c));
-      const updatedCamp = { ...campaign, characters: updatedChars };
-      await updateCampaign(updatedCamp);
-      setCampaign(updatedCamp);
-    } else {
-      const newChar: Character = {
-        id: `char-${Date.now()}`,
-        name: charForm.name,
-        roleOrTitle: charForm.roleOrTitle || 'Aventurero',
-        defaultAvatarUrl: charForm.defaultAvatarUrl,
-        bio: charForm.bio,
-        maxHp: charForm.maxHp,
-      };
-
-      const updatedChars = [...campaign.characters, newChar];
-      const updatedCamp = { ...campaign, characters: updatedChars };
-      await updateCampaign(updatedCamp);
-      setCampaign(updatedCamp);
-    }
-
-    setShowNewCharModal(false);
-    setEditingChar(null);
   };
 
   const openEditCharModal = (ch: Character) => {
     setEditingChar(ch);
-    setCharForm({
-      name: ch.name,
-      roleOrTitle: ch.roleOrTitle,
-      defaultAvatarUrl: ch.defaultAvatarUrl,
-      bio: ch.bio || '',
-      maxHp: ch.maxHp || 30,
-    });
     setShowNewCharModal(true);
   };
 
@@ -871,20 +713,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
           alert('Archivo JSON no válido.');
         }
       };
-    }
-  };
-
-  const handleImageFileUpload = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setter: (url: string) => void
-  ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setter(reader.result as string);
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -1730,17 +1558,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
                   className="btn-primary-sm"
                   onClick={() => {
                     setEditingScene(null);
-                    setSceneForm({
-                      name: '',
-                      backgroundUrl: '',
-                      locationBanner: '',
-                      subtitle: '',
-                      weather: 'none',
-                      lighting: 'normal',
-                      ambientAudioUrl: '',
-                      ambientAudioName: '',
-                      dmNotes: '',
-                    });
                     setShowNewSceneModal(true);
                   }}
                 >
@@ -1796,7 +1613,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
                   className="btn-primary-sm"
                   onClick={() => {
                     setEditingChar(null);
-                    setCharForm({ name: '', roleOrTitle: '', defaultAvatarUrl: '', bio: '', maxHp: 30 });
                     setShowNewCharModal(true);
                   }}
                 >
@@ -1959,323 +1775,145 @@ export const MasterController: React.FC<MasterControllerProps> = ({
       )}
 
       {/* MODAL: CAMPAIGN PICKER & MANAGER */}
-      {showCampaignPickerModal && (
-        <div className="modal-overlay" onClick={() => setShowCampaignPickerModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Seleccionar Campaña</h2>
-              <button className="modal-close" onClick={() => setShowCampaignPickerModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="campaign-picker-list">
-              {campaignList.map((c) => {
-                const isCurrent = c.id === campaign?.id;
-                return (
-                  <div key={c.id} className={`campaign-picker-card ${isCurrent ? 'active' : ''}`}>
-                    <div className="picker-card-info" onClick={() => handleSwitchCampaign(c)}>
-                      <strong>{c.title}</strong>
-                      <span>{c.scenes.length} escenas • {c.characters.length} personajes</span>
-                    </div>
-                    <div className="picker-actions">
-                      <button
-                        className="icon-action-btn"
-                        onClick={() => handleDuplicateCampaign(c.id)}
-                        title="Duplicar Campaña"
-                      >
-                        <Copy size={16} />
-                      </button>
-                      <button
-                        className="icon-action-btn danger"
-                        onClick={() => handleDeleteCampaign(c.id, c.title)}
-                        title="Eliminar Campaña"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <button
-              className="btn-primary full"
-              onClick={() => {
-                setShowNewCampaignModal(true);
-              }}
-            >
-              <Plus size={16} />
-              <span>Crear Nueva Campaña</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: NEW CAMPAIGN */}
-      {showNewCampaignModal && (
-        <div className="modal-overlay" onClick={() => setShowNewCampaignModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Nueva Campaña</h2>
-              <button className="modal-close" onClick={() => setShowNewCampaignModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleCreateNewCampaign} className="modal-form">
-              <label>Título de la Campaña / Aventura</label>
-              <input
-                type="text"
-                required
-                placeholder="Ej. La Maldición de Strahd"
-                value={newCampaignTitle}
-                onChange={(e) => setNewCampaignTitle(e.target.value)}
-                className="master-input"
-              />
-
-              <label>Descripción / Apuntes</label>
-              <textarea
-                placeholder="Ambientación, objetivos..."
-                value={newCampaignDesc}
-                onChange={(e) => setNewCampaignDesc(e.target.value)}
-                className="master-input textarea"
-              />
-
-              <button type="submit" className="btn-primary full">
-                Crear y Activar
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      <CampaignPickerModal
+        isOpen={showCampaignPickerModal}
+        campaigns={campaignList}
+        activeCampaignId={campaign?.id}
+        onSelectCampaign={handleSwitchCampaign}
+        onCreateCampaign={async (title, desc) => {
+          const newCamp: Campaign = {
+            id: `camp-${Date.now()}`,
+            title,
+            description: desc,
+            scenes: DEMO_SCENES,
+            characters: DEMO_CHARACTERS,
+            macros: DEMO_MACROS,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+          await createCampaign(newCamp);
+          const list = await getAllCampaigns();
+          setCampaignList(list);
+          setCampaign(newCamp);
+          await setActiveCampaignId(newCamp.id);
+          selectScene(newCamp.scenes[0]);
+          setShowCampaignPickerModal(false);
+        }}
+        onDuplicateCampaign={handleDuplicateCampaign}
+        onDeleteCampaign={(campId) => handleDeleteCampaign(campId, '')}
+        onClose={() => setShowCampaignPickerModal(false)}
+      />
 
       {/* MODAL: EDIT / CREATE SCENE */}
-      {showNewSceneModal && (
-        <div className="modal-overlay" onClick={() => setShowNewSceneModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{editingScene ? 'Editar Escenario' : 'Crear Nuevo Escenario'}</h2>
-              <button className="modal-close" onClick={() => setShowNewSceneModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleSaveSceneForm} className="modal-form">
-              <label>Nombre del Escenario</label>
-              <input
-                type="text"
-                required
-                placeholder="Ej. Cripta Olvidada"
-                value={sceneForm.name}
-                onChange={(e) => setSceneForm({ ...sceneForm, name: e.target.value })}
-                className="master-input"
-              />
-
-              <label>Imagen de Fondo (URL o Subir)</label>
-              <div className="input-with-upload">
-                <input
-                  type="text"
-                  required
-                  placeholder="https://images.unsplash.com/..."
-                  value={sceneForm.backgroundUrl}
-                  onChange={(e) => setSceneForm({ ...sceneForm, backgroundUrl: e.target.value })}
-                  className="master-input"
-                />
-                <label className="btn-file-upload">
-                  <Upload size={16} />
-                  <span>Subir</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageFileUpload(e, (url) => setSceneForm({ ...sceneForm, backgroundUrl: url }))}
-                    style={{ display: 'none' }}
-                  />
-                </label>
-              </div>
-
-              <label>Subtítulo de Ubicación</label>
-              <input
-                type="text"
-                placeholder="Ej. Nivel Subterráneo 2"
-                value={sceneForm.subtitle}
-                onChange={(e) => setSceneForm({ ...sceneForm, subtitle: e.target.value })}
-                className="master-input"
-              />
-
-              <label>Música o Audio Ambiental (URL de MP3 / WAV)</label>
-              <input
-                type="text"
-                placeholder="https://.../ambient.mp3"
-                value={sceneForm.ambientAudioUrl}
-                onChange={(e) => setSceneForm({ ...sceneForm, ambientAudioUrl: e.target.value })}
-                className="master-input"
-              />
-
-              <label>Nombre del Track de Audio</label>
-              <input
-                type="text"
-                placeholder="Ej. Murmullo de Catacumbas"
-                value={sceneForm.ambientAudioName}
-                onChange={(e) => setSceneForm({ ...sceneForm, ambientAudioName: e.target.value })}
-                className="master-input"
-              />
-
-              <label>Notas Secretas del DM</label>
-              <textarea
-                placeholder="Trampas, monstruos, tiradas..."
-                value={sceneForm.dmNotes}
-                onChange={(e) => setSceneForm({ ...sceneForm, dmNotes: e.target.value })}
-                className="master-input textarea"
-              />
-
-              <button type="submit" className="btn-primary full">
-                {editingScene ? 'Guardar Cambios' : 'Crear Escenario'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      <SceneEditModal
+        isOpen={showNewSceneModal}
+        sceneToEdit={editingScene}
+        onSave={async (sceneData) => {
+          if (!sceneData.name || !sceneData.backgroundUrl || !campaign) return;
+          if (editingScene) {
+            const updatedScene: Scene = {
+              ...editingScene,
+              name: sceneData.name,
+              backgroundUrl: sceneData.backgroundUrl,
+              locationBanner: sceneData.locationBanner || sceneData.name,
+              subtitle: sceneData.subtitle || '',
+              weather: sceneData.weather || 'none',
+              lighting: sceneData.lighting || 'normal',
+              ambientAudioUrl: sceneData.ambientAudioUrl || '',
+              ambientAudioName: sceneData.ambientAudioName || '',
+              dmNotes: sceneData.dmNotes || '',
+            };
+            const updatedScenes = campaign.scenes.map((s) => (s.id === updatedScene.id ? updatedScene : s));
+            const updatedCamp = { ...campaign, scenes: updatedScenes };
+            await updateCampaign(updatedCamp);
+            setCampaign(updatedCamp);
+            if (activeDisplay.currentSceneId === updatedScene.id) {
+              selectScene(updatedScene);
+            }
+          } else {
+            const newScene: Scene = {
+              id: `scene-${Date.now()}`,
+              name: sceneData.name,
+              backgroundUrl: sceneData.backgroundUrl,
+              locationBanner: sceneData.locationBanner || sceneData.name,
+              subtitle: sceneData.subtitle || '',
+              weather: sceneData.weather || 'none',
+              lighting: sceneData.lighting || 'normal',
+              ambientAudioUrl: sceneData.ambientAudioUrl || '',
+              ambientAudioName: sceneData.ambientAudioName || '',
+              dmNotes: sceneData.dmNotes || '',
+            };
+            const updatedScenes = [...campaign.scenes, newScene];
+            const updatedCamp = { ...campaign, scenes: updatedScenes };
+            await updateCampaign(updatedCamp);
+            setCampaign(updatedCamp);
+          }
+          setEditingScene(null);
+        }}
+        onClose={() => {
+          setShowNewSceneModal(false);
+          setEditingScene(null);
+        }}
+      />
 
       {/* MODAL: EDIT / CREATE CHARACTER */}
-      {showNewCharModal && (
-        <div className="modal-overlay" onClick={() => setShowNewCharModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{editingChar ? 'Editar Personaje / NPC' : 'Crear Nuevo Personaje / NPC'}</h2>
-              <button className="modal-close" onClick={() => setShowNewCharModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleSaveCharForm} className="modal-form">
-              <label>Nombre del Personaje</label>
-              <input
-                type="text"
-                required
-                placeholder="Ej. Lord Valerius"
-                value={charForm.name}
-                onChange={(e) => setCharForm({ ...charForm, name: e.target.value })}
-                className="master-input"
-              />
-
-              <label>Rol o Título</label>
-              <input
-                type="text"
-                placeholder="Ej. Conde de Ravenloft"
-                value={charForm.roleOrTitle}
-                onChange={(e) => setCharForm({ ...charForm, roleOrTitle: e.target.value })}
-                className="master-input"
-              />
-
-              <label>Puntos de Golpe Máximos (HP)</label>
-              <input
-                type="number"
-                value={charForm.maxHp}
-                onChange={(e) => setCharForm({ ...charForm, maxHp: parseInt(e.target.value) || 10 })}
-                className="master-input"
-              />
-
-              <label>Retrato / Avatar (URL o Subir)</label>
-              <div className="input-with-upload">
-                <input
-                  type="text"
-                  required
-                  placeholder="https://..."
-                  value={charForm.defaultAvatarUrl}
-                  onChange={(e) => setCharForm({ ...charForm, defaultAvatarUrl: e.target.value })}
-                  className="master-input"
-                />
-                <label className="btn-file-upload">
-                  <Upload size={16} />
-                  <span>Subir</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageFileUpload(e, (url) => setCharForm({ ...charForm, defaultAvatarUrl: url }))}
-                    style={{ display: 'none' }}
-                  />
-                </label>
-              </div>
-
-              <label>Biografía / Rasgos</label>
-              <textarea
-                placeholder="Personalidad, secretos..."
-                value={charForm.bio}
-                onChange={(e) => setCharForm({ ...charForm, bio: e.target.value })}
-                className="master-input textarea"
-              />
-
-              <button type="submit" className="btn-primary full">
-                {editingChar ? 'Guardar Cambios' : 'Crear Ficha de NPC'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      <CharacterEditModal
+        isOpen={showNewCharModal}
+        charToEdit={editingChar}
+        onSave={async (charData) => {
+          if (!charData.name || !charData.defaultAvatarUrl || !campaign) return;
+          if (editingChar) {
+            const updatedChar: Character = {
+              ...editingChar,
+              name: charData.name,
+              roleOrTitle: charData.roleOrTitle || 'Aventurero',
+              defaultAvatarUrl: charData.defaultAvatarUrl,
+              bio: charData.bio || '',
+              maxHp: charData.maxHp || 30,
+            };
+            const updatedChars = campaign.characters.map((c) => (c.id === updatedChar.id ? updatedChar : c));
+            const updatedCamp = { ...campaign, characters: updatedChars };
+            await updateCampaign(updatedCamp);
+            setCampaign(updatedCamp);
+          } else {
+            const newChar: Character = {
+              id: `char-${Date.now()}`,
+              name: charData.name,
+              roleOrTitle: charData.roleOrTitle || 'Aventurero',
+              defaultAvatarUrl: charData.defaultAvatarUrl,
+              bio: charData.bio || '',
+              maxHp: charData.maxHp || 30,
+            };
+            const updatedChars = [...campaign.characters, newChar];
+            const updatedCamp = { ...campaign, characters: updatedChars };
+            await updateCampaign(updatedCamp);
+            setCampaign(updatedCamp);
+          }
+          setEditingChar(null);
+        }}
+        onClose={() => {
+          setShowNewCharModal(false);
+          setEditingChar(null);
+        }}
+      />
 
       {/* MODAL: SUMMON NPC */}
-      {showSummonModal && (
-        <div className="modal-overlay" onClick={() => setShowSummonModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Invocar Personaje a la Escena</h2>
-              <button className="modal-close" onClick={() => setShowSummonModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="summon-roster">
-              {campaign?.characters.map((ch) => (
-                <div key={ch.id} className="roster-card" onClick={() => summonCharacter(ch)}>
-                  <img src={ch.defaultAvatarUrl} alt={ch.name} className="roster-avatar" />
-                  <div className="roster-meta">
-                    <strong>{ch.name}</strong>
-                    <span>{ch.roleOrTitle}</span>
-                  </div>
-                  <ChevronRight size={18} className="text-amber-400" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      <SummonCharacterModal
+        isOpen={showSummonModal}
+        characters={campaign?.characters || []}
+        onSummon={summonCharacter}
+        onClose={() => setShowSummonModal(false)}
+      />
 
       {/* MODAL: QR & CONNECTION */}
-      {showQRModal && (
-        <div className="modal-overlay" onClick={() => setShowQRModal(false)}>
-          <div className="modal-content qr-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Emparejar Dispositivos</h2>
-              <button className="modal-close" onClick={() => setShowQRModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="qr-container">
-              <div className="qr-card">
-                <QRCodeSVG value={joinUrl} size={180} level="M" />
-              </div>
-              <div className="pin-box">
-                <span>PIN de la Sala</span>
-                <strong className="pin-code">{roomCode}</strong>
-              </div>
-              {latencyMs > 0 && (
-                <div className="latency-info-pill">
-                  <Activity size={14} className="text-emerald-400" />
-                  <span>Latencia de red: <strong>{latencyMs}ms</strong></span>
-                </div>
-              )}
-              <p className="qr-instructions">
-                Abre la aplicación en tu <strong>Tablet o TV</strong> y selecciona modo "Pantalla", o escanea este QR.
-              </p>
-              <button
-                className="btn-primary full"
-                onClick={() => {
-                  connectToRoom(roomCode);
-                  setShowQRModal(false);
-                }}
-              >
-                <Check size={18} />
-                <span>Reconectar Ahora</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <MasterQRModal
+        isOpen={showQRModal}
+        joinUrl={joinUrl}
+        roomCode={roomCode}
+        latencyMs={latencyMs}
+        onReconnect={() => connectToRoom(roomCode)}
+        onClose={() => setShowQRModal(false)}
+      />
 
       {/* MODAL: NETWORK DIAGNOSTICS & CHAOS */}
       {showDiagnosticsModal && (
