@@ -98,6 +98,7 @@ import {
   Bookmark,
   CheckCheck,
   WifiOff,
+  Tv,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -2291,6 +2292,45 @@ export const MasterController: React.FC<MasterControllerProps> = ({
           onClose={() => setShowDiagnosticsModal(false)}
         />
       )}
+
+      {/* MOBILE ONE-HAND BOTTOM NAVIGATION BAR */}
+      <nav className="mobile-bottom-nav" aria-label="Navegación Móvil del Master">
+        <button
+          type="button"
+          className={`mobile-nav-item ${activeTab === 'live' ? 'active' : ''}`}
+          onClick={() => setActiveTab('live')}
+        >
+          <Tv size={20} />
+          <span>En Vivo</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-nav-item ${activeTab === 'combat' ? 'active' : ''}`}
+          onClick={() => setActiveTab('combat')}
+        >
+          <Swords size={20} />
+          <span>Combate</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-nav-item ${activeTab === 'moments' ? 'active' : ''}`}
+          onClick={() => setActiveTab('moments')}
+        >
+          <Sparkles size={20} />
+          <span>Momentos</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-nav-item ${activeTab === 'notes' || activeTab === 'library' ? 'active' : ''}`}
+          onClick={() => setActiveTab('notes')}
+        >
+          <BookOpen size={20} />
+          <span>Notas</span>
+        </button>
+      </nav>
     </div>
   );
 };
