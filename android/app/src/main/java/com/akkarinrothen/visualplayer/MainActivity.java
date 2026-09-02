@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(VisualPlayerScreenPlugin.class);
         registerPlugin(VisualPlayerKeystorePlugin.class);
         registerPlugin(VisualPlayerNetworkPlugin.class);
+        registerPlugin(VisualPlayerNearbyPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
