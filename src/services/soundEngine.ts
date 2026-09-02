@@ -1,4 +1,5 @@
-// Web Audio API Sound Synthesizer & Player with Ambient Crossfade
+// Web Audio API Sound Synthesizer & Player with Ambient Crossfade & Audio Focus
+import { getPlatformBridge } from '../platform';
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
@@ -6,6 +7,32 @@ class SoundEngine {
   private currentAmbientUrl: string = '';
   private targetAmbientVolume: number = 0.5;
   private crossfadeInterval: number | null = null;
+  private wasPlayingBeforePause: boolean = false;
+
+  constructor() {
+    this.initLifecycleListeners();
+  }
+
+  private initLifecycleListeners() {
+    try {
+      const bridge = getPlatformBridge();
+      bridge.lifecycle.onAppPause(() => {
+        if (this.currentAmbientAudio && !this.currentAmbientAudio.paused) {
+          this.wasPlayingBeforePause = true;
+          this.currentAmbientAudio.pause();
+        }
+      });
+
+      bridge.lifecycle.onAppResume(() => {
+        if (this.wasPlayingBeforePause && this.currentAmbientAudio) {
+          this.currentAmbientAudio.play().catch(console.warn);
+          this.wasPlayingBeforePause = false;
+        }
+      });
+    } catch {
+      // Platform bridge not yet initialized
+    }
+  }
 
   private getAudioContext(): AudioContext {
     if (!this.ctx) {

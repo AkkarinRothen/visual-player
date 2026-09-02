@@ -19,6 +19,7 @@ public class VisualPlayerNetworkPlugin extends Plugin {
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
     private String currentNetworkEpoch = "net-epoch-init";
+    private long lastActiveNetworkHandle = -1;
     private boolean isRegistered = false;
 
     @Override
@@ -44,7 +45,8 @@ public class VisualPlayerNetworkPlugin extends Plugin {
             @Override
             public void onLost(Network network) {
                 super.onLost(network);
-                currentNetworkEpoch = "net-epoch-" + SystemClock.elapsedRealtime();
+                lastActiveNetworkHandle = -1;
+                currentNetworkEpoch = "net-epoch-lost-" + SystemClock.elapsedRealtime();
                 JSObject status = new JSObject();
                 status.put("connected", false);
                 status.put("networkEpoch", currentNetworkEpoch);
@@ -79,7 +81,24 @@ public class VisualPlayerNetworkPlugin extends Plugin {
     }
 
     private void updateEpochAndNotify(String triggerReason, Network network) {
-        currentNetworkEpoch = "net-epoch-" + SystemClock.elapsedRealtime();
+        long networkHandle = 0;
+        if (network != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                networkHandle = network.getNetworkHandle();
+            } else {
+                networkHandle = network.hashCode();
+            }
+        }
+
+        // Only generate a new epoch when switching to a different physical network interface
+        if (networkHandle != 0 && networkHandle != lastActiveNetworkHandle) {
+            lastActiveNetworkHandle = networkHandle;
+            currentNetworkEpoch = "net-epoch-" + networkHandle;
+        } else if (lastActiveNetworkHandle == -1) {
+            lastActiveNetworkHandle = networkHandle;
+            currentNetworkEpoch = "net-epoch-" + (networkHandle != 0 ? networkHandle : SystemClock.elapsedRealtime());
+        }
+
         JSObject status = buildNetworkStatusObject(network);
         notifyListeners("onNetworkChanged", status);
     }
