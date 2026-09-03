@@ -226,6 +226,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     roomCode,
     connectionStatus,
     latencyMs,
+    mesaTelemetry,
     connectToRoom,
     broadcastFullState,
     broadcastMessage,
@@ -1943,6 +1944,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({
           previewTab={previewTab}
           onChangePreviewTab={setPreviewTab}
           onOpenFullScreen={() => setShowFullScreenPreview(true)}
+          mesaTelemetry={mesaTelemetry}
+          isConnected={connectionStatus === 'connected'}
         />
 
         {/* Floating / Sticky Staging Publish Bar when in Staging Mode with changes */}
@@ -2795,6 +2798,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
             setPreviewTab('live');
           }}
           onClose={() => setShowFullScreenPreview(false)}
+          mesaTelemetry={mesaTelemetry}
         />
       )}
 

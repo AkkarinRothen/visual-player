@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import type { DisplayState } from '../../types';
-import { ChevronDown, ChevronUp, Eye, Maximize2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Maximize2, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { StageViewport } from '../display/StageViewport';
+import type { MesaTelemetryInfo } from '../../services/sessionCommandBus';
 
-interface LiveMiniPreviewProps {
+export interface LiveMiniPreviewProps {
   liveState: DisplayState;
   stagedState: DisplayState;
   operationMode: 'live' | 'staging';
   previewTab: 'live' | 'staged';
   onChangePreviewTab: (tab: 'live' | 'staged') => void;
   onOpenFullScreen: () => void;
+  mesaTelemetry?: MesaTelemetryInfo | null;
+  isConnected?: boolean;
 }
 
 export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
@@ -18,10 +22,13 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
   previewTab,
   onChangePreviewTab,
   onOpenFullScreen,
+  mesaTelemetry,
+  isConnected = false,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
   const activeState = previewTab === 'live' ? liveState : stagedState;
+  const targetAspectRatio = mesaTelemetry?.viewport?.aspectRatio || 16 / 9;
 
   return (
     <div className="mini-preview-root">
@@ -64,47 +71,49 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
       </div>
 
       {!isCollapsed && (
-        <div className="mini-preview-viewport" onClick={onOpenFullScreen} title="Pulsar para pantalla completa">
-          {/* Background */}
-          <div
-            className="mini-preview-bg"
-            style={{ backgroundImage: `url(${activeState.backgroundUrl})` }}
+        <div
+          className="mini-preview-viewport relative"
+          onClick={onOpenFullScreen}
+          title="Pulsar para vista previa completa"
+          style={{ height: '140px' }}
+        >
+          {/* Faithful 1:1 Stage Viewport (scales dynamically matching Mesa aspect ratio) */}
+          <StageViewport
+            state={activeState}
+            isScaledPreview={true}
+            aspectRatio={targetAspectRatio}
+            showBanner={true}
           />
 
-          {/* Lighting Overlay */}
-          <div className={`mini-preview-lighting lighting-${activeState.lighting}`} />
-
-          {/* Banner */}
-          {activeState.locationBanner?.visible && activeState.locationBanner.text && (
-            <div className="mini-preview-banner">
-              <span>{activeState.locationBanner.text}</span>
-            </div>
-          )}
-
-          {/* Characters on Screen */}
-          <div className="mini-preview-characters">
-            {activeState.characters.map((char) => (
-              <div
-                key={char.id}
-                className={`mini-char pos-${char.position} ${char.isSpeaking ? 'speaking' : ''}`}
-              >
-                <img src={char.avatarUrl} alt={char.name} className="mini-char-avatar" />
-                <span className="mini-char-name">{char.name}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Blackout Indicator */}
-          {activeState.isBlackout && (
-            <div className="mini-preview-blackout">
-              <span>PANTALLA APAGADA (BLACKOUT)</span>
-            </div>
-          )}
-
-          {/* Badge indicator on bottom corner */}
+          {/* Telemetry and Mode Watermark */}
           <div className="mini-preview-watermark">
-            <Eye size={12} />
-            <span>{previewTab === 'live' ? 'VISTA TABLET EN VIVO' : 'BORRADOR PREPARADO'}</span>
+            {previewTab === 'staged' ? (
+              <span className="inline-flex items-center gap-1 text-purple-300 font-semibold">
+                <Clock size={11} />
+                <span>BORRADOR PREPARADO (No publicado)</span>
+              </span>
+            ) : isConnected && mesaTelemetry?.lastAppliedRevision ? (
+              <span className="inline-flex items-center gap-1 text-emerald-300 font-semibold">
+                <CheckCircle size={11} />
+                <span>
+                  CONFIRMADO EN MESA (Rev. {mesaTelemetry.lastAppliedRevision} •{' '}
+                  {mesaTelemetry.viewport
+                    ? `${mesaTelemetry.viewport.width}×${mesaTelemetry.viewport.height}`
+                    : '16:9'}
+                  )
+                </span>
+              </span>
+            ) : isConnected ? (
+              <span className="inline-flex items-center gap-1 text-amber-300 font-semibold">
+                <Clock size={11} />
+                <span>ENVIADO (Esperando confirmación...)</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-slate-400">
+                <AlertTriangle size={11} />
+                <span>SIMULACIÓN LOCAL (Mesa desconectada)</span>
+              </span>
+            )}
           </div>
         </div>
       )}

@@ -1,10 +1,11 @@
 import React from 'react';
 import type { DisplayState } from '../../types';
-import { AtmosphereCanvas } from '../canvas/AtmosphereCanvas';
+import { StageViewport } from '../display/StageViewport';
 import { InitiativeRibbon } from '../display/InitiativeRibbon';
 import { X, Send, Eye } from 'lucide-react';
+import type { MesaTelemetryInfo } from '../../services/sessionCommandBus';
 
-interface FullScreenPreviewModalProps {
+export interface FullScreenPreviewModalProps {
   liveState: DisplayState;
   stagedState: DisplayState;
   operationMode: 'live' | 'staging';
@@ -13,6 +14,7 @@ interface FullScreenPreviewModalProps {
   onChangePreviewTab: (tab: 'live' | 'staged') => void;
   onSendToScreen: () => void;
   onClose: () => void;
+  mesaTelemetry?: MesaTelemetryInfo | null;
 }
 
 export const FullScreenPreviewModal: React.FC<FullScreenPreviewModalProps> = ({
@@ -24,38 +26,10 @@ export const FullScreenPreviewModal: React.FC<FullScreenPreviewModalProps> = ({
   onChangePreviewTab,
   onSendToScreen,
   onClose,
+  mesaTelemetry,
 }) => {
   const activeState = previewTab === 'live' ? liveState : stagedState;
-
-  const renderCharacterSlot = (pos: 'left' | 'center-left' | 'center-right' | 'right') => {
-    const chars = activeState.characters.filter((c) => c.position === pos);
-    if (chars.length === 0) return null;
-
-    return (
-      <div key={pos} className={`character-slot slot-${pos}`}>
-        {chars.map((char) => {
-          const hasAnySpeaker = activeState.characters.some((c) => c.isSpeaking);
-          const isDimmed = hasAnySpeaker && !char.isSpeaking;
-
-          return (
-            <div
-              key={char.id}
-              className={`character-card ${char.isSpeaking ? 'is-speaking' : ''} ${
-                isDimmed ? 'is-dimmed' : ''
-              }`}
-            >
-              <div className="avatar-frame">
-                <img src={char.avatarUrl} alt={char.name} className="avatar-img" />
-              </div>
-              <div className="nameplate">
-                <span className="character-name">{char.name}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+  const targetAspectRatio = mesaTelemetry?.viewport?.aspectRatio || 16 / 9;
 
   return (
     <div className="modal-overlay preview-modal-overlay" onClick={onClose}>
@@ -68,7 +42,7 @@ export const FullScreenPreviewModal: React.FC<FullScreenPreviewModalProps> = ({
               onClick={() => onChangePreviewTab('live')}
             >
               <span className="dot-live"></span>
-              <span>En Pantalla (Tablet)</span>
+              <span>En Pantalla (Mesa)</span>
             </button>
             {operationMode === 'staging' && (
               <button
@@ -100,19 +74,16 @@ export const FullScreenPreviewModal: React.FC<FullScreenPreviewModalProps> = ({
           </div>
         </div>
 
-        {/* Screen Preview Stage Container (16:9 Aspect Ratio) */}
-        <div className="preview-stage-viewport">
-          <div
-            className="background-layer current-bg"
-            style={{ backgroundImage: `url(${activeState.backgroundUrl})` }}
-          />
-
-          {/* Atmosphere Particles & Lighting */}
-          <AtmosphereCanvas
-            weather={activeState.weather}
-            intensity={activeState.weatherIntensity}
-            lighting={activeState.lighting}
-            lightningTrigger={activeState.lightningTrigger}
+        {/* Screen Preview Stage Container (Faithful 1:1 StageViewport) */}
+        <div
+          className="preview-stage-viewport relative overflow-hidden"
+          style={{ width: '100%', height: '520px', background: '#000' }}
+        >
+          <StageViewport
+            state={activeState}
+            isScaledPreview={true}
+            aspectRatio={targetAspectRatio}
+            showBanner={!activeState.combatState?.isActive}
           />
 
           {/* Combat Ribbon */}
@@ -120,46 +91,17 @@ export const FullScreenPreviewModal: React.FC<FullScreenPreviewModalProps> = ({
             <InitiativeRibbon combatState={activeState.combatState} />
           )}
 
-          {/* Location Banner */}
-          {!activeState.combatState?.isActive &&
-            activeState.locationBanner?.visible &&
-            activeState.locationBanner.text && (
-              <div className="cinematic-banner-container">
-                <div className="cinematic-banner">
-                  <div className="banner-rune-left">✦</div>
-                  <div className="banner-content">
-                    <h1 className="banner-title">{activeState.locationBanner.text}</h1>
-                    {activeState.locationBanner.subtitle && (
-                      <p className="banner-subtitle">{activeState.locationBanner.subtitle}</p>
-                    )}
-                  </div>
-                  <div className="banner-rune-right">✦</div>
-                </div>
-              </div>
-            )}
-
-          {/* Character Standees */}
-          <div className="character-stage">
-            {renderCharacterSlot('left')}
-            {renderCharacterSlot('center-left')}
-            {renderCharacterSlot('center-right')}
-            {renderCharacterSlot('right')}
-          </div>
-
-          {/* Blackout */}
-          {activeState.isBlackout && (
-            <div className="blackout-curtain active">
-              <div className="blackout-rune">
-                <span>Pantalla Apagada (Blackout)</span>
-              </div>
-            </div>
-          )}
-
           {/* Watermark */}
           <div className="preview-watermark-pill">
             <Eye size={14} />
             <span>
-              {previewTab === 'live' ? 'Viendo la pantalla actual de la Tablet' : 'Viendo el borrador antes de enviar'}
+              {previewTab === 'live'
+                ? `Viendo la pantalla actual de la Mesa (${
+                    mesaTelemetry?.viewport
+                      ? `${mesaTelemetry.viewport.width}×${mesaTelemetry.viewport.height}`
+                      : '16:9'
+                  })`
+                : 'Viendo el borrador antes de enviar'}
             </span>
           </div>
         </div>

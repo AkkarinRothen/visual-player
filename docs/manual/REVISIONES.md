@@ -317,7 +317,35 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
 - **Diferenciación de Evidencia:**
   - *Comprobado mediante pruebas de código e integración local:* 284/284 pruebas aprobadas en 54 suites, tipado estricto superado sin errores, build de producción Vite exitoso en 946ms.
   - *Pendiente de comprobación física en mesa conectada:* prueba de auditoría de paquetes en vivo conectando dos pantallas reales (director en laptop + jugadores en monitor HDMI o WebRTC) para comprobar en campo la respuesta visual en el proyector al importar una copia de comprobación en segundo plano.
-- **Resultado:** manual de usuario (`README.md`) y registro de revisiones actualizados con MAN-012.
+## 2026-09-03 — MAN-013: Diagnóstico y Fidelidad Visual 1:1 entre Mesa y Previsualización del Director (Series 1, 2 y 3)
+
+- **Versión:** árbol de trabajo local con arquitectura de escenario unificada (`StageViewport.tsx`).
+- **Entorno:** Vitest 55 suites, 288 pruebas aprobadas (100%). Compilación de producción con Vite y TypeScript (`tsc -b`) aprobada con 0 errores (dist/ en 4.63s).
+- **Alcance y Diagnóstico Técnico de las Discrepancias Observadas en Capturas Reales:**
+  1. **Fondo de Ruinas Ausente en la Mesa (Serie 2, Pregunta 6):**
+     - *Causa raíz:* La capa `<div className="display-bg active-bg" />` carecía de estilos CSS en la hoja de estilos global (`src/index.css`), resultando en una altura computada de 0 píxeles (`height: 0px`). La imagen llegaba pero el navegador no la dibujaba.
+     - *Solución:* Se implementó `.display-bg` con `position: absolute; inset: 0; width: 100%; height: 100%; background-size: cover; background-position: center; pointer-events: none;` y animación de fundido cruzado (`.display-bg.fade-in`).
+  2. **Divergencia entre Previsualización y Mesa Real (Serie 2, Preguntas 4 y 5):**
+     - *Causa raíz:* `LiveMiniPreview.tsx` utilizaba una maqueta aislada de 114 líneas con círculos fijos (`.mini-char-avatar`, 38x38px) que ignoraba por completo el encuadre y zoom de la cámara (`state.camera?.zoom` y `focalPoint`). En contraste, la Mesa aplicaba `transform: scale(zoom)` con `overflow: hidden` sobre `.stage-camera-viewport`.
+     - *Solución:* Se unificó el motor de dibujo extrayendo el componente compartido `StageViewport.tsx`. Tanto la Mesa en tamaño completo como el panel del director en miniatura ejecutan el mismo componente visual.
+  3. **Personajes Desplazados Fuera de Pantalla (Serie 2, Pregunta 7):**
+     - *Causa raíz:* Al activar un encuadre con zoom centrado en Morwen (`x: 20%`), el contenedor con `overflow: hidden` recortaba y desplazaba a los otros personajes (Bromir 1 y Bromir 2 a la derecha) fuera del área visible de la Mesa, mientras el director seguía viendo erróneamente los 3 círculos estáticos en su miniatura sin zoom.
+     - *Solución:* Con `StageViewport`, la previsualización del director ahora reproduce fielmente el mismo zoom y recorte que experimentan los jugadores.
+  4. **Superposición de Controles Superiores sobre el Título (Serie 3, Pregunta 11):**
+     - *Causa raíz:* `.location-banner` carecía de estilos y se dibujaba en el flujo normal arriba a la izquierda (`top: 0, left: 0`), colisionando físicamente con `.display-hud` (`top: 16px, left: 16px`).
+     - *Solución:* Se aplicó `.cinematic-banner-container` centrado horizontalmente y se agregaron zonas seguras con `pointer-events: none` en la barra central del HUD.
+  5. **Figuras Proporcionales sin Deformación (Serie 2, Pregunta 5 / Decisión de Diseño):**
+     - Se crearon las clases `.standee-proportional-frame` y `.standee-proportional-img` con límites de contención (`max-height: 52vh; max-width: 24vw; object-fit: contain;`), conservando el ratio natural de las imágenes y respetando transparencias en archivos PNG/WebP con sombra proyectada.
+  6. **Telemetría Real de Viewport y Estado Confirmado (Serie 1, Pregunta 1 y Serie 3, Pregunta 10):**
+     - La Mesa ahora incluye sus dimensiones y relación de aspecto real (`viewport: { width, height, aspectRatio }`) y estado de carga de recursos (`assetsStatus: { isReady, missingCount }`) en cada confirmación (`COMMAND_RESULT`).
+     - `LiveMiniPreview` y `FullScreenPreviewModal` ajustan su lienzo virtual a la relación de aspecto exacta de la Mesa (o 16:9 por defecto) y exhiben semáforos de fidelidad: *Confirmado en Mesa (Rev X • WxH)*, *Enviado / Pendiente* o *Borrador Preparado*.
+  7. **Verificación con Escena Estática Controlada (Serie 3, Pregunta 9):**
+     - Creada suite de pruebas dedicada en `src/domain/display/stageViewportFidelity.test.tsx` que valida la escena de las Ruinas de forma aislada: fondo, tres standees en slots, activación de clima y activación de cámara con zoom.
+- **Diferenciación de Evidencia:**
+  - *Comprobado mediante pruebas de código e integración local:* 288/288 pruebas aprobadas en 55 suites, compilación de producción Vite aprobada en 4.63s, fidelidad de escala y cálculo de recorte verificados en Vitest.
+  - *Pendiente de comprobación física en mesa conectada:* comprobación visual en proyector o pantalla secundaria conectada por WebRTC para validar la legibilidad de títulos en pantallas de diferente densidad de píxeles.
+- **Resultado:** manual de usuario y registro de revisiones actualizados con MAN-013.
+
 
 
 

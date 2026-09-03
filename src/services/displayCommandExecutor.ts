@@ -1,6 +1,8 @@
 import type { DisplayState } from '../types';
 import type {
   CommandResultPayload,
+  DisplayViewportTelemetry,
+  DisplayAssetsStatus,
   VersionedSyncMessage,
 } from '../domain/protocol/types';
 import {
@@ -14,6 +16,8 @@ export interface DisplayExecutorCallbacks {
   onCommitState: (nextState: DisplayState) => void;
   transportSend: (msg: { type: string; payload: CommandResultPayload }) => void;
   onSideEffect?: (effect: DisplayCommandSideEffect) => void;
+  getViewportInfo?: () => DisplayViewportTelemetry;
+  getAssetsStatus?: () => DisplayAssetsStatus;
 }
 
 export class DisplayCommandExecutor {
@@ -165,6 +169,9 @@ export class DisplayCommandExecutor {
         : ++this.currentRevision;
     this.currentRevision = revision;
 
+    const viewport = callbacks.getViewportInfo?.();
+    const assetsStatus = callbacks.getAssetsStatus?.();
+
     const appliedPayload: CommandResultPayload = {
       commandId: commandId || 'unknown',
       status: 'applied',
@@ -173,6 +180,8 @@ export class DisplayCommandExecutor {
       appliedAt: Date.now(),
       sessionId: this.activeSessionId || undefined,
       connectionEpoch: this.activeConnectionEpoch,
+      viewport,
+      assetsStatus,
     };
 
     // Cache result for idempotency

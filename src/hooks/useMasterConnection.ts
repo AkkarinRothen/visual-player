@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ConnectionStatus, DisplayState, SyncMessage } from '../types';
 import { peerService } from '../services/peerService';
-import { sessionCommandBus } from '../services/sessionCommandBus';
+import { sessionCommandBus, type MesaTelemetryInfo } from '../services/sessionCommandBus';
 import { acquireServerSessionToken, startTurnRenewalWatcher } from '../services/iceConfig';
 
 interface UseMasterConnectionOptions {
@@ -15,6 +15,9 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
   const [roomCode, setRoomCode] = useState<string>(initialRoomCode || '');
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [latencyMs, setLatencyMs] = useState<number>(0);
+  const [mesaTelemetry, setMesaTelemetry] = useState<MesaTelemetryInfo | null>(() =>
+    sessionCommandBus.getMesaTelemetry()
+  );
 
   // Store latest callback in a ref to avoid infinite re-render reconnection storms
   const onFullStateRequestedRef = useRef(onFullStateRequested);
@@ -70,10 +73,15 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
       }
     });
 
+    const unsubTelemetry = sessionCommandBus.onMesaTelemetry((telem) => {
+      setMesaTelemetry(telem ? { ...telem } : null);
+    });
+
     return () => {
       stopWatcher();
       unsubStatus();
       unsubMsg();
+      unsubTelemetry();
       sessionCommandBus.cancelPendingCommands('Desconectado de la sala');
     };
   }, [initialRoomCode, pairingSecret, connectToRoom, roomCode]);
@@ -82,6 +90,7 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
     roomCode,
     connectionStatus,
     latencyMs,
+    mesaTelemetry,
     connectToRoom,
     broadcastFullState,
     broadcastMessage,

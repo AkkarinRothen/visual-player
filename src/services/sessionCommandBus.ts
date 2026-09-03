@@ -1,6 +1,8 @@
 import type {
   AckPayload,
   CommandResultPayload,
+  DisplayViewportTelemetry,
+  DisplayAssetsStatus,
   SyncMessageType,
   VersionedSyncMessage,
 } from '../domain/protocol/types';
@@ -19,6 +21,13 @@ export interface ISessionTransport {
   getStatus: () => string;
 }
 
+export interface MesaTelemetryInfo {
+  viewport?: DisplayViewportTelemetry;
+  assetsStatus?: DisplayAssetsStatus;
+  lastAppliedRevision?: number;
+  lastConfirmedAt?: number;
+}
+
 export interface CommandBusOptions {
   sessionId?: string;
   connectionEpoch?: number;
@@ -34,6 +43,8 @@ export class SessionCommandBus {
   private transport: ISessionTransport;
   private unsubMessage: (() => void) | null = null;
   private pendingTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private lastMesaTelemetry: MesaTelemetryInfo | null = null;
+  private telemetryListeners: Array<(telemetry: MesaTelemetryInfo | null) => void> = [];
 
   constructor(options: CommandBusOptions = {}, store: CommandReceiptStore = commandReceiptStore) {
     this.sessionId = options.sessionId || `sess-${Date.now()}`;
@@ -98,12 +109,43 @@ export class SessionCommandBus {
         checksum: result.checksum,
         appliedAt: result.appliedAt,
       });
+
+      // Update confirmed telemetry from Mesa
+      if (result.viewport || result.assetsStatus || result.revision) {
+        this.lastMesaTelemetry = {
+          viewport: result.viewport || this.lastMesaTelemetry?.viewport,
+          assetsStatus: result.assetsStatus || this.lastMesaTelemetry?.assetsStatus,
+          lastAppliedRevision: result.revision || this.lastMesaTelemetry?.lastAppliedRevision,
+          lastConfirmedAt: result.appliedAt || Date.now(),
+        };
+        this.telemetryListeners.forEach((listener) => {
+          try {
+            listener(this.lastMesaTelemetry);
+          } catch (e) {
+            console.error('[SessionCommandBus] Error in telemetry listener:', e);
+          }
+        });
+      }
     } else {
       this.store.markRejected(result.commandId, {
         code: result.errorCode,
         message: result.errorMessage,
       });
     }
+  }
+
+  public getMesaTelemetry(): MesaTelemetryInfo | null {
+    return this.lastMesaTelemetry;
+  }
+
+  public onMesaTelemetry(listener: (telemetry: MesaTelemetryInfo | null) => void): () => void {
+    this.telemetryListeners.push(listener);
+    if (this.lastMesaTelemetry) {
+      listener(this.lastMesaTelemetry);
+    }
+    return () => {
+      this.telemetryListeners = this.telemetryListeners.filter((l) => l !== listener);
+    };
   }
 
   public setConnectionEpoch(epoch: number): void {

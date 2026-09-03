@@ -4,7 +4,7 @@ import { peerService } from '../../services/peerService';
 import { soundEngine } from '../../services/soundEngine';
 import { startTurnRenewalWatcher } from '../../services/iceConfig';
 import { getPlatformBridge } from '../../platform';
-import { AtmosphereCanvas } from '../canvas/AtmosphereCanvas';
+import { StageViewport } from './StageViewport';
 import { InitiativeRibbon } from './InitiativeRibbon';
 import { Volume2 } from 'lucide-react';
 import { ConnectionDiagnosticModal } from '../common/ConnectionDiagnosticModal';
@@ -12,10 +12,7 @@ import { pairingEngine, type PairingPhaseInfo } from '../../services/pairingEngi
 import { displayCommandExecutor } from '../../services/displayCommandExecutor';
 import { DisplayPairingOverlay } from './DisplayPairingOverlay';
 import { DisplayHUD } from './DisplayHUD';
-import { DisplayCharactersLayer } from './DisplayCharactersLayer';
 import { CinematicDialogueLayer } from './CinematicDialogueLayer';
-import { SceneLightsLayer } from './SceneLightsLayer';
-import { ZoneEmittersLayer } from './ZoneEmittersLayer';
 import { HandoutDisplayLayer } from './HandoutDisplayLayer';
 import { RecapDisplayLayer } from './RecapDisplayLayer';
 
@@ -183,6 +180,19 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
       transportSend: (outMsg) => {
         peerService.send(outMsg as any);
       },
+      getViewportInfo: () => {
+        const w = typeof window !== 'undefined' ? window.innerWidth : 1920;
+        const h = typeof window !== 'undefined' ? window.innerHeight : 1080;
+        return {
+          width: w,
+          height: h,
+          aspectRatio: h > 0 ? Number((w / h).toFixed(3)) : 16 / 9,
+        };
+      },
+      getAssetsStatus: () => ({
+        isReady: true,
+        missingCount: 0,
+      }),
       onSideEffect: (eff) => {
         if (eff.type === 'trigger_bg_transition') {
           triggerBgTransition(eff.payload.backgroundUrl);
@@ -243,101 +253,19 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
     setAudioUnlocked(true);
   };
 
-  // Camera transform calculations
-  const cameraFocal = state.camera?.focalPoint || state.focalPoint || { x: 50, y: 50 };
-  const cameraZoom = state.camera?.zoom ?? state.zoom ?? 1.0;
-  const isReducedMotion =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const cameraDurationMs = isReducedMotion ? 0 : state.cameraTransition?.durationMs ?? 800;
-
   return (
     <div
       className={`player-display-root ${state.isBlackout ? 'blackout' : ''}`}
       onMouseMove={handleMouseMove}
       style={{ cursor: showControls ? 'default' : 'none' }}
     >
-      {/* ─── STAGE CAMERA VIEWPORT (WORLD SPACE: BACKGROUND, WEATHER, CHARACTERS, PROPS) ─── */}
-      <div
-        className="stage-camera-viewport"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          overflow: 'hidden',
-          transformOrigin: `${cameraFocal.x}% ${cameraFocal.y}%`,
-          transform: cameraZoom > 1.001 ? `scale(${cameraZoom})` : 'none',
-          transition:
-            cameraDurationMs > 0
-              ? `transform ${cameraDurationMs}ms cubic-bezier(0.16, 1, 0.3, 1), transform-origin ${cameraDurationMs}ms cubic-bezier(0.16, 1, 0.3, 1)`
-              : 'none',
-        }}
-      >
-        {/* Background Layers for Smooth Crossfade */}
-        {prevBg && (
-          <div
-            className="display-bg prev-bg"
-            style={{
-              backgroundImage: `url(${prevBg})`,
-              backgroundPosition: '50% 50%',
-              backgroundSize: state.fitMode === 'contain' ? 'contain' : 'cover',
-              backgroundRepeat: 'no-repeat',
-            }}
-          />
-        )}
-        <div
-          className={`display-bg active-bg ${isCrossfading ? 'fade-in' : ''}`}
-          style={{
-            backgroundImage: `url(${activeBg})`,
-            backgroundPosition: '50% 50%',
-            backgroundSize: state.fitMode === 'contain' ? 'contain' : 'cover',
-            backgroundRepeat: 'no-repeat',
-          }}
-        />
-
-        {/* Atmospheric Effects Canvas */}
-        <AtmosphereCanvas
-          weather={state.weather}
-          intensity={state.weatherIntensity}
-          lighting={state.lighting}
-          shakeTrigger={state.shakeTrigger}
-          lightningTrigger={state.lightningTrigger}
-        />
-
-        {/* Active Characters & Props Projection Layer */}
-        <DisplayCharactersLayer
-          characters={state.characters}
-          props={state.props || []}
-          activeTransitions={state.activeTransitions}
-          combatState={state.combatState}
-        />
-
-        {/* Localized Scene Lights Layer */}
-        <SceneLightsLayer
-          lights={state.lights}
-          characters={state.characters}
-          props={state.props || []}
-        />
-
-        {/* Localized Atmospheric Zone Emitters (Fog, Smoke, Window Rain, Embers) */}
-        <ZoneEmittersLayer
-          emitters={state.emitters}
-          characters={state.characters}
-          props={state.props || []}
-        />
-      </div>
-
-      {/* ─── HUD & SCREEN SPACE (FIXED OVERLAYS: BANNER, DIALOGUE, INITIATIVE) ─── */}
-      {/* Location / Scene Title Banner */}
-      {state.locationBanner.visible && (
-        <div className="location-banner">
-          <h1 className="banner-title">{state.locationBanner.text}</h1>
-          {state.locationBanner.subtitle && (
-            <p className="banner-subtitle">{state.locationBanner.subtitle}</p>
-          )}
-        </div>
-      )}
+      {/* ─── UNIFIED STAGE VIEWPORT (WORLD SPACE: BACKGROUND, CAMERA, CHARACTERS, ATMOSPHERE, BANNER) ─── */}
+      <StageViewport
+        state={state}
+        prevBg={prevBg}
+        isCrossfading={isCrossfading}
+        showBanner={true}
+      />
 
       {/* Handout, Document & Map Projection Layer */}
       <HandoutDisplayLayer handout={state.activeHandout} />

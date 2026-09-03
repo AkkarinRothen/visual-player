@@ -237,11 +237,11 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
                     </div>
                   )}
 
-                  <div className="avatar-frame">
+                  <div className="standee-proportional-frame">
                     <img
                       src={char.avatarUrl}
                       alt={char.name}
-                      className="avatar-img"
+                      className="standee-proportional-img"
                       loading="eager"
                     />
                     {char.isSpeaking && (

@@ -73,6 +73,18 @@ export interface AckPayload {
   receivedSequence: number;
 }
 
+export interface DisplayViewportTelemetry {
+  width: number;
+  height: number;
+  aspectRatio: number;
+}
+
+export interface DisplayAssetsStatus {
+  isReady: boolean;
+  missingCount: number;
+  pendingUrls?: string[];
+}
+
 export interface CommandResultPayload {
   commandId: string;
   status: 'applied' | 'rejected';
@@ -84,6 +96,8 @@ export interface CommandResultPayload {
   targetDeviceId?: string;
   errorCode?: string;
   errorMessage?: string;
+  viewport?: DisplayViewportTelemetry;
+  assetsStatus?: DisplayAssetsStatus;
 }
 
 export interface TurnTimerTickPayload {
