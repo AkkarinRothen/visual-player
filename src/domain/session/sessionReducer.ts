@@ -47,6 +47,11 @@ export type SessionAction =
   | {
       type: 'RESTORE_SNAPSHOT';
       payload: { snapshot: DisplayState; description: string };
+    }
+  | {
+      type: 'SET_STAGED_STATE_ONLY';
+      payload: DisplayState;
+      revision?: number;
     };
 
 export const initialSessionState: SessionState = {
@@ -109,6 +114,15 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
         ...state,
         liveState: action.payload,
         stagedState: action.payload,
+        sessionRevision: action.revision !== undefined ? action.revision : currentRevision,
+      };
+    }
+
+    case 'SET_STAGED_STATE_ONLY': {
+      return {
+        ...state,
+        stagedState: action.payload,
+        operationMode: 'staging',
         sessionRevision: action.revision !== undefined ? action.revision : currentRevision,
       };
     }

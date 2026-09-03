@@ -258,6 +258,15 @@ El panel del director muestra una cabecera con el nombre de la preparación acti
 
 Para abrir la **Biblioteca de Preparaciones**, tocá el botón **Biblioteca** en la cabecera de sesión.
 
+### Biblioteca unificada y selector de campaña
+
+La Biblioteca permite encontrar preparaciones de la campaña activa o de todas las campañas registradas en el dispositivo:
+- **Selector de campaña:** en la barra superior podés alternar entre ver la campaña actual o **Todas las campañas**. La app recuerda tu última selección sin alterar la campaña activa en la mesa.
+- **Búsqueda profunda:** el campo de búsqueda filtra en tiempo real por nombre de preparación, notas secretas del director, nombres de escenas (tanto en borrador como congeladas) y nombres de personajes.
+- **Etiquetas (#tags):** si tus sesiones tienen etiquetas, una fila de botones te permite filtrar con un toque todas las preparaciones de una temática determinada.
+- **Miniaturas y datos en tarjeta:** cada preparación muestra una miniatura de su fondo principal, la campaña a la que pertenece, número de sesión, última fecha de edición y su estado de respaldo.
+- **Plantillas entre campañas:** podés consultar la lista de plantillas de cualquier campaña y tocar **Usar Plantilla** para crear una nueva preparación en tu campaña actual como copia independiente, sin alterar la plantilla original.
+
 ### Pestañas de la biblioteca
 
 | Pestaña | Qué contiene |
@@ -266,27 +275,87 @@ Para abrir la **Biblioteca de Preparaciones**, tocá el botón **Biblioteca** en
 | En curso | Sesiones que ya tuvieron contenido publicado a los jugadores. |
 | Finalizadas | Sesiones cerradas pero conservadas para referencia o duplicar. |
 | Archivadas | Sesiones que ya no necesitás en la lista activa. |
+| Plantillas | Diseños de sesión limpios listos para instanciar en cualquier campaña. |
+| Papelera | Elementos eliminados de forma recuperable. |
 
 ### Acciones disponibles sobre cada preparación
 
-- **Preparación:** carga el borrador guardado en el modo Preparación del panel. No publica nada a la Mesa hasta que usas **Publicar Todo** o **Publicación Selectiva**.
-- **Continuar:** disponible en sesiones en curso o finalizadas. Restaura el último estado publicado a la Mesa.
-- **Duplicar:** crea una copia con IDs nuevos. En el diálogo pods excluir el progreso de combate (rondas, temporizadores) y las condiciones activas.
-- **Guardar como plantilla:** genera una versión reutilizable sin datos efímeros: HP perdidos, combate activo y condiciones se eliminan.
-- **Exportar (.vpp.json):** descarga un archivo autocontenido con los assets incrustados. Sirve para trasladar la preparación a otro dispositivo.
+- **Preparación:** carga el borrador guardado en el modo Preparación del panel. Es completamente independiente de los cambios posteriores en la campaña (conserva su propia versión congelada de escenas, personajes, conversaciones y documentos). No publica nada a la Mesa hasta que usás **Publicar Todo** o **Publicación Selectiva**.
+- **Continuar:** disponible en sesiones en curso o finalizadas. Restaura el último estado publicado a la Mesa para reanudar la partida exactamente donde quedó.
+- **Siguiente entrega (mismo grupo):** prepara la continuación directa de la historia para la misma mesa de juego. Hereda todas las consecuencias del mundo, las revelaciones descubiertas, el inventario y las notas. Podés elegir si conservar el daño recibido por los monstruos y NPCs (para encuentros a medio resolver) o curarlos. Avanza el número ordinal (`Sesión N+1`) y arranca en modo Preparación con la Mesa en blanco, lista para planificar sin proyectar nada a los jugadores.
+- **Jugar con otro grupo (nueva línea de partida):** bifurca la preparación para dirigir la misma aventura a un grupo de jugadores diferente. Asigna un identificador de grupo nuevo e independiente, de modo que sus decisiones no se mezclen. Reinicia automáticamente las identidades reveladas (los personajes vuelven a mostrarse como siluetas y alias misteriosos para proteger la sorpresa), restaura la salud de los enemigos y limpia el combate, pero mantiene intactos los mapas, los props decorados, las puertas secretas abiertas intencionalmente, las luces y la música.
+- **Duplicar:** crea una copia con identificadores nuevos. Podés excluir el progreso de combate, las condiciones activas y elegir si restaurar o conservar los puntos de vida de Monstruos y NPCs (útil para ensayar variantes tácticas).
+- **Puntos de control:** permite consultar los checkpoints vinculados a la sesión y **Restaurar como copia**, generando una nueva preparación sin sobrescribir la actual ni emitir a la Mesa.
+- **Guardar como plantilla:** genera una versión reutilizable limpia: elimina HP perdidos, combate activo y condiciones transitorias.
+- **Presets de Escena Completa:** permite reutilizar un escenario entero (fondo, personajes colocados, props, luces con efectos de parpadeo, partículas, música ambiental, interacciones y diálogo vinculado). Al insertarlo en una preparación, todos sus identificadores se reasignan automáticamente para no colisionar con elementos existentes y se cargan siempre en Preparación (borrador), sin publicar ni reproducir audio en la Mesa.
+- **Exportar (.vpp.json):** abre el **Diagnóstico de Exportación (Pre-Flight)**, que comprueba si todos los fondos, retratos, props, música, efectos y documentos están disponibles localmente. Intenta descargar los archivos remotos y te indica claramente si es un **Paquete 100% Autocontenido para uso sin internet** o una **Exportación Incompleta** con listado de faltantes.
 - **Archivar:** mueve la sesión a la pestaña Archivadas sin borrar sus datos.
-- **Eliminar:** borra la sesión de forma permanente. La app pide confirmación.
+- **Enviar a papelera:** realiza un borrado seguro (soft-delete), moviendo la sesión a la pestaña **Papelera**. Podés restaurarla en cualquier momento o vaciar la papelera de forma permanente.
+
+### Indicadores de respaldo exterior
+
+En la cabecera del panel y en las tarjetas de la Biblioteca verás el estado de tu preparación:
+- **Solo local:** la preparación existe únicamente en el almacenamiento local del navegador de este dispositivo. Nunca se ha exportado un paquete `.vpp.json`.
+- **Sin respaldar:** la preparación fue exportada anteriormente, pero hiciste cambios locales posteriores que todavía no están en ningún archivo exterior.
+- **Respaldado:** tenés un archivo `.vpp.json` externo al día con tu última modificación. Si todos los archivos están incrustados, la etiqueta indica respaldo 100% sin conexión; si algún recurso depende de un enlace remoto externo, el sistema lo indica como respaldo parcial.
 
 ### Crear una preparación nueva
 
 1. En la Biblioteca, escribí el nombre en el campo **Nombre de nueva preparación** y tocá **Nueva preparación** o pulsá Enter.
 2. La nueva preparación aparece en la pestaña **En preparación** y se convierte en la activa del panel.
 
-### Importar una preparación
+### Importar una preparación y trasladar entre dispositivos (PC ↔ Móvil)
 
-1. En la Biblioteca, tocá **Importar**.
-2. Elegí un archivo `.vpp.json` exportado desde la misma u otra instalación.
-3. Si ya existe una sesión con el mismo identificador, la app crea una copia con el sufijo *(Importada)*.
+1. En la Biblioteca, tocá **Importar** y seleccioná el archivo `.vpp.json`.
+2. La app abre la **Inspección de Importación (Diff Review)** antes de guardar nada en tu dispositivo.
+3. **Control de Versiones y Conflictos:** Si ya existe una versión de esa sesión en tu dispositivo, el sistema compara las fechas y revisiones. Si tu copia local tiene partidas o avances más recientes, la app te avisa que sobrescribir borraría progreso jugado y te recomienda **Importar como copia paralela**.
+4. Podés verificar si el paquete es completo para uso sin conexión, cuántas escenas y personajes incluye y si hay discrepancias.
+5. Tocá **Importar como copia independiente (Recomendado)** para incorporar la preparación sin pisar tus escenas existentes ni emitir nada a la Mesa.
+
+### Actualizar una sesión desde una plantilla maestra (Comparación granular)
+
+Si mejoraste la plantilla de una aventura (por ejemplo, añadiendo un mapa secreto o un diálogo nuevo) y querés aplicar esas mejoras a una partida que ya empezaste:
+- **Inspección de diferencias:** la app compara tu preparación con la plantilla y te muestra qué elementos son nuevos, cuáles fueron modificados y cuáles son idénticos.
+- **Elección granular:** para cada escena o conversación modificada podés decidir si conservar tu versión (`keep_session`), actualizar a la versión de la plantilla (`overwrite_with_template`) o crear una copia paralela (`create_copy`).
+- **Punto de control automático previo:** antes de aplicar los cambios, el sistema crea un checkpoint automático de seguridad por si querés revertir la sincronización.
+- **Protección del progreso jugado:** no resetea los puntos de vida perdidos en combate, las condiciones activas ni las notas o revelaciones que tu grupo ya descubrió.
+
+### Evaluación pre-partida («Lista para jugar») con soluciones en un clic
+
+Antes de iniciar la sesión, podés pulsar **Evaluar** junto al nombre de la preparación. El sistema comprueba cuatro aspectos clave y ofrece botones de acción directa para resolver cualquier problema:
+1. **Escena preparada para proyección:** verifica que haya un escenario cargado en Preparación. Si falta, ofrece **Elegir Escena de Inicio**.
+2. **Activos para uso sin conexión:** comprueba que todos los fondos, retratos, props y música estén en el almacenamiento local. Si detecta enlaces externos, ofrece **Descargar Recursos Faltantes**.
+3. **Retratos e identidades:** detecta personajes colocados en escena sin imagen de avatar y ofrece **Asignar Retratos Faltantes**.
+4. **Protección de diálogos:** comprueba que las conversaciones y documentos estén congelados de forma independiente.
+
+### Confianza de archivos, auditoría de espacio y sincronización entre dispositivos
+
+- **Detección de ramas divergentes (dos dispositivos):** si modificaste la preparación por separado en tu PC y en tu móvil partiendo de la misma revisión, la app detecta la divergencia concurrente y no permite que la hora del reloj sobrescriba silenciosamente tus cambios; te recomienda importar como copia paralela.
+- **Exportación limpia sin enlaces temporales:** al exportar `.vpp.json`, la app convierte cualquier referencia temporal `blob:` en datos base64 persistentes. El paquete se puede abrir en cualquier computadora limpia sin conexión a internet y tras reiniciar la app.
+- **Importación transaccional protegida:** la carga de un paquete se procesa como una transacción única. Si el archivo está corrupto o se interrumpe, se cancela todo el proceso sin dejar archivos huérfanos ni preparaciones a medio importar.
+- **Auditoría de espacio y eliminación segura de huérfanos:** calcula el tamaño exacto ocupado en disco por imágenes y sonidos, distinguiendo los archivos en uso, los retenidos en la papelera o en puntos de control históricos, y los archivos huérfanos. La purga de huérfanos recupera espacio en disco eliminando únicamente lo que no se usa en ninguna campaña, sesión ni historial.
+- **Copia de comprobación de respaldo:** permite verificar un archivo de respaldo importándolo como copia aislada (`[Comprobación]`), comprobando su integridad sin alterar la campaña activa ni proyectar nada a la pantalla de los jugadores.
+- **Migración explícita de preparaciones antiguas:** si cargás una preparación previa a los snapshots inmutables, la app la migra de forma explícita registrando la fecha y una nota informativa, protegiendo la línea base sin falsear que sea la versión original si la campaña cambió.
+
+### Chequeo previo: «Lista para jugar»
+
+Antes de comenzar la partida podés comprobar el estado de preparación de tu sesión. El chequeo evalúa 4 aspectos:
+1. **Escena preparada:** confirma que haya una escena inicial lista para proyectar a la Mesa.
+2. **Archivos sin conexión:** verifica que el 100% de los fondos, retratos, props y música estén guardados localmente en el dispositivo (sin depender de internet).
+3. **Retratos y personajes:** comprueba que ningún personaje en escena tenga el retrato roto o vacío.
+4. **Protección de diálogos:** verifica que las conversaciones y documentos estén congelados de forma independiente.
+Si todo está en orden, el indicador confirma **«Sesión lista para jugar sin conexión a Internet»**.
+
+### Reutilizar escenas completas mediante Presets (Guardar e Insertar)
+
+Podés guardar cualquier escena que tengas armada en tu borrador como una pieza independiente para reutilizarla en otras sesiones o campañas:
+1. **Guardar Preset:** En el panel de sesión, junto a la siguiente escena en preparación, tocá **Guardar Preset**. Escribí un nombre, una descripción y etiquetas (por ejemplo: `taberna, noche, social`). Si la escena tiene un diálogo asociado, podés vincularlo. El preset guarda el fondo, los personajes, los props decorativos, las luces, las partículas y el audio ambiental.
+2. **Insertar Preset:** Tocá **Insertar Preset...** para abrir la biblioteca de escenas reutilizables.
+   - **Análisis de dependencias:** La app revisa los archivos del preset antes de tocar nada y te muestra si está 100% listo sin conexión o si hay recursos faltantes.
+   - **Resolución de personajes y diálogos:** Si un personaje o conversación ya existe en la campaña de destino, podés elegir entre **«Reutilizar existente»** o **«Crear copia independiente»**.
+   - **Añadir como Escena Nueva:** Agrega la escena a la preparación de la sesión sin borrar lo que estabas haciendo.
+   - **Reemplazar Borrador:** Reemplaza la composición actual en preparación. Crea automáticamente un punto de control previo por si querés deshacer el cambio.
+   - **Protección de la Mesa:** Las operaciones con presets se realizan exclusivamente en tu borrador. No emiten nada a la pantalla de los jugadores ni reproducen sonido.
 
 <a id="continuidad"></a>
 ## Continuar la historia entre partidas
@@ -296,6 +365,19 @@ Para abrir la **Biblioteca de Preparaciones**, tocá el botón **Biblioteca** en
 En **Sesión → Diario** encontrás **Lo que saben**, **Cómo quedó el mundo** y **Pendiente próxima sesión**. Podés añadir pistas, consultar descubrimientos y guardar notas para la próxima partida. Separá la descripción pública de las notas privadas.
 
 En **Preparar Sesión**, recorré los pasos con **Siguiente**: revisá los conocimientos del grupo, las notas, qué estados conservar o reiniciar y la escena inicial. Revisá el resumen antes de **Cargar en Staging (Modo Seguro)**. Después comprobá el borrador y publicalo cuando empiece la partida.
+
+### Jugar con otro grupo (Configuración Inicial Fiel y Protección de la Mesa)
+
+Cuando dirigís la misma aventura para un grupo diferente, no querés rehacer la preparación desde cero ni spoilear la trama:
+1. **Fijar Configuración Inicial:** En la cabecera del panel de sesión, el botón **Fijar Inicial** registra el estado actual de tu borrador como la línea base intencional de la aventura. El autoguardado durante la partida nunca modificará esta configuración.
+2. **Bifurcar para otro grupo:** En la Biblioteca de Sesiones, tocá los tres puntos de la sesión y elegí **Jugar con otro grupo**.
+3. **Restauración Fiel del Estado Preparado:** La nueva sesión arranca con los estados iniciales intencionales:
+   - **Personajes conocidos:** Si el tabernero era conocido de antemano por el grupo, sigue estando descubierto.
+   - **Misterios protegidos:** Los personajes o villanos que el grupo anterior desenmascaró vuelven a su silueta oculta y a su alias enigmático.
+   - **NPCs heridos preparados:** Si preparaste a un guardia patrullero herido con 12 de 25 HP por una emboscada inicial, la nueva partida arranca con sus 12 HP preparados (no se cura mágicamente al 100% ni arranca con el daño de la partida anterior).
+   - **Entorno preparado:** Las puertas o cofres que el grupo anterior abrió vuelven a su estado cerrado preparado.
+   - **Diario limpio:** Las notas privadas, diario y decisiones del grupo previo quedan excluidos.
+4. **Protección de la Mesa Conectada:** La nueva sesión arranca en modo **Preparación con la Mesa en blanco (sin publicar)**. Aunque los jugadores estén mirando la pantalla grande, no se proyectará nada ni se revelará la escena hasta que el director decida tocar **Llevar a la Mesa (ACK)**.
 
 ### Resumen de apertura y crónica escrita
 

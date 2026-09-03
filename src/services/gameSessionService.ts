@@ -1,8 +1,28 @@
-import type { DisplayState, GameSession, DraftSaveState, DuplicateSessionOptions } from '../types';
+import type {
+  DisplayState,
+  GameSession,
+  DraftSaveState,
+  DuplicateSessionOptions,
+  GameSessionTemplate,
+  GameSessionPackage,
+  SessionCheckpoint,
+  ExportPreflightReport,
+  ImportDiffSummary,
+  NextSessionOptions,
+  NewGroupSessionOptions,
+  SceneCompositionPreset,
+  SavedConversation,
+  HandoutState,
+  PresetDependencyReport,
+  SessionReadinessCheck,
+  VersionConflictReport,
+} from '../types';
 import {
   createGameSession,
   getGameSession,
   getSessionsByCampaign,
+  getAllSessions,
+  getAllSessionTemplates,
   updateGameSessionDraft,
   updateGameSessionLiveState,
   updateGameSessionNotes,
@@ -11,14 +31,51 @@ import {
   completeGameSession,
   duplicateGameSession,
   deleteGameSession,
+  trashGameSession,
+  restoreGameSessionFromTrash,
+  getTrashedSessions,
+  emptyTrash,
   saveSessionAsTemplate,
   createSessionFromTemplate,
   packSessionForExport,
   importSessionPackage,
+  importSessionPackageWithRemap,
+  analyzeSessionPackageDiff,
+  downloadExternalAssetsForSession,
+  scanSessionAssetDependencies,
+  createSessionCheckpoint,
+  getSessionCheckpoints,
+  restoreCheckpointAsNewSession,
+  prepareNextGameSession,
+  createSessionForNewGroup,
+  saveSceneAsCompositionPreset,
+  getSceneCompositionPresets,
+  deleteSceneCompositionPreset,
+  instantiateScenePresetIntoSession,
+  scanPresetDependencies,
+  checkSessionReadiness,
+  detectImportVersionConflict,
+  saveSessionInitialBaseline,
+  updateSessionFromTemplate,
+  getTemplateUpdateDiff,
+  applyGranularTemplateUpdate,
+  migrateLegacySession,
+  calculateStorageAudit,
+  purgeOrphanAssets,
+  importSessionAsAuditCopy,
+  type AssetDependencyItem,
 } from '../db';
-import type { GameSessionTemplate, GameSessionPackage } from '../types';
+import type {
+  TemplateUpdateDiffReport,
+  GranularTemplateUpdateSelection,
+  StorageAuditReport,
+  AuditRestoreReport,
+  CinematicMacro,
+} from '../types';
 
 type SaveStateListener = (state: DraftSaveState) => void;
+
+export type BackupStatus = 'synced' | 'dirty' | 'never_exported';
 
 /**
  * Singleton que gestiona el ciclo de vida de la sesión activa de una campaña.
@@ -39,6 +96,7 @@ class GameSessionService {
 
   // Debounce para guardado de borrador
   private draftDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingStagedState: DisplayState | null = null;
   private readonly DRAFT_DEBOUNCE_MS = 400;
 
   // Estado observable del guardado
@@ -47,6 +105,18 @@ class GameSessionService {
 
   // Protección contra sobrescrituras tardías (timestamp del último inicio de guardado)
   private lastSaveStartedAt = 0;
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', () => {
+        if (this.draftDebounceTimer !== null && this.pendingStagedState) {
+          clearTimeout(this.draftDebounceTimer);
+          this.draftDebounceTimer = null;
+          this._enqueueDraftSave(this.pendingStagedState);
+        }
+      });
+    }
+  }
 
   // ─── Observabilidad ────────────────────────────────────────────────────────
 
@@ -74,6 +144,11 @@ class GameSessionService {
 
   public getCurrentSessionId(): string | null {
     return this.currentSessionId;
+  }
+
+  public setCurrentSession(session: GameSession | null): void {
+    this.currentSession = session;
+    this.currentSessionId = session ? session.id : null;
   }
 
   // ─── Ciclo de vida ────────────────────────────────────────────────────────
@@ -109,11 +184,10 @@ class GameSessionService {
    * Espera a que el guardado pendiente termine antes de cambiar.
    */
   public async switchSession(newSessionId: string): Promise<GameSession> {
-    // Vaciar cola de escrituras pendientes antes de cambiar
-    await this.writeQueue;
+    await this.flushPendingSave();
 
     const session = await getGameSession(newSessionId);
-    if (!session) throw new Error(`Session ${newSessionId} not found`);
+    if (!session) throw new Error(`Sesión ${newSessionId} no encontrada`);
 
     this.currentSessionId = newSessionId;
     this.currentSession = session;
@@ -121,16 +195,30 @@ class GameSessionService {
     return session;
   }
 
+  /**
+   * Espera y fuerza cualquier escritura pendiente antes de operaciones críticas.
+   */
+  public async flushPendingSave(): Promise<void> {
+    if (this.draftDebounceTimer !== null && this.pendingStagedState) {
+      clearTimeout(this.draftDebounceTimer);
+      this.draftDebounceTimer = null;
+      const stateToSave = this.pendingStagedState;
+      this.pendingStagedState = null;
+      await this._enqueueDraftSave(stateToSave);
+    }
+    await this.writeQueue;
+  }
+
   // ─── Guardado del Borrador ─────────────────────────────────────────────────
 
   /**
    * Encola el guardado del borrador con debounce de 400ms.
-   * La cola FIFO garantiza que una escritura más nueva nunca queda detrás de una antigua.
    */
   public saveDraftDebounced(stagedState: DisplayState): void {
     if (!this.currentSessionId) return;
 
-    // Cancelar debounce anterior
+    this.pendingStagedState = stagedState;
+
     if (this.draftDebounceTimer !== null) {
       clearTimeout(this.draftDebounceTimer);
     }
@@ -139,15 +227,18 @@ class GameSessionService {
 
     this.draftDebounceTimer = setTimeout(() => {
       this.draftDebounceTimer = null;
-      this._enqueueDraftSave(stagedState);
+      const stateToSave = this.pendingStagedState || stagedState;
+      this.pendingStagedState = null;
+      this._enqueueDraftSave(stateToSave);
     }, this.DRAFT_DEBOUNCE_MS);
   }
 
   /**
-   * Guarda el borrador inmediatamente (sin debounce). Útil al cambiar de sesión o salir.
+   * Guarda el borrador inmediatamente (sin debounce).
    */
   public async saveDraftImmediate(stagedState: DisplayState): Promise<void> {
     if (!this.currentSessionId) return;
+    this.pendingStagedState = null;
     if (this.draftDebounceTimer !== null) {
       clearTimeout(this.draftDebounceTimer);
       this.draftDebounceTimer = null;
@@ -158,24 +249,26 @@ class GameSessionService {
   private _enqueueDraftSave(stagedState: DisplayState): Promise<void> {
     const sessionId = this.currentSessionId;
     if (!sessionId) return Promise.resolve();
+    this.pendingStagedState = null;
 
     const startedAt = Date.now();
     this.lastSaveStartedAt = startedAt;
 
-    // Encadenar en la cola FIFO para serialización estricta
     this.writeQueue = this.writeQueue.then(async () => {
-      // Si una escritura más nueva ya inició, esta es obsoleta → descartar
       if (startedAt < this.lastSaveStartedAt) return;
 
       try {
         await updateGameSessionDraft(sessionId, stagedState);
-        // Actualizar referencia en memoria
         if (this.currentSession && this.currentSessionId === sessionId) {
-          this.currentSession = { ...this.currentSession, stagedState, updatedAt: Date.now() };
+          this.currentSession = {
+            ...this.currentSession,
+            stagedState,
+            revision: (this.currentSession.revision || 1) + 1,
+            updatedAt: Date.now(),
+          };
         }
         this.emitState('saved');
 
-        // Volver a 'idle' tras 3 segundos para limpiar el indicador
         setTimeout(() => {
           if (this.draftSaveState === 'saved') this.emitState('idle');
         }, 3000);
@@ -189,10 +282,6 @@ class GameSessionService {
 
   // ─── Estado publicado a la Mesa ───────────────────────────────────────────
 
-  /**
-   * Persiste el estado publicado (liveState) cuando el DM lo envía a la Mesa.
-   * No afecta al borrador ni envía datos por WebRTC (eso lo gestiona MasterController).
-   */
   public async saveLiveState(liveState: DisplayState): Promise<void> {
     if (!this.currentSessionId) return;
     const sessionId = this.currentSessionId;
@@ -236,23 +325,43 @@ class GameSessionService {
     }
   }
 
-  // ─── Operaciones de biblioteca ────────────────────────────────────────────
+  // ─── Operaciones de biblioteca y Papelera ──────────────────────────────────
 
   public async duplicate(options: DuplicateSessionOptions): Promise<GameSession> {
-    if (!this.currentSessionId) throw new Error('No active session');
+    if (!this.currentSessionId) throw new Error('No hay sesión activa');
+    await this.flushPendingSave();
     return duplicateGameSession(this.currentSessionId, options);
   }
 
   public async archive(sessionId: string): Promise<void> {
     await archiveGameSession(sessionId);
-    // Si archivamos la sesión activa, limpiar referencia
     if (sessionId === this.currentSessionId) {
       this.currentSessionId = null;
       this.currentSession = null;
     }
   }
 
-  public async deleteSession(sessionId: string): Promise<void> {
+  public async trashSession(sessionId: string): Promise<void> {
+    await trashGameSession(sessionId);
+    if (sessionId === this.currentSessionId) {
+      this.currentSessionId = null;
+      this.currentSession = null;
+    }
+  }
+
+  public async restoreSessionFromTrash(sessionId: string): Promise<void> {
+    await restoreGameSessionFromTrash(sessionId);
+  }
+
+  public async getTrashed(campaignId: string): Promise<GameSession[]> {
+    return getTrashedSessions(campaignId);
+  }
+
+  public async emptyTrash(campaignId: string): Promise<number> {
+    return emptyTrash(campaignId);
+  }
+
+  public async deleteSessionPermanently(sessionId: string): Promise<void> {
     await deleteGameSession(sessionId);
     if (sessionId === this.currentSessionId) {
       this.currentSessionId = null;
@@ -261,7 +370,8 @@ class GameSessionService {
   }
 
   public async saveAsTemplate(name: string, description?: string): Promise<GameSessionTemplate> {
-    if (!this.currentSessionId) throw new Error('No active session');
+    if (!this.currentSessionId) throw new Error('No hay sesión activa');
+    await this.flushPendingSave();
     return saveSessionAsTemplate(this.currentSessionId, name, description);
   }
 
@@ -269,28 +379,107 @@ class GameSessionService {
     return createSessionFromTemplate(templateId, name);
   }
 
-  // ─── Exportación / Importación ────────────────────────────────────────────
+  // ─── Checkpoints vinculados a Sesión ──────────────────────────────────────
+
+  public async createCheckpoint(name: string, type: 'manual' | 'auto' = 'manual', trigger: string = 'manual_snapshot'): Promise<SessionCheckpoint> {
+    if (!this.currentSessionId || !this.currentSession) throw new Error('No hay sesión activa');
+    await this.flushPendingSave();
+    const stateToSave = this.currentSession.stagedState || this.currentSession.liveState;
+    if (!stateToSave) throw new Error('La sesión no tiene estado para guardar un checkpoint');
+    return createSessionCheckpoint(this.currentSessionId, this.currentSession.campaignId, name, stateToSave, type, trigger);
+  }
+
+  public async getSessionCheckpoints(sessionId?: string): Promise<SessionCheckpoint[]> {
+    const id = sessionId || this.currentSessionId;
+    if (!id) return [];
+    return getSessionCheckpoints(id);
+  }
+
+  public async restoreCheckpointAsCopy(checkpointId: string, customName?: string): Promise<GameSession> {
+    return restoreCheckpointAsNewSession(checkpointId, customName);
+  }
+
+  // ─── Estado del Respaldo Externo ──────────────────────────────────────────
 
   /**
-   * Exporta la sesión activa como un archivo .vpp.json con todos los assets incrustados.
-   * El archivo resultante es autocontenido y funciona sin conexión a Internet.
+   * Distingue si la sesión está respaldada externamente o solo en almacenamiento local.
    */
-  public async exportCurrentSession(): Promise<void> {
-    if (!this.currentSessionId) throw new Error('No active session');
-    const pkg = await packSessionForExport(this.currentSessionId);
+  public getBackupStatus(session?: GameSession | null): BackupStatus {
+    const s = session || this.currentSession;
+    if (!s) return 'never_exported';
+    if (!s.lastExportedAt) return 'never_exported';
+    if (s.updatedAt > s.lastExportedAt) return 'dirty';
+    return 'synced';
+  }
+
+  // ─── Exportación / Importación Robusta ─────────────────────────────────────
+
+  /**
+   * Ejecuta el escáner de diagnóstico y descarga opcional previa a la exportación.
+   */
+  public async preflightExport(
+    sessionId: string,
+    onProgress?: (current: number, total: number, item: AssetDependencyItem) => void
+  ): Promise<ExportPreflightReport> {
+    const session = await getGameSession(sessionId);
+    if (!session) throw new Error(`Sesión ${sessionId} no encontrada`);
+    const deps = scanSessionAssetDependencies(session);
+    return downloadExternalAssetsForSession(deps, onProgress);
+  }
+
+  /**
+   * Exporta la sesión como archivo .vpp.json.
+   */
+  public async exportSessionPackage(sessionId: string, downloadExternal: boolean = false): Promise<GameSessionPackage> {
+    await this.flushPendingSave();
+    const pkg = await packSessionForExport(sessionId, downloadExternal);
     const json = JSON.stringify(pkg, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const sessionName = this.currentSession?.name ?? 'sesion';
+    const sessionName = pkg.session.name ?? 'sesion';
     a.href = url;
     a.download = `${sessionName.replace(/[^a-z0-9áéíóúñ ]/gi, '_')}.vpp.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
+    return pkg;
   }
 
   /**
-   * Importa un archivo .vpp.json. Retorna la sesión importada y conflictos detectados.
+   * Exporta la sesión activa.
+   */
+  public async exportCurrentSession(downloadExternal: boolean = false): Promise<GameSessionPackage> {
+    if (!this.currentSessionId) throw new Error('No hay sesión activa');
+    return this.exportSessionPackage(this.currentSessionId, downloadExternal);
+  }
+
+  /**
+   * Analiza un archivo de paquete para la pantalla de revisión de diferencias (Diff Review).
+   */
+  public async analyzePackageDiff(file: File): Promise<{ pkg: GameSessionPackage; diff: ImportDiffSummary }> {
+    const text = await file.text();
+    let pkg: GameSessionPackage;
+    try {
+      pkg = JSON.parse(text) as GameSessionPackage;
+    } catch {
+      throw new Error('El archivo no es un JSON válido');
+    }
+    const diff = await analyzeSessionPackageDiff(pkg);
+    return { pkg, diff };
+  }
+
+  /**
+   * Importa el paquete analizado con la opción de copia independiente o vinculada.
+   */
+  public async importFromPackage(
+    pkg: GameSessionPackage,
+    asIndependentCopy: boolean = true
+  ): Promise<{ session: GameSession; campaignId: string }> {
+    return importSessionPackageWithRemap(pkg, asIndependentCopy);
+  }
+
+  /**
+   * Importa directamente un archivo .vpp.json (compatibilidad).
    */
   public async importFromFile(
     file: File,
@@ -308,8 +497,164 @@ class GameSessionService {
 
   // ─── Acceso a listas ──────────────────────────────────────────────────────
 
-  public async getSessionsForCampaign(campaignId: string): Promise<GameSession[]> {
-    return getSessionsByCampaign(campaignId);
+  public async getSessionsForCampaign(campaignId: string, includeDeleted: boolean = false): Promise<GameSession[]> {
+    return getSessionsByCampaign(campaignId, includeDeleted);
+  }
+
+  public async getAllSessions(includeDeleted: boolean = false): Promise<GameSession[]> {
+    return getAllSessions(includeDeleted);
+  }
+
+  public async getAllTemplates(): Promise<GameSessionTemplate[]> {
+    return getAllSessionTemplates();
+  }
+
+  // ─── Continuidad de Partidas y Grupos ──────────────────────────────────────
+
+  public async prepareNextSession(sourceSessionId: string, options?: NextSessionOptions): Promise<GameSession> {
+    await this.flushPendingSave();
+    return prepareNextGameSession(sourceSessionId, options);
+  }
+
+  public async createSessionForNewGroup(sourceSessionId: string, options: NewGroupSessionOptions): Promise<GameSession> {
+    await this.flushPendingSave();
+    return createSessionForNewGroup(sourceSessionId, options);
+  }
+
+  // ─── Presets de Escena Completa (Composiciones Reutilizables) ─────────────
+
+  public async saveSceneAsPreset(
+    campaignId: string,
+    state: DisplayState,
+    name: string,
+    options?: { description?: string; tags?: string[]; linkedConversation?: SavedConversation }
+  ): Promise<SceneCompositionPreset> {
+    return saveSceneAsCompositionPreset(campaignId, state, name, options);
+  }
+
+  public async getScenePresets(campaignId?: string): Promise<SceneCompositionPreset[]> {
+    return getSceneCompositionPresets(campaignId);
+  }
+
+  public async deleteScenePreset(id: string): Promise<void> {
+    return deleteSceneCompositionPreset(id);
+  }
+
+  public async instantiateScenePreset(
+    sessionId: string,
+    presetId: string,
+    mode: 'append_scene' | 'replace_staged' = 'replace_staged'
+  ): Promise<GameSession> {
+    await this.flushPendingSave();
+    const updated = await instantiateScenePresetIntoSession(sessionId, presetId, mode);
+    if (this.currentSessionId === sessionId) {
+      this.currentSession = updated;
+    }
+    return updated;
+  }
+
+  // ─── Acceso Seguro a Recursos de la Sesión Activa ─────────────────────────
+
+  public getActiveConversations(campaignConversations: SavedConversation[] = []): SavedConversation[] {
+    if (this.currentSession?.frozenConversations && this.currentSession.frozenConversations.length > 0) {
+      return this.currentSession.frozenConversations;
+    }
+    return campaignConversations;
+  }
+
+  public getActiveHandouts(campaignHandouts: HandoutState[] = []): HandoutState[] {
+    if (this.currentSession?.frozenHandouts && this.currentSession.frozenHandouts.length > 0) {
+      return this.currentSession.frozenHandouts;
+    }
+    return campaignHandouts;
+  }
+
+  public getActiveMacros(campaignMacros: CinematicMacro[] = []): CinematicMacro[] {
+    if (this.currentSession?.frozenMacros && this.currentSession.frozenMacros.length > 0) {
+      return this.currentSession.frozenMacros;
+    }
+    return campaignMacros;
+  }
+
+  // ─── Herramientas de Mantenimiento, Transporte y Chequeo Pre-Partida ───────
+
+  public async scanPreset(preset: SceneCompositionPreset, targetCampaignId?: string): Promise<PresetDependencyReport> {
+    return scanPresetDependencies(preset, targetCampaignId);
+  }
+
+  public async checkReadiness(sessionId?: string): Promise<SessionReadinessCheck> {
+    const id = sessionId || this.currentSession?.id;
+    if (!id) throw new Error('No hay sesión activa para evaluar');
+    return checkSessionReadiness(id);
+  }
+
+  public detectVersionConflict(pkg: GameSessionPackage, existingSession?: GameSession): VersionConflictReport {
+    return detectImportVersionConflict(pkg, existingSession);
+  }
+
+  public async updateFromTemplate(
+    sessionId: string,
+    templateId: string
+  ): Promise<{ session: GameSession; checkpoint: SessionCheckpoint }> {
+    await this.flushPendingSave();
+    const result = await updateSessionFromTemplate(sessionId, templateId);
+    if (this.currentSession?.id === sessionId) {
+      this.currentSession = result.session;
+    }
+    return result;
+  }
+
+  public async saveInitialBaseline(
+    sessionId?: string,
+    state?: DisplayState,
+    label?: string
+  ): Promise<GameSession> {
+    await this.flushPendingSave();
+    const id = sessionId || this.currentSession?.id;
+    if (!id) throw new Error('No hay sesión activa');
+    const updated = await saveSessionInitialBaseline(id, state, label);
+    if (this.currentSession?.id === id) {
+      this.currentSession = updated;
+    }
+    return updated;
+  }
+
+  public async getTemplateDiff(sessionId: string, templateId: string): Promise<TemplateUpdateDiffReport> {
+    return getTemplateUpdateDiff(sessionId, templateId);
+  }
+
+  public async applyGranularTemplateUpdate(
+    sessionId: string,
+    templateId: string,
+    selection: GranularTemplateUpdateSelection
+  ): Promise<{ session: GameSession; checkpoint: SessionCheckpoint }> {
+    await this.flushPendingSave();
+    const result = await applyGranularTemplateUpdate(sessionId, templateId, selection);
+    if (this.currentSession?.id === sessionId) {
+      this.currentSession = result.session;
+    }
+    return result;
+  }
+
+  public async migrateLegacySession(sessionId: string): Promise<GameSession> {
+    await this.flushPendingSave();
+    const result = await migrateLegacySession(sessionId);
+    if (this.currentSession?.id === sessionId) {
+      this.currentSession = result;
+    }
+    return result;
+  }
+
+  public async getStorageAudit(): Promise<StorageAuditReport> {
+    return calculateStorageAudit();
+  }
+
+  public async purgeOrphans(): Promise<{ purgedCount: number; reclaimedBytes: number }> {
+    return purgeOrphanAssets();
+  }
+
+  public async importAsAuditCopy(pkg: GameSessionPackage): Promise<AuditRestoreReport> {
+    return importSessionAsAuditCopy(pkg);
   }
 }
 

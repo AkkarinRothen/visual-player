@@ -61,18 +61,8 @@ import { SummonCharacterModal } from './modals/SummonCharacterModal';
 import { MasterQRModal } from './modals/MasterQRModal';
 import { EmergencyDock } from './EmergencyDock';
 import { SessionPanel } from './SessionPanel';
-import { ManageFavoritesModal } from './modals/ManageFavoritesModal';
-import { SceneCompositorModal } from './modals/SceneCompositorModal';
-import { ConversationEditorModal } from './modals/ConversationEditorModal';
-import { CampaignRevelationJournalModal } from './modals/CampaignRevelationJournalModal';
-import { SessionPrepWizardModal } from './modals/SessionPrepWizardModal';
-import { HandoutViewerModal } from './modals/HandoutViewerModal';
-import { CampaignRecapModal } from './modals/CampaignRecapModal';
-import { SoundboardModal } from './modals/SoundboardModal';
-import { BiomeSoundtrackModal } from './modals/BiomeSoundtrackModal';
-import { LightingPresetsModal } from './modals/LightingPresetsModal';
-import { SessionChronicleExportModal } from './modals/SessionChronicleExportModal';
-import { SessionLibraryModal } from './modals/SessionLibraryModal';
+import { MasterAuxiliaryModals } from './modals/MasterAuxiliaryModals';
+import { MasterBottomNav } from './navigation/MasterBottomNav';
 import {
   advanceCombatTurnWithTimer,
   startCombatTurnTimer,
@@ -167,7 +157,6 @@ import {
   Bookmark,
   CheckCheck,
   WifiOff,
-  Tv,
 } from 'lucide-react';
 
 interface MasterControllerProps {
@@ -224,6 +213,9 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const [showLightingPresetsModal, setShowLightingPresetsModal] = useState<boolean>(false);
   const [showChronicleExportModal, setShowChronicleExportModal] = useState<boolean>(false);
   const [showSessionLibraryModal, setShowSessionLibraryModal] = useState<boolean>(false);
+  const [showScenePresetModal, setShowScenePresetModal] = useState<boolean>(false);
+  const [scenePresetMode, setScenePresetMode] = useState<'save' | 'insert'>('save');
+  const [showReadinessModal, setShowReadinessModal] = useState<boolean>(false);
   const [lightningConfig, setLightningConfig] = useState<LightningConfig>(DEFAULT_LIGHTNING_CONFIG);
   const [executedActionLineIds, setExecutedActionLineIds] = useState<Record<string, string>>({});
   const [selectedChoiceIds, setSelectedChoiceIds] = useState<Record<string, string>>({});
@@ -276,6 +268,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     futureEvents,
     sessionRevision,
     initSessionState,
+    setStagedStateOnly,
     updateDisplay,
     setOperationMode,
     undo,
@@ -1686,11 +1679,43 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     } else {
       const targetState = loadedSession.stagedState || loadedSession.liveState;
       if (targetState) {
-        initSessionState(targetState);
-        setOperationMode('staging');
+        // Cargar exclusivamente en Preparación (Staging) sin alterar la Mesa de los jugadores
+        setStagedStateOnly(targetState);
       }
     }
     setShowSessionLibraryModal(false);
+  };
+
+  const handleOpenSaveScenePreset = () => {
+    setScenePresetMode('save');
+    setShowScenePresetModal(true);
+  };
+
+  const handleOpenInsertScenePreset = () => {
+    setScenePresetMode('insert');
+    setShowScenePresetModal(true);
+  };
+
+  const handlePresetInstantiated = (updatedSession: GameSession) => {
+    if (updatedSession.stagedState) {
+      setStagedStateOnly(updatedSession.stagedState);
+    }
+  };
+
+  const handleSaveInitialBaseline = async () => {
+    const current = gameSessionService.getCurrentSession();
+    if (!current) return;
+    try {
+      await gameSessionService.saveInitialBaseline(
+        current.id,
+        stagedState,
+        `Línea base fijada (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
+      );
+      alert('Configuración inicial guardada con éxito. Los nuevos grupos comenzarán desde este estado preparado.');
+    } catch (err) {
+      console.error('Error al guardar línea base inicial:', err);
+      alert('Error al guardar configuración inicial.');
+    }
   };
 
   const joinUrl = `${window.location.origin}${window.location.pathname}#join=${roomCode}${pairingSecret ? `&secret=${pairingSecret}` : ''}`;
@@ -2109,6 +2134,12 @@ export const MasterController: React.FC<MasterControllerProps> = ({
             onResetCombatTimer={handleResetCombatTimer}
             onToggleCombatTimerVisibility={handleToggleCombatTimerVisibility}
             onOpenSessionLibrary={() => setShowSessionLibraryModal(true)}
+            onOpenSaveScenePreset={handleOpenSaveScenePreset}
+            onOpenInsertScenePreset={handleOpenInsertScenePreset}
+            onSaveInitialBaseline={handleSaveInitialBaseline}
+            onEvaluateReadiness={() => setShowReadinessModal(true)}
+            backupStatus={gameSessionService.getBackupStatus(gameSessionService.getCurrentSession())}
+            lastExportIsComplete={gameSessionService.getCurrentSession()?.lastExportIsComplete}
           />
         )}
 
@@ -3019,192 +3050,71 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         blackoutReceipt={blackoutReceipt}
       />
 
-      {/* MODAL: GESTIONAR FAVORITOS */}
-      {showManageFavoritesModal && campaign && (
-        <ManageFavoritesModal
-          campaign={campaign}
-          favorites={campaign.favorites || []}
-          onSaveFavorites={handleSaveFavorites}
-          onClose={() => setShowManageFavoritesModal(false)}
-        />
-      )}
-
-      {/* MODAL: COMPOSITOR TÁCTIL DE ESCENA */}
-      {showCompositorModal && (
-        <SceneCompositorModal
-          initialState={operationMode === 'staging' ? stagedState : liveState}
-          campaign={campaign}
-          operationMode={operationMode}
-          onSaveState={handleSaveCompositorCharacters}
-          onSaveCompositionPreset={handleSaveCompositionPreset}
-          onClose={() => setShowCompositorModal(false)}
-        />
-      )}
-
-      {/* MODAL: EDITOR DE CONVERSACIONES Y DIÁLOGOS */}
-      {showConversationEditor && campaign && (
-        <ConversationEditorModal
-          isOpen={showConversationEditor}
-          campaign={campaign}
-          conversation={editingConversation}
-          onSave={handleSaveConversation}
-          onClose={() => {
-            setShowConversationEditor(false);
-            setEditingConversation(null);
-          }}
-        />
-      )}
-
-      {/* MODAL: DIARIO DE REVELACIONES Y ESTADO DE CAMPAÑA */}
-      {showRevelationJournalModal && campaign && (
-        <CampaignRevelationJournalModal
-          isOpen={showRevelationJournalModal}
-          campaign={campaign}
-          onUpdateCampaign={async (updated) => {
-            await db.campaigns.put(updated);
-            setCampaign(updated);
-          }}
-          onClose={() => setShowRevelationJournalModal(false)}
-        />
-      )}
-
-      {/* MODAL: ASISTENTE DE PREPARACIÓN DE SESIÓN */}
-      {showSessionPrepWizardModal && campaign && (
-        <SessionPrepWizardModal
-          isOpen={showSessionPrepWizardModal}
-          campaign={campaign}
-          liveState={liveState}
-          onApplyDraftToStaging={handleApplySessionPrepDraft}
-          onSaveDraft={handleSaveSessionPrepDraft}
-          onClose={() => setShowSessionPrepWizardModal(false)}
-        />
-      )}
-
-      {/* MODAL: VISOR DE HANDOUTS Y DOCUMENTOS */}
-      {showHandoutViewerModal && (
-        <HandoutViewerModal
-          isOpen={showHandoutViewerModal}
-          activeHandout={liveState.activeHandout}
-          savedHandouts={campaign?.savedHandouts || []}
-          onProjectHandout={handleProjectHandout}
-          onDismissHandout={handleDismissHandout}
-          onClose={() => setShowHandoutViewerModal(false)}
-        />
-      )}
-
-      {/* MODAL: CRÓNICA CINEMATOGRÁFICA DE APERTURA */}
-      {showCampaignRecapModal && campaign && (
-        <CampaignRecapModal
-          isOpen={showCampaignRecapModal}
-          campaign={campaign}
-          activeRecap={liveState.activeRecap}
-          onProjectRecap={handleProjectRecap}
-          onDismissRecap={handleDismissRecap}
-          onSaveRecap={handleSaveRecap}
-          onClose={() => setShowCampaignRecapModal(false)}
-        />
-      )}
-
-      {/* MODAL: SOUNDBOARD MATRIZ RÁPIDA DE SFX */}
-      {showSoundboardModal && (
-        <SoundboardModal
-          isOpen={showSoundboardModal}
-          campaign={campaign}
-          onTriggerSfx={async (pad) => {
-            sessionCommandBus.dispatchSfx(pad.sfxPreset || pad.id, pad.audioUrl, pad.label);
-          }}
-          onStopAllSfx={async () => {
-            sessionCommandBus.dispatchStopAllSfx();
-          }}
-          onClose={() => setShowSoundboardModal(false)}
-        />
-      )}
-
-      {/* MODAL: SELECTOR DE BANDA SONORA POR BIOMA */}
-      {showBiomeSoundtrackModal && (
-        <BiomeSoundtrackModal
-          isOpen={showBiomeSoundtrackModal}
-          campaign={campaign}
-          currentAmbientUrl={liveState.ambientAudioUrl}
-          currentAmbientVolume={liveState.ambientVolume}
-          currentAmbientPlaying={liveState.ambientPlaying}
-          onApplySoundtrack={handleApplySoundtrack}
-          onSaveProfiles={handleSaveBiomeProfiles}
-          onClose={() => setShowBiomeSoundtrackModal(false)}
-        />
-      )}
-
-      {/* MODAL: PRESETS DE ILUMINACIÓN POR ESCENA */}
-      {showLightingPresetsModal && (
-        <LightingPresetsModal
-          isOpen={showLightingPresetsModal}
-          campaign={campaign}
-          currentLights={liveState.lights || []}
-          currentLightingFilter={liveState.lighting}
-          onApplyPreset={handleApplyLightingPreset}
-          onSavePreset={handleSaveLightingPreset}
-          onClose={() => setShowLightingPresetsModal(false)}
-        />
-      )}
-
-      {/* MODAL: EXPORTADOR DE CRÓNICA Y DIARIO DE SESIÓN */}
-      {showChronicleExportModal && (
-        <SessionChronicleExportModal
-          isOpen={showChronicleExportModal}
-          campaign={campaign}
-          liveState={liveState}
-          onClose={() => setShowChronicleExportModal(false)}
-        />
-      )}
-
-      {/* MODAL: BIBLIOTECA DE PREPARACIONES Y SESIONES */}
-      {showSessionLibraryModal && campaign && (
-        <SessionLibraryModal
-          isOpen={showSessionLibraryModal}
-          campaignId={campaign.id}
-          onLoadSession={handleLoadSessionFromLibrary}
-          onClose={() => setShowSessionLibraryModal(false)}
-        />
-      )}
+      {/* AUXILIARY CREATIVE & SESSION MODALS LAYER */}
+      <MasterAuxiliaryModals
+        campaign={campaign}
+        liveState={liveState}
+        stagedState={stagedState}
+        operationMode={operationMode}
+        showManageFavoritesModal={showManageFavoritesModal}
+        onCloseManageFavorites={() => setShowManageFavoritesModal(false)}
+        onSaveFavorites={handleSaveFavorites}
+        showCompositorModal={showCompositorModal}
+        onCloseCompositor={() => setShowCompositorModal(false)}
+        onSaveCompositorCharacters={handleSaveCompositorCharacters}
+        onSaveCompositionPreset={handleSaveCompositionPreset}
+        showConversationEditor={showConversationEditor}
+        editingConversation={editingConversation}
+        onCloseConversationEditor={() => {
+          setShowConversationEditor(false);
+          setEditingConversation(null);
+        }}
+        onSaveConversation={handleSaveConversation}
+        showRevelationJournalModal={showRevelationJournalModal}
+        onCloseRevelationJournal={() => setShowRevelationJournalModal(false)}
+        setCampaign={setCampaign}
+        showSessionPrepWizardModal={showSessionPrepWizardModal}
+        onCloseSessionPrepWizard={() => setShowSessionPrepWizardModal(false)}
+        onApplySessionPrepDraft={handleApplySessionPrepDraft}
+        onSaveSessionPrepDraft={handleSaveSessionPrepDraft}
+        showHandoutViewerModal={showHandoutViewerModal}
+        onCloseHandoutViewer={() => setShowHandoutViewerModal(false)}
+        onProjectHandout={handleProjectHandout}
+        onDismissHandout={handleDismissHandout}
+        showCampaignRecapModal={showCampaignRecapModal}
+        onCloseCampaignRecap={() => setShowCampaignRecapModal(false)}
+        onProjectRecap={handleProjectRecap}
+        onDismissRecap={handleDismissRecap}
+        onSaveRecap={handleSaveRecap}
+        showSoundboardModal={showSoundboardModal}
+        onCloseSoundboard={() => setShowSoundboardModal(false)}
+        showBiomeSoundtrackModal={showBiomeSoundtrackModal}
+        onCloseBiomeSoundtrack={() => setShowBiomeSoundtrackModal(false)}
+        onApplySoundtrack={handleApplySoundtrack}
+        onSaveBiomeProfiles={handleSaveBiomeProfiles}
+        showLightingPresetsModal={showLightingPresetsModal}
+        onCloseLightingPresets={() => setShowLightingPresetsModal(false)}
+        onApplyLightingPreset={handleApplyLightingPreset}
+        onSaveLightingPreset={handleSaveLightingPreset}
+        showChronicleExportModal={showChronicleExportModal}
+        onCloseChronicleExport={() => setShowChronicleExportModal(false)}
+        showSessionLibraryModal={showSessionLibraryModal}
+        onCloseSessionLibrary={() => setShowSessionLibraryModal(false)}
+        onLoadSessionFromLibrary={handleLoadSessionFromLibrary}
+        showScenePresetModal={showScenePresetModal}
+        scenePresetMode={scenePresetMode}
+        onCloseScenePresetModal={() => setShowScenePresetModal(false)}
+        onPresetInstantiated={handlePresetInstantiated}
+        showReadinessModal={showReadinessModal}
+        onCloseReadinessModal={() => setShowReadinessModal(false)}
+      />
 
       {/* MOBILE ONE-HAND BOTTOM NAVIGATION BAR */}
-      <nav className="mobile-bottom-nav" aria-label="Navegación Móvil del Master">
-        <button
-          type="button"
-          className={`mobile-nav-item ${activeTab === 'live' ? 'active' : ''}`}
-          onClick={() => setActiveTab('live')}
-        >
-          <Tv size={20} />
-          <span>{sessionViewMode === 'session' ? 'Sesión' : 'En Vivo'}</span>
-        </button>
-
-        <button
-          type="button"
-          className={`mobile-nav-item ${activeTab === 'combat' ? 'active' : ''}`}
-          onClick={() => setActiveTab('combat')}
-        >
-          <Swords size={20} />
-          <span>Combate</span>
-        </button>
-
-        <button
-          type="button"
-          className={`mobile-nav-item ${activeTab === 'moments' ? 'active' : ''}`}
-          onClick={() => setActiveTab('moments')}
-        >
-          <Sparkles size={20} />
-          <span>Momentos</span>
-        </button>
-
-        <button
-          type="button"
-          className={`mobile-nav-item ${activeTab === 'notes' || activeTab === 'library' ? 'active' : ''}`}
-          onClick={() => setActiveTab('notes')}
-        >
-          <BookOpen size={20} />
-          <span>Notas</span>
-        </button>
-      </nav>
+      <MasterBottomNav
+        activeTab={activeTab}
+        sessionViewMode={sessionViewMode}
+        onSelectTab={setActiveTab}
+      />
     </div>
   );
 };

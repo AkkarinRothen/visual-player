@@ -1,8 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { DisplayState, GameSession, DraftSaveState, DuplicateSessionOptions } from '../types';
+import type {
+  DisplayState,
+  GameSession,
+  DraftSaveState,
+  DuplicateSessionOptions,
+  SessionCheckpoint,
+  NextSessionOptions,
+  NewGroupSessionOptions,
+} from '../types';
 import type { GameSessionTemplate } from '../types';
-import { gameSessionService } from '../services/gameSessionService';
-import { getSessionsByCampaign, getSessionTemplatesByCampaign } from '../db';
+import { gameSessionService, type BackupStatus } from '../services/gameSessionService';
+import {
+  db,
+  getSessionsByCampaign,
+  getSessionTemplatesByCampaign,
+  getTrashedSessions,
+  getAllSessions,
+  getAllSessionTemplates,
+  emptyTrash as dbEmptyTrash,
+} from '../db';
 
 interface UseGameSessionReturn {
   /** Sesión actualmente cargada. */
@@ -11,6 +27,8 @@ interface UseGameSessionReturn {
   draftSaveState: DraftSaveState;
   /** Lista de sesiones de la campaña (actualizada automáticamente). */
   sessions: GameSession[];
+  /** Sesiones en la papelera de la campaña. */
+  trashedSessions: GameSession[];
   /** Plantillas disponibles para la campaña. */
   templates: GameSessionTemplate[];
   /** Indica si la carga inicial terminó. */
@@ -35,16 +53,32 @@ interface UseGameSessionReturn {
   duplicateCurrentSession: (opts: DuplicateSessionOptions) => Promise<GameSession>;
   /** Archiva una sesión por ID. */
   archiveSession: (id: string) => Promise<void>;
+  /** Envía una sesión a la papelera (soft-delete). */
+  trashSession: (id: string) => Promise<void>;
+  /** Restaura una sesión de la papelera. */
+  restoreFromTrash: (id: string) => Promise<void>;
+  /** Vacía la papelera de la campaña. */
+  emptyTrash: () => Promise<void>;
   /** Elimina una sesión permanentemente. */
   deleteSession: (id: string) => Promise<void>;
   /** Guarda la sesión activa como plantilla sanitizada. */
   saveAsTemplate: (name: string, description?: string) => Promise<GameSessionTemplate>;
+  /** Crea un checkpoint vinculado a la sesión activa. */
+  createCheckpoint: (name: string, type?: 'manual' | 'auto', trigger?: string) => Promise<SessionCheckpoint>;
+  /** Restaura un checkpoint como nueva sesión (copia segura). */
+  restoreCheckpointAsCopy: (checkpointId: string, customName?: string) => Promise<GameSession>;
+  /** Evalúa el estado de respaldo externo de la sesión. */
+  getBackupStatus: (session?: GameSession | null) => BackupStatus;
   /** Exporta la sesión activa como .vpp.json con assets incrustados. */
-  exportCurrentSession: () => Promise<void>;
+  exportCurrentSession: (downloadExternal?: boolean) => Promise<void>;
   /** Importa desde un archivo .vpp.json. */
   importFromFile: (file: File, strategy?: 'keep_local' | 'overwrite' | 'duplicate') => Promise<{ session: GameSession; conflicts: string[] }>;
   /** Recarga la lista de sesiones de la campaña desde la base de datos. */
   refreshSessions: (campaignId: string) => Promise<void>;
+  /** Prepara la siguiente sesión para el mismo grupo conservando revelaciones y mundo. */
+  prepareNextSession: (sourceSessionId: string, options?: NextSessionOptions) => Promise<GameSession>;
+  /** Bifurca la preparación para jugar con otro grupo sin revelar misterios. */
+  createSessionForNewGroup: (sourceSessionId: string, options: NewGroupSessionOptions) => Promise<GameSession>;
 }
 
 /**
@@ -56,6 +90,7 @@ export function useGameSession(): UseGameSessionReturn {
   const [currentSession, setCurrentSession] = useState<GameSession | null>(null);
   const [draftSaveState, setDraftSaveState] = useState<DraftSaveState>('idle');
   const [sessions, setSessions] = useState<GameSession[]>([]);
+  const [trashedSessions, setTrashedSessions] = useState<GameSession[]>([]);
   const [templates, setTemplates] = useState<GameSessionTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -67,7 +102,6 @@ export function useGameSession(): UseGameSessionReturn {
     const unsubscribe = gameSessionService.subscribe((state) => {
       setDraftSaveState(state);
     });
-    // Sincronizar sesión actual por si el servicio ya tiene una cargada
     const existing = gameSessionService.getCurrentSession();
     if (existing) {
       setCurrentSession(existing);
@@ -76,12 +110,25 @@ export function useGameSession(): UseGameSessionReturn {
   }, []);
 
   const refreshSessions = useCallback(async (campaignId: string) => {
-    const [sessionList, templateList] = await Promise.all([
-      getSessionsByCampaign(campaignId),
-      getSessionTemplatesByCampaign(campaignId),
-    ]);
-    setSessions(sessionList);
-    setTemplates(templateList);
+    if (campaignId === 'all') {
+      const [allSess, allTpl, allDb] = await Promise.all([
+        getAllSessions(false),
+        getAllSessionTemplates(),
+        db.sessions.toArray(),
+      ]);
+      setSessions(allSess);
+      setTemplates(allTpl);
+      setTrashedSessions(allDb.filter((s) => s.isDeleted));
+    } else {
+      const [sessionList, trashedList, templateList] = await Promise.all([
+        getSessionsByCampaign(campaignId, false),
+        getTrashedSessions(campaignId),
+        getSessionTemplatesByCampaign(campaignId),
+      ]);
+      setSessions(sessionList);
+      setTrashedSessions(trashedList);
+      setTemplates(templateList);
+    }
   }, []);
 
   const initSession = useCallback(async (campaignId: string) => {
@@ -148,14 +195,36 @@ export function useGameSession(): UseGameSessionReturn {
     if (activeCampaignId.current) {
       await refreshSessions(activeCampaignId.current);
     }
-    // Si archivamos la activa, limpiar
     if (id === currentSession?.id) {
       setCurrentSession(null);
     }
   }, [currentSession?.id, refreshSessions]);
 
+  const trashSession = useCallback(async (id: string) => {
+    await gameSessionService.trashSession(id);
+    if (activeCampaignId.current) {
+      await refreshSessions(activeCampaignId.current);
+    }
+    if (id === currentSession?.id) {
+      setCurrentSession(null);
+    }
+  }, [currentSession?.id, refreshSessions]);
+
+  const restoreFromTrash = useCallback(async (id: string) => {
+    await gameSessionService.restoreSessionFromTrash(id);
+    if (activeCampaignId.current) {
+      await refreshSessions(activeCampaignId.current);
+    }
+  }, [refreshSessions]);
+
+  const emptyTrash = useCallback(async () => {
+    if (!activeCampaignId.current) return;
+    await dbEmptyTrash(activeCampaignId.current);
+    await refreshSessions(activeCampaignId.current);
+  }, [refreshSessions]);
+
   const deleteSession = useCallback(async (id: string) => {
-    await gameSessionService.deleteSession(id);
+    await gameSessionService.deleteSessionPermanently(id);
     if (activeCampaignId.current) {
       await refreshSessions(activeCampaignId.current);
     }
@@ -172,8 +241,24 @@ export function useGameSession(): UseGameSessionReturn {
     return template;
   }, [refreshSessions]);
 
-  const exportCurrentSession = useCallback(async () => {
-    await gameSessionService.exportCurrentSession();
+  const createCheckpoint = useCallback(async (name: string, type: 'manual' | 'auto' = 'manual', trigger: string = 'manual_snapshot') => {
+    return gameSessionService.createCheckpoint(name, type, trigger);
+  }, []);
+
+  const restoreCheckpointAsCopy = useCallback(async (checkpointId: string, customName?: string) => {
+    const newSession = await gameSessionService.restoreCheckpointAsCopy(checkpointId, customName);
+    if (activeCampaignId.current) {
+      await refreshSessions(activeCampaignId.current);
+    }
+    return newSession;
+  }, [refreshSessions]);
+
+  const getBackupStatus = useCallback((session?: GameSession | null) => {
+    return gameSessionService.getBackupStatus(session);
+  }, []);
+
+  const exportCurrentSession = useCallback(async (downloadExternal: boolean = false) => {
+    await gameSessionService.exportCurrentSession(downloadExternal);
   }, []);
 
   const importFromFile = useCallback(async (
@@ -187,10 +272,27 @@ export function useGameSession(): UseGameSessionReturn {
     return result;
   }, [refreshSessions]);
 
+  const prepareNextSession = useCallback(async (sourceSessionId: string, options?: NextSessionOptions) => {
+    const nextSession = await gameSessionService.prepareNextSession(sourceSessionId, options);
+    if (activeCampaignId.current) {
+      await refreshSessions(activeCampaignId.current);
+    }
+    return nextSession;
+  }, [refreshSessions]);
+
+  const createSessionForNewGroup = useCallback(async (sourceSessionId: string, options: NewGroupSessionOptions) => {
+    const newSession = await gameSessionService.createSessionForNewGroup(sourceSessionId, options);
+    if (activeCampaignId.current) {
+      await refreshSessions(activeCampaignId.current);
+    }
+    return newSession;
+  }, [refreshSessions]);
+
   return {
     currentSession,
     draftSaveState,
     sessions,
+    trashedSessions,
     templates,
     isLoading,
     initSession,
@@ -202,10 +304,18 @@ export function useGameSession(): UseGameSessionReturn {
     saveNotes,
     duplicateCurrentSession,
     archiveSession,
+    trashSession,
+    restoreFromTrash,
+    emptyTrash,
     deleteSession,
     saveAsTemplate,
+    createCheckpoint,
+    restoreCheckpointAsCopy,
+    getBackupStatus,
     exportCurrentSession,
     importFromFile,
     refreshSessions,
+    prepareNextSession,
+    createSessionForNewGroup,
   };
 }

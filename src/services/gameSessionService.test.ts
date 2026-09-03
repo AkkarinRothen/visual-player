@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { DisplayState, GameSession, DuplicateSessionOptions } from '../types';
 import {
   sanitizeStateForTemplate,
@@ -42,7 +42,7 @@ vi.mock('../db', async (importOriginal) => {
     transaction: async (_mode: string, _tables: unknown, fn: () => Promise<void>) => fn(),
   };
 
-  const real = await importOriginal<typeof import('../../db')>();
+  const real = await importOriginal<typeof import('../db')>();
 
   return {
     ...real,
@@ -55,6 +55,7 @@ vi.mock('../db', async (importOriginal) => {
         name: name || 'Sesión 1',
         status: 'preparing',
         schemaVersion: 1,
+        revision: 1,
         planNotes: '',
         stagedState: null,
         liveState: null,
@@ -153,6 +154,7 @@ vi.mock('../db', async (importOriginal) => {
 
 function makeDisplayState(overrides: Partial<DisplayState> = {}): DisplayState {
   return {
+    locationBanner: { text: '', visible: false },
     sceneName: 'Taberna del Dragón',
     backgroundUrl: 'https://example.com/bg.webp',
     characters: [],
@@ -316,7 +318,7 @@ describe('Exportación / Importación de Paquete (.vpp.json)', () => {
     const session = await createGameSession('camp-import', 'Sesión a Importar');
     const pkg = await packSessionForExport(session.id);
 
-    const { session: imported, conflicts } = await importSessionPackage(pkg as any, 'duplicate');
+    const { session: imported, conflicts: _conflicts } = await importSessionPackage(pkg as any, 'duplicate');
     // El ID debe ser diferente porque ya existe la sesión original
     // (si no existe conflicto, puede ser igual o diferente dependiendo del mock)
     expect(imported).toBeDefined();

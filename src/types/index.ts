@@ -228,17 +228,29 @@ export interface SceneCompositionPreset {
   name: string;
   description?: string;
   thumbnailUrl?: string;
+  campaignId?: string;
   sceneId?: string;
   variantId?: string;
   backgroundUrl?: string;
   characters: PresetCharacterVisual[];
   props: SceneProp[];
+  lights?: SceneLight[];
+  emitters?: SceneZoneEmitter[];
+  interactions?: SceneInteraction[];
+  ambientAudioUrl?: string;
+  ambientAudioName?: string;
+  ambientVolume?: number;
+  linkedConversationId?: string;
+  linkedConversation?: SavedConversation;
   lighting?: LightingFilter;
   weather?: WeatherType;
   weatherIntensity?: number;
   focalPoint?: { x: number; y: number };
   fitMode?: 'cover' | 'contain';
   zoom?: number;
+  tags?: string[];
+  schemaVersion?: number;
+  isDeleted?: boolean;
   createdAt: number;
   updatedAt?: number;
 }
@@ -918,17 +930,61 @@ export interface GameSession {
   planNotes: string;                  // Texto libre del director (plan, ideas)
   stagedState: DisplayState | null;   // Borrador (Staging) persistido automáticamente
   liveState: DisplayState | null;     // Último estado publicado a la Mesa
+  groupId?: string;                   // Identificador estable de grupo/mesa (p. ej. 'grp-martes')
+  groupName?: string;                 // Nombre descriptivo del grupo de juego (p. ej. 'Grupo de los Martes')
   frozenScenes?: Scene[];             // Snapshot congelado de escenas de la preparación
   frozenCharacters?: Character[];     // Snapshot congelado de personajes de la preparación
+  frozenConversations?: SavedConversation[]; // Snapshot congelado de conversaciones de la preparación
+  frozenHandouts?: HandoutState[];    // Snapshot congelado de documentos/handouts de la preparación
+  frozenMacros?: CinematicMacro[];             // Snapshot congelado de macros y momentos de la preparación
   revision: number;                   // Contador incremental de revisiones para anti-race
   lastExportedAt?: number;            // Timestamp de la última exportación completa
+  lastExportIsComplete?: boolean;     // Indica si la última exportación fue 100% autocontenida sin faltantes
   lastBackupConfirmedAt?: number;     // Confirmación voluntaria de copia externa segura
+  /** Indica si esta sesión es una copia aislada de comprobación de respaldo. */
+  isAuditCopy?: boolean;
+  /** Indica si la sesión fue migrada desde un formato antiguo sin snapshots. */
+  isMigratedFromLegacy?: boolean;
+  /** Nota explicativa de la fecha y origen de los snapshots migrados. */
+  legacyMigrationNote?: string;
+  /** Marca de borrado lógico para recuperación desde papelera. */
   isDeleted?: boolean;                // Soft-delete (Papelera)
   deletedAt?: number;                 // Timestamp de envío a la papelera
   createdAt: number;
   updatedAt: number;
+  initialBaselineConfig?: SessionInitialBaseline; // Configuración inicial intencional de la aventura para nuevos grupos
   sessionNumber?: number;             // Número ordinal dentro de la campaña
   tags?: string[];
+}
+
+export interface SessionInitialBaseline {
+  state: DisplayState;
+  savedAt: number;
+  version: number;
+  label?: string;
+  sourceTemplateId?: string;
+  sourceTemplateName?: string;
+}
+
+export interface NextSessionOptions {
+  newName?: string;
+  startSceneId?: string;
+  preserveCombatProgress?: boolean;
+  preserveNpcHpLoss?: boolean;
+  preserveConditions?: boolean;
+  carryOverPlanNotes?: boolean;
+}
+
+export interface NewGroupSessionOptions {
+  newName?: string;
+  targetGroupName: string;
+  targetGroupId?: string;
+  resetRevelations?: boolean;
+  resetNpcHp?: boolean;
+  resetCombat?: boolean;
+  resetInteractions?: boolean;
+  baselineSource?: 'session_baseline' | 'template' | 'current_draft';
+  templateId?: string;
 }
 
 /**
@@ -944,6 +1000,10 @@ export interface GameSessionTemplate {
   stagedState: DisplayState;
   frozenScenes?: Scene[];
   frozenCharacters?: Character[];
+  frozenConversations?: SavedConversation[];
+  frozenHandouts?: HandoutState[];
+  frozenMacros?: CinematicMacro[];
+  version?: number;
   isDeleted?: boolean;
   deletedAt?: number;
   createdAt: number;
@@ -1005,8 +1065,121 @@ export interface GameSessionPackage {
     title: string;
     scenes: Scene[];
     characters?: Character[];
+    savedConversations?: SavedConversation[];
+    macros?: CinematicMacro[];
+    savedHandouts?: HandoutState[];
   };
   isCompleteOfflinePackage: boolean;
   missingAssets?: MissingAssetInfo[];
 }
+
+export interface PresetDependencyReport {
+  totalAssets: number;
+  includedCount: number;
+  alreadyAvailableCount: number;
+  missing: MissingAssetInfo[];
+  isFullySelfContained: boolean;
+  characterResolutions: Array<{
+    presetCharacterId: string;
+    name: string;
+    matchedCampaignCharacterId?: string;
+    matchType: 'exact_id' | 'name_match' | 'none';
+  }>;
+  conversationResolution?: {
+    presetConversationId?: string;
+    title?: string;
+    matchedCampaignConversationId?: string;
+    matchType: 'exact_id' | 'title_match' | 'none';
+  };
+}
+
+export interface InstantiatePresetOptions {
+  mode?: 'append_scene' | 'replace_staged';
+  characterResolution?: 'reuse_existing' | 'create_copy';
+  conversationResolution?: 'reuse_existing' | 'create_copy';
+}
+
+export interface ReadinessRemediationAction {
+  type: 'select_starting_scene' | 'download_missing_assets' | 'fix_character_avatar' | 'repair_dialogue' | 'open_library';
+  label: string;
+  description: string;
+}
+
+export interface SessionReadinessCheckItem {
+  id: string;
+  title: string;
+  status: 'pass' | 'warn' | 'fail';
+  detail: string;
+  action?: ReadinessRemediationAction;
+  actionPayload?: any;
+}
+
+export interface SessionReadinessCheck {
+  isReady: boolean;
+  canPlayOffline: boolean;
+  score: number;
+  summary: string;
+  checks: SessionReadinessCheckItem[];
+}
+
+export interface VersionConflictReport {
+  hasConflict: boolean;
+  conflictType: 'none' | 'local_newer' | 'remote_newer' | 'diverged' | 'diverged_concurrent_branch';
+  localRevision: number;
+  remoteRevision: number;
+  localUpdatedAt: number;
+  remoteUpdatedAt: number;
+  recommendation: 'overwrite' | 'duplicate' | 'keep_local';
+  detail: string;
+}
+
+export interface TemplateDiffItem {
+  id: string;
+  type: 'scene' | 'conversation' | 'handout';
+  name: string;
+  changeType: 'new' | 'modified' | 'identical';
+  templateItem: any;
+  currentSessionItem?: any;
+  description: string;
+}
+
+export interface TemplateUpdateDiffReport {
+  templateId: string;
+  templateName: string;
+  templateVersion: number;
+  items: TemplateDiffItem[];
+  hasModifications: boolean;
+}
+
+export interface GranularTemplateUpdateSelection {
+  selectedItemIds: string[];
+  modifiedResolution: Record<string, 'keep_session' | 'overwrite_with_template' | 'create_copy'>;
+}
+
+export interface StorageAuditReport {
+  totalAssets: number;
+  totalSizeBytes: number;
+  totalSizeFormatted: string;
+  inUseCount: number;
+  retainedInTrashOrCheckpointsCount: number;
+  orphanCount: number;
+  orphanAssetIds: string[];
+  reclaimableBytes: number;
+  reclaimableFormatted: string;
+  breakdownByType: {
+    images: { count: number; bytes: number };
+    audio: { count: number; bytes: number };
+  };
+}
+
+export interface AuditRestoreReport {
+  isSuccess: boolean;
+  auditSessionId: string;
+  declaredAssetsCount: number;
+  restoredAssetsCount: number;
+  missingAssetsCount: number;
+  isolatedFromLiveTable: boolean;
+  details: string;
+}
+
 

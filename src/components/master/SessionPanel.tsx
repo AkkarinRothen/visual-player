@@ -22,10 +22,15 @@ import type {
   SceneSituation,
   DraftSaveState,
 } from '../../types';
-import { gameSessionService } from '../../services/gameSessionService';
+import { gameSessionService, type BackupStatus } from '../../services/gameSessionService';
+import { SessionIdentityHeader } from './sessionPanel/SessionIdentityHeader';
+import { SessionModeHeader } from './sessionPanel/SessionModeHeader';
+import { DraftPendingAlert } from './sessionPanel/DraftPendingAlert';
+import { SceneInteractionsToolbar } from './sessionPanel/SceneInteractionsToolbar';
+import { CombatContextCard } from './sessionPanel/CombatContextCard';
 import {
-  Radio,
   Layers,
+  Sparkles,
   Image as ImageIcon,
   Users,
   CloudRain,
@@ -38,14 +43,10 @@ import {
   Zap,
   Activity,
   Send,
-  Check,
-  ChevronRight,
-  Swords,
   Play,
   Sliders,
   CheckCheck,
   AlertTriangle,
-  ArrowRight,
   Camera,
   Maximize2,
   Flame,
@@ -55,19 +56,11 @@ import {
   Mic,
   FileText,
   Film,
-  Clock,
-  RotateCcw,
-  Library,
-  Loader,
-  CheckCircle,
-  XCircle,
-  Pencil,
 } from 'lucide-react';
 import { SessionFavoritesBar } from './SessionFavoritesBar';
 import { CinematicDialogueDock } from './CinematicDialogueDock';
 import { calculateGroupFraming } from '../../domain/display/cameraFraming';
 import { calculateRemainingTimerSeconds } from '../../domain/combat/combatTimerCoordinator';
-import { COMBAT_CONDITIONS_CATALOG } from '../../domain/combat/combatConditionsCatalog';
 
 interface SessionPanelProps {
   campaign: Campaign | null;
@@ -165,6 +158,13 @@ interface SessionPanelProps {
   onToggleCombatTimerVisibility?: () => void;
   /** Abre el modal de Biblioteca de Preparaciones y Sesiones. */
   onOpenSessionLibrary?: () => void;
+  onOpenSaveScenePreset?: () => void;
+  onOpenInsertScenePreset?: () => void;
+  onSaveInitialBaseline?: () => void;
+  onEvaluateReadiness?: () => void;
+  /** Estado del respaldo externo de la sesión. */
+  backupStatus?: BackupStatus;
+  lastExportIsComplete?: boolean;
 }
 
 export const SessionPanel: React.FC<SessionPanelProps> = ({
@@ -178,6 +178,8 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
   roomCode: _roomCode,
   onSelectScene,
   onPrepareSceneInStaging,
+  backupStatus,
+  lastExportIsComplete,
   onPublishAllStaged,
   onOpenSelectivePublish,
   onDiscardStaged,
@@ -233,6 +235,10 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
   onResetCombatTimer,
   onToggleCombatTimerVisibility,
   onOpenSessionLibrary,
+  onOpenSaveScenePreset,
+  onOpenInsertScenePreset,
+  onSaveInitialBaseline,
+  onEvaluateReadiness,
 }) => {
   const [publishStatus, setPublishStatus] = useState<ActionExecutionStatus>('idle');
   const [confirmOverwriteStaging, setConfirmOverwriteStaging] = useState<Scene | null>(null);
@@ -376,149 +382,40 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
 
   return (
     <div className="session-panel-root" role="main" aria-label="Panel de Sesión del DM">
-
-      {/* 0. SESSION IDENTITY HEADER */}
-      <div className="session-identity-header">
-        <div className="session-identity-left">
-          <BookOpen size={13} className="session-identity-icon" />
-          {isEditingSessionName ? (
-            <input
-              ref={sessionNameInputRef}
-              className="session-name-input"
-              value={sessionName}
-              onChange={(e) => setSessionName(e.target.value)}
-              onKeyDown={handleSessionNameKeyDown}
-              onBlur={handleSessionNameBlur}
-              maxLength={60}
-              aria-label="Nombre de la sesión"
-            />
-          ) : (
-            <button
-              className="session-name-label"
-              onClick={() => setIsEditingSessionName(true)}
-              title="Haz clic para renombrar la sesión"
-            >
-              {sessionName || 'Sin nombre'}
-              <Pencil size={11} className="session-name-edit-icon" />
-            </button>
-          )}
-        </div>
-        <div className="session-identity-right">
-          {/* Auto-save indicator */}
-          <span className={`session-save-indicator session-save-${draftSaveState}`} aria-live="polite">
-            {draftSaveState === 'saving' && (
-              <><Loader size={11} className="animate-spin" /><span>Guardando…</span></>
-            )}
-            {draftSaveState === 'saved' && (
-              <><CheckCircle size={11} /><span>Guardado</span></>
-            )}
-            {draftSaveState === 'idle' && savedRelativeTime > 0 && (
-              <><CheckCircle size={11} /><span>Guardado{savedSecondsAgo > 5 ? ` (hace ${savedSecondsAgo}s)` : ''}</span></>
-            )}
-            {draftSaveState === 'error' && (
-              <><XCircle size={11} className="text-red-400" /><span className="text-red-400">Error de disco</span></>
-            )}
-          </span>
-          {/* Biblioteca button */}
-          {onOpenSessionLibrary && (
-            <button
-              className="btn-session-library"
-              onClick={onOpenSessionLibrary}
-              title="Abrir Biblioteca de Preparaciones y Sesiones"
-              aria-label="Biblioteca de Sesiones"
-            >
-              <Library size={13} />
-              <span>Biblioteca</span>
-            </button>
-          )}
-        </div>
-      </div>
+      <SessionIdentityHeader
+        sessionName={sessionName}
+        isEditingSessionName={isEditingSessionName}
+        sessionNameInputRef={sessionNameInputRef}
+        onStartEditSessionName={() => setIsEditingSessionName(true)}
+        onChangeSessionName={setSessionName}
+        onSessionNameKeyDown={handleSessionNameKeyDown}
+        onSessionNameBlur={handleSessionNameBlur}
+        backupStatus={backupStatus}
+        lastExportIsComplete={lastExportIsComplete}
+        draftSaveState={draftSaveState}
+        savedRelativeTime={savedRelativeTime}
+        savedSecondsAgo={savedSecondsAgo}
+        onOpenSessionLibrary={onOpenSessionLibrary}
+        onSaveInitialBaseline={onSaveInitialBaseline}
+        onEvaluateReadiness={onEvaluateReadiness}
+      />
 
       {/* 1. TOP STATUS & NAVIGATION BAR */}
-      <div className="session-status-header">
-        <div className="session-status-left">
-          <div className="session-mode-badge-group">
-            <button
-              className={`session-mode-pill ${operationMode === 'live' ? 'active-live' : ''}`}
-              onClick={() => onToggleOperationMode('live')}
-              title="Modo En Vivo: los cambios se transmiten inmediatamente"
-            >
-              <Radio size={13} className={operationMode === 'live' ? 'animate-pulse' : ''} />
-              <span>EN VIVO</span>
-            </button>
-            <button
-              className={`session-mode-pill ${operationMode === 'staging' ? 'active-staging' : ''}`}
-              onClick={() => onToggleOperationMode('staging')}
-              title="Modo Preparación: edita borradores antes de proyectar"
-            >
-              <Layers size={13} />
-              <span>PREPARACIÓN</span>
-              {pendingChangesCount > 0 && (
-                <span className="pending-bubble">{pendingChangesCount}</span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        <div className="session-status-right">
-          <button
-            className="btn-classic-toggle"
-            onClick={onToggleClassicView}
-            title="Alternar entre Vista de Sesión Móvil y Vista Clásica de Edición"
-          >
-            <Sliders size={13} />
-            <span>Vista Clásica</span>
-          </button>
-        </div>
-      </div>
+      <SessionModeHeader
+        operationMode={operationMode}
+        onToggleOperationMode={onToggleOperationMode}
+        pendingChangesCount={pendingChangesCount}
+        onToggleClassicView={onToggleClassicView}
+      />
 
       {/* 2. DRAFT / PENDING CHANGES NOTIFICATION BAR */}
-      {pendingChangesCount > 0 && (
-        <div className="session-draft-alert-banner">
-          <div className="draft-alert-info">
-            <Layers size={16} className="text-amber-400" />
-            <span>
-              <strong>{pendingChangesCount} cambio(s)</strong> listos en Preparación
-            </span>
-          </div>
-          <div className="draft-alert-actions">
-            <button
-              className="btn-publish-quick"
-              onClick={handlePublishClick}
-              disabled={publishStatus === 'sending'}
-              title="Publicar todo a la pantalla de los jugadores"
-            >
-              {publishStatus === 'sending' ? (
-                <span>Publicando...</span>
-              ) : publishStatus === 'ack' ? (
-                <>
-                  <Check size={14} className="text-emerald-400" />
-                  <span>¡Enviado!</span>
-                </>
-              ) : (
-                <>
-                  <Send size={14} />
-                  <span>Llevar a Mesa</span>
-                </>
-              )}
-            </button>
-            <button
-              className="btn-publish-inspect"
-              onClick={onOpenSelectivePublish}
-              title="Inspeccionar diferencias y publicar selectivamente"
-            >
-              Inspeccionar
-            </button>
-            <button
-              className="btn-publish-discard"
-              onClick={onDiscardStaged}
-              title="Descartar borrador y volver al estado en vivo"
-            >
-              Descartar
-            </button>
-          </div>
-        </div>
-      )}
+      <DraftPendingAlert
+        pendingChangesCount={pendingChangesCount}
+        publishStatus={publishStatus as any}
+        onPublishClick={handlePublishClick}
+        onOpenSelectivePublish={onOpenSelectivePublish}
+        onDiscardStaged={onDiscardStaged}
+      />
 
       {/* 3. MAIN CARDS GRID */}
       <div className="session-cards-grid">
@@ -1035,48 +932,11 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
           )}
 
           {/* 3.6 SCENE INTERACTIONS TOOLBAR (1-TOUCH DECLARATIVE ACTIONS) */}
-          {liveState.interactions && liveState.interactions.length > 0 && onTriggerInteraction && (
-            <div className="scene-interactions-row flex flex-col gap-1.5 p-2 bg-slate-950/70 border border-emerald-900/40 rounded-lg text-xs mt-2">
-              <div className="flex items-center gap-1 text-emerald-400 font-bold text-[11px]">
-                <Sliders size={12} className="text-emerald-400" />
-                <span>Interacciones de Escenario:</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {liveState.interactions.map((interaction) => {
-                  const availableTransitions = interaction.transitions.filter(
-                    (t) => t.fromState === interaction.currentState
-                  );
-                  if (availableTransitions.length === 0) return null;
-
-                  return availableTransitions.map((transition) => {
-                    const isExecuting = executingInteractionId === transition.id;
-                    return (
-                      <button
-                        key={transition.id}
-                        type="button"
-                        disabled={isExecuting}
-                        onClick={() => onTriggerInteraction(interaction, transition)}
-                        className={`px-2.5 py-1 rounded font-semibold text-[11px] flex items-center gap-1.5 border transition-all ${
-                          isExecuting
-                            ? 'bg-emerald-950/30 border-emerald-800 text-emerald-400 opacity-60 cursor-not-allowed'
-                            : 'bg-emerald-950/60 hover:bg-emerald-900/70 border-emerald-700/50 text-emerald-200 active:scale-95'
-                        }`}
-                        title={`${interaction.name}: ${transition.label}${transition.requiredHint ? ` (${transition.requiredHint})` : ''}`}
-                      >
-                        <span>{interaction.name}:</span>
-                        <strong className="text-emerald-100">{transition.label}</strong>
-                        {transition.requiredHint && (
-                          <span className="text-[9px] bg-slate-900 px-1 py-0.5 rounded text-amber-300 font-normal">
-                            {transition.requiredHint}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  });
-                })}
-              </div>
-            </div>
-          )}
+          <SceneInteractionsToolbar
+            interactions={liveState.interactions}
+            executingInteractionId={executingInteractionId}
+            onTriggerInteraction={onTriggerInteraction}
+          />
         </section>
 
         {/* CARD B: SIGUIENTE ESCENA / PREPARACIÓN */}
@@ -1088,9 +948,55 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
                 {isStagedSceneDifferent ? 'PREPARADA EN BORRADOR' : 'SIGUIENTE ESCENA'}
               </h2>
             </div>
-            {isStagedSceneDifferent && (
-              <span className="card-tag staging-tag">STAGING LISTO</span>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {onOpenSaveScenePreset && (
+                <button
+                  type="button"
+                  onClick={onOpenSaveScenePreset}
+                  title="Guardar composición de escena actual como Preset reutilizable"
+                  style={{
+                    fontSize: '11px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 8px',
+                    background: 'rgba(139,92,246,0.15)',
+                    border: '1px solid rgba(139,92,246,0.35)',
+                    color: '#c4b5fd',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Sparkles size={12} />
+                  <span>Guardar Preset</span>
+                </button>
+              )}
+              {onOpenInsertScenePreset && (
+                <button
+                  type="button"
+                  onClick={onOpenInsertScenePreset}
+                  title="Insertar Preset de Escena en la preparación"
+                  style={{
+                    fontSize: '11px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 8px',
+                    background: 'rgba(59,130,246,0.15)',
+                    border: '1px solid rgba(59,130,246,0.35)',
+                    color: '#93c5fd',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Layers size={12} />
+                  <span>Insertar Preset...</span>
+                </button>
+              )}
+              {isStagedSceneDifferent && (
+                <span className="card-tag staging-tag">STAGING LISTO</span>
+              )}
+            </div>
           </div>
 
           {sceneToDisplayAsNext ? (
@@ -1168,225 +1074,27 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
         </section>
 
         {/* CARD C: WIDGET CONTEXTUAL DE COMBATE */}
-        <section className={`session-card combat-context-card ${isCombatActive ? 'combat-live' : ''}`}>
-          <div className="card-header-bar">
-            <div className="flex-align-gap">
-              <Swords size={15} className={isCombatActive ? 'text-rose-400' : 'text-slate-400'} />
-              <h2 className="card-title">
-                {isCombatActive ? `COMBATE EN CURSO (RONDA ${combat.round})` : 'COMBATE'}
-              </h2>
-            </div>
-            <button
-              className="card-link-btn"
-              onClick={() => onSwitchToTab('combat')}
-              title="Abrir la pestaña completa de Combate"
-            >
-              <span>Ver Completo</span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
-
-          {isCombatActive && currentCombatant ? (
-            <div className="combat-active-widget">
-              <div className="combat-turn-header">
-                <img
-                  src={currentCombatant.avatarUrl}
-                  alt={currentCombatant.name}
-                  className="combat-turn-avatar"
-                />
-                <div className="combat-turn-info">
-                  <div className="combat-turn-name-row">
-                    <strong className="combat-turn-name">{currentCombatant.name}</strong>
-                    <span className="combat-init-pill">Init: {currentCombatant.initiative}</span>
-                  </div>
-                  <div className="combat-hp-progress-box">
-                    <span className="hp-text">
-                      {currentCombatant.currentHp} / {currentCombatant.maxHp} HP
-                    </span>
-                    <div className="hp-bar-bg">
-                      <div
-                        className="hp-bar-fill"
-                        style={{
-                          width: `${Math.max(
-                            0,
-                            Math.min(
-                              100,
-                              (currentCombatant.currentHp / (currentCombatant.maxHp || 1)) * 100
-                            )
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Active Combatant Public Conditions */}
-              {currentCombatant.conditions && currentCombatant.conditions.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2 mb-2">
-                  {currentCombatant.conditions.map((cond) => {
-                    const meta = COMBAT_CONDITIONS_CATALOG[cond] || {
-                      label: cond,
-                      icon: '•',
-                      color: '#cbd5e1',
-                      description: '',
-                    };
-                    return (
-                      <span
-                        key={cond}
-                        className="text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border shadow-sm bg-slate-900/90"
-                        style={{ borderColor: meta.color, color: meta.color }}
-                        title={`${meta.label}: ${meta.description}`}
-                      >
-                        <span>{meta.icon}</span>
-                        <span>{meta.label}</span>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Cinematic Camera Tracking & Focus Controls */}
-              <div className="flex items-center justify-between gap-2 p-1.5 bg-slate-950/70 rounded-lg border border-slate-800 text-[11px] mb-2.5">
-                <div className="flex items-center gap-1.5">
-                  <Camera size={12} className="text-amber-400" />
-                  <span className="text-slate-400">Cámara:</span>
-                  <select
-                    value={liveState.combatState?.trackingMode || 'suggest'}
-                    onChange={(e) =>
-                      onToggleCombatTrackingMode?.(e.target.value as CombatTrackingMode)
-                    }
-                    className="bg-slate-900 border border-slate-700 text-slate-200 rounded px-1.5 py-0.5 text-[10px]"
-                  >
-                    <option value="suggest">Sugerir</option>
-                    <option value="auto">Automática</option>
-                    <option value="manual">Manual</option>
-                  </select>
-                </div>
-
-                {/* Focus Button if Combatant is on Stage */}
-                {liveState.characters.some(
-                  (c) => c.id === currentCombatant.characterId || c.id === currentCombatant.id
-                ) && onFocusCombatant && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onFocusCombatant(currentCombatant.characterId || currentCombatant.id)
-                    }
-                    className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold flex items-center gap-1 transition-all active:scale-95"
-                    title={`Enfocar cámara al combatiente en turno (${currentCombatant.name})`}
-                  >
-                    <Camera size={11} />
-                    <span>Enfocar</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Turn Timer Controls Bar */}
-              <div className="flex items-center justify-between gap-2 p-1.5 bg-slate-950/90 rounded-lg border border-slate-800 text-xs mb-2">
-                <button
-                  type="button"
-                  onClick={onToggleCombatTimer}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono font-bold transition-all ${
-                    panelCombatRemaining <= 10 && combat.isTimerRunning
-                      ? 'bg-red-950/80 text-red-300 border border-red-500/70 animate-pulse'
-                      : combat.isTimerRunning
-                      ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-700/50'
-                      : 'bg-slate-900 text-slate-300 border border-slate-700/60'
-                  }`}
-                  title={combat.isTimerRunning ? 'Pausar Reloj de Turno' : 'Iniciar Reloj de Turno'}
-                >
-                  <Clock
-                    size={13}
-                    className={combat.isTimerRunning ? 'text-emerald-400' : 'text-slate-400'}
-                  />
-                  <span>{panelCombatRemaining}s</span>
-                  <span className="text-[10px] font-sans font-normal text-slate-400">
-                    {combat.isTimerRunning ? 'En Marcha' : 'Pausado'}
-                  </span>
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {onAddCombatTimerSeconds && (
-                    <button
-                      type="button"
-                      onClick={() => onAddCombatTimerSeconds(30)}
-                      className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-semibold flex items-center gap-0.5"
-                      title="Añadir +30 segundos al turno actual"
-                    >
-                      <Plus size={11} />
-                      <span>30s</span>
-                    </button>
-                  )}
-
-                  {onResetCombatTimer && (
-                    <button
-                      type="button"
-                      onClick={onResetCombatTimer}
-                      className="p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700"
-                      title="Reiniciar reloj de turno"
-                    >
-                      <RotateCcw size={13} />
-                    </button>
-                  )}
-
-                  {onToggleCombatTimerVisibility && (
-                    <button
-                      type="button"
-                      onClick={onToggleCombatTimerVisibility}
-                      className={`p-1 rounded border transition-colors ${
-                        combat.showTurnTimerToPlayers !== false
-                          ? 'bg-emerald-950/50 text-emerald-300 border-emerald-800/40'
-                          : 'bg-slate-900 text-slate-500 border-slate-800'
-                      }`}
-                      title={
-                        combat.showTurnTimerToPlayers !== false
-                          ? 'Reloj visible en Mesa'
-                          : 'Reloj oculto a jugadores'
-                      }
-                    >
-                      {combat.showTurnTimerToPlayers !== false ? (
-                        <Eye size={13} />
-                      ) : (
-                        <EyeOff size={13} />
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Quick Turn Nav Buttons */}
-              <div className="combat-quick-nav-row">
-                <button
-                  className="btn-combat-nav prev"
-                  onClick={onPrevCombatTurn}
-                  title="Retroceder turno"
-                >
-                  Turno Anterior
-                </button>
-                <button
-                  className="btn-combat-nav next"
-                  onClick={onNextCombatTurn}
-                  title="Avanzar al siguiente combatiente"
-                >
-                  Siguiente Turno
-                  <ArrowRight size={14} />
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="combat-idle-box">
-              <p className="text-xs text-slate-400">Sin batalla activa en este momento.</p>
-              <button
-                className="btn-start-combat-quick"
-                onClick={() => onSwitchToTab('combat')}
-              >
-                <Swords size={14} />
-                <span>Desplegar Encuentro</span>
-              </button>
-            </div>
+        <CombatContextCard
+          isCombatActive={isCombatActive}
+          round={combat.round}
+          currentCombatant={currentCombatant}
+          panelCombatRemaining={panelCombatRemaining}
+          isTimerRunning={combat.isTimerRunning}
+          showTurnTimerToPlayers={combat.showTurnTimerToPlayers}
+          trackingMode={liveState.combatState?.trackingMode}
+          isCombatantOnStage={liveState.characters.some(
+            (c) => c.id === currentCombatant?.characterId || c.id === currentCombatant?.id
           )}
-        </section>
+          onSwitchToTab={onSwitchToTab as any}
+          onToggleCombatTrackingMode={onToggleCombatTrackingMode}
+          onFocusCombatant={onFocusCombatant && currentCombatant ? () => onFocusCombatant(currentCombatant.characterId || currentCombatant.id) : undefined}
+          onToggleCombatTimer={onToggleCombatTimer}
+          onAddCombatTimerSeconds={onAddCombatTimerSeconds}
+          onResetCombatTimer={onResetCombatTimer}
+          onToggleCombatTimerVisibility={onToggleCombatTimerVisibility}
+          onPrevCombatTurn={onPrevCombatTurn || (() => {})}
+          onNextCombatTurn={onNextCombatTurn || (() => {})}
+        />
       </div>
 
       {/* 3.5 CINEMATIC DIALOGUE & NARRATION DOCK */}
@@ -1395,8 +1103,8 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
           <CinematicDialogueDock
             characters={liveState.characters}
             activeDialogue={liveState.dialogue}
-            savedConversations={campaign?.savedConversations || []}
-            macros={campaign?.macros || []}
+            savedConversations={gameSessionService.getActiveConversations(campaign?.savedConversations || [])}
+            macros={gameSessionService.getActiveMacros(campaign?.macros || [])}
             onPublishDialogue={onPublishDialogue}
             onDismissDialogue={onDismissDialogue}
             onCompleteDialogueText={onCompleteDialogueText}

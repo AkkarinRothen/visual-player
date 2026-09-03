@@ -26,6 +26,11 @@ export function useDisplaySession(options: UseDisplaySessionOptions = {}) {
     dispatch({ type: 'INIT_STATE', payload: initialState });
   }, []);
 
+  // Update only staged state for session preparations (leaves liveState and Mesa untouched)
+  const setStagedStateOnly = useCallback((stagedState: DisplayState) => {
+    dispatch({ type: 'SET_STAGED_STATE_ONLY', payload: stagedState });
+  }, []);
+
   // Update display wrapper
   const updateDisplay = useCallback(
     (
@@ -201,6 +206,7 @@ export function useDisplaySession(options: UseDisplaySessionOptions = {}) {
     futureEvents,
     sessionRevision: state.sessionRevision,
     initSessionState,
+    setStagedStateOnly,
     updateDisplay,
     setOperationMode,
     undo,
