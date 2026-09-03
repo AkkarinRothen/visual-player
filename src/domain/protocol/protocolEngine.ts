@@ -22,6 +22,7 @@ export interface CreateMessageOptions {
   requiresAck?: boolean;
   sessionRevision?: number;
   messageId?: string;
+  commandId?: string;
 }
 
 /**
@@ -41,6 +42,7 @@ export function createVersionedMessage<T>(
   return {
     protocolVersion: 1,
     messageId: msgId,
+    commandId: options.commandId,
     sequenceNumber: seq,
     sessionRevision: options.sessionRevision ?? sessionRevisionCounter,
     sentAt: Date.now(),

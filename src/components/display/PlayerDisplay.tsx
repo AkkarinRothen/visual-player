@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import type { ConnectionStatus, DisplayState } from '../../types';
+import type { ConnectionStatus, DisplayState, WeatherStormEvent } from '../../types';
 import { peerService } from '../../services/peerService';
 import { soundEngine } from '../../services/soundEngine';
 import { startTurnRenewalWatcher } from '../../services/iceConfig';
@@ -9,9 +9,15 @@ import { InitiativeRibbon } from './InitiativeRibbon';
 import { Volume2 } from 'lucide-react';
 import { ConnectionDiagnosticModal } from '../common/ConnectionDiagnosticModal';
 import { pairingEngine, type PairingPhaseInfo } from '../../services/pairingEngine';
+import { displayCommandExecutor } from '../../services/displayCommandExecutor';
 import { DisplayPairingOverlay } from './DisplayPairingOverlay';
 import { DisplayHUD } from './DisplayHUD';
 import { DisplayCharactersLayer } from './DisplayCharactersLayer';
+import { CinematicDialogueLayer } from './CinematicDialogueLayer';
+import { SceneLightsLayer } from './SceneLightsLayer';
+import { ZoneEmittersLayer } from './ZoneEmittersLayer';
+import { HandoutDisplayLayer } from './HandoutDisplayLayer';
+import { RecapDisplayLayer } from './RecapDisplayLayer';
 
 interface PlayerDisplayProps {
   initialRoomCode?: string;
@@ -85,6 +91,8 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
       showTurnTimerToPlayers: true,
     },
   });
+  const stateRef = useRef<DisplayState>(state);
+  stateRef.current = state;
 
   // Background Crossfade handling
   const [activeBg, setActiveBg] = useState<string>(state.backgroundUrl);
@@ -109,13 +117,16 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
   // 2. Initialize WebRTC Display Peer
   useEffect(() => {
     let unmounted = false;
-    const stopWatcher = startTurnRenewalWatcher(roomCode || initialRoomCode || 'VP-DEMO');
+    const activeCode = roomCode || initialRoomCode || 'VP-DEMO';
+    displayCommandExecutor.setSessionContext(activeCode, 1);
+    const stopWatcher = startTurnRenewalWatcher(activeCode);
 
     const setupPeer = async () => {
       try {
         const code = await peerService.initDisplay(initialRoomCode);
         if (!unmounted) {
           setRoomCode(code);
+          displayCommandExecutor.setSessionContext(code, 1);
         }
       } catch (err) {
         console.error('Failed to init display peer:', err);
@@ -145,6 +156,7 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
       unsubStatus();
       unsubMsg();
       unsubPairing();
+      displayCommandExecutor.reset();
     };
   }, [initialRoomCode]);
 
@@ -160,195 +172,43 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
     }, 1000);
   };
 
-  // Handle incoming messages from Master Remote
+  // Handle incoming messages from Master Remote via sequential transactional executor
   const handleIncomingMessage = (msg: any) => {
-    switch (msg.type) {
-      case 'FULL_STATE':
-        setState(msg.payload);
-        triggerBgTransition(msg.payload.backgroundUrl);
-        if (msg.payload.ambientAudioUrl) {
+    displayCommandExecutor.enqueueCommand(msg, {
+      getCurrentState: () => stateRef.current,
+      onCommitState: (next) => {
+        stateRef.current = next;
+        setState(next);
+      },
+      transportSend: (outMsg) => {
+        peerService.send(outMsg as any);
+      },
+      onSideEffect: (eff) => {
+        if (eff.type === 'trigger_bg_transition') {
+          triggerBgTransition(eff.payload.backgroundUrl);
+        } else if (eff.type === 'set_ambient') {
           soundEngine.setAmbient(
-            msg.payload.ambientAudioUrl,
-            msg.payload.ambientPlaying,
-            msg.payload.ambientVolume,
-            true
+            eff.payload.url,
+            eff.payload.playing,
+            eff.payload.volume,
+            eff.payload.crossfade
           );
-        }
-        break;
-
-      case 'SET_SCENE':
-        setState((prev) => ({
-          ...prev,
-          currentSceneId: msg.payload.id,
-          sceneName: msg.payload.name,
-          backgroundUrl: msg.payload.backgroundUrl,
-          weather: msg.payload.weather || 'none',
-          weatherIntensity: msg.payload.weatherIntensity ?? 0.5,
-          lighting: msg.payload.lighting || 'normal',
-          locationBanner: {
-            text: msg.payload.locationBanner || msg.payload.name,
-            subtitle: msg.payload.subtitle || '',
-            visible: true,
-          },
-          characters: msg.characters !== undefined ? msg.characters : prev.characters,
-        }));
-        triggerBgTransition(msg.payload.backgroundUrl);
-
-        if (msg.payload.ambientAudioUrl) {
-          soundEngine.setAmbient(msg.payload.ambientAudioUrl, true, 0.5, true);
-        }
-        break;
-
-      case 'SET_BACKGROUND':
-        triggerBgTransition(msg.payload);
-        setState((prev) => ({ ...prev, backgroundUrl: msg.payload }));
-        break;
-
-      case 'UPDATE_CHARACTERS':
-        setState((prev) => ({ ...prev, characters: msg.payload }));
-        break;
-
-      case 'ADD_CHARACTER':
-        setState((prev) => {
-          const exists = prev.characters.some((c) => c.id === msg.payload.id);
-          if (exists) {
-            return {
-              ...prev,
-              characters: prev.characters.map((c) => (c.id === msg.payload.id ? msg.payload : c)),
-            };
+        } else if (eff.type === 'play_synth') {
+          soundEngine.playSynth(eff.payload.preset);
+        } else if (eff.type === 'stop_sfx') {
+          soundEngine.stopAllSfx();
+        } else if (eff.type === 'storm_lightning') {
+          const event = eff.payload as WeatherStormEvent;
+          if (event && event.expiresAt && Date.now() > event.expiresAt) {
+            return; // Anti-burst guarantee: skip expired lightning strike
           }
-          return { ...prev, characters: [...prev.characters, msg.payload] };
-        });
-        break;
-
-      case 'REMOVE_CHARACTER':
-        setState((prev) => ({
-          ...prev,
-          characters: prev.characters.filter((c) => c.id !== msg.payload.id),
-        }));
-        break;
-
-      case 'SET_SPEAKING':
-        setState((prev) => ({
-          ...prev,
-          characters: prev.characters.map((c) =>
-            c.id === msg.payload.id
-              ? { ...c, isSpeaking: msg.payload.isSpeaking }
-              : { ...c, isSpeaking: false }
-          ),
-        }));
-        break;
-
-      case 'SET_CHARACTER_EXPRESSION':
-        setState((prev) => ({
-          ...prev,
-          characters: prev.characters.map((c) =>
-            c.id === msg.payload.id
-              ? { ...c, avatarUrl: msg.payload.avatarUrl, activeExpression: msg.payload.expressionName }
-              : c
-          ),
-        }));
-        break;
-
-      case 'SET_CHARACTER_POSITION':
-        setState((prev) => ({
-          ...prev,
-          characters: prev.characters.map((c) =>
-            c.id === msg.payload.id ? { ...c, position: msg.payload.position } : c
-          ),
-        }));
-        break;
-
-      case 'SET_WEATHER':
-        setState((prev) => ({
-          ...prev,
-          weather: msg.payload.weather,
-          weatherIntensity: msg.payload.intensity,
-        }));
-        break;
-
-      case 'SET_LIGHTING':
-        setState((prev) => ({ ...prev, lighting: msg.payload }));
-        break;
-
-      case 'TRIGGER_LIGHTNING':
-        setState((prev) => ({ ...prev, lightningTrigger: Date.now() }));
-        soundEngine.playSynth('thunder');
-        break;
-
-      case 'TRIGGER_SHAKE':
-        setState((prev) => ({ ...prev, shakeTrigger: Date.now() }));
-        break;
-
-      case 'SET_BLACKOUT':
-        setState((prev) => ({ ...prev, isBlackout: msg.payload }));
-        break;
-
-      case 'SET_BANNER':
-        setState((prev) => ({ ...prev, locationBanner: msg.payload }));
-        break;
-
-      case 'START_COMBAT':
-      case 'UPDATE_COMBAT':
-        setState((prev) => ({
-          ...prev,
-          combatState: msg.payload,
-        }));
-        break;
-
-      case 'END_COMBAT':
-        setState((prev) => ({
-          ...prev,
-          combatState: {
-            isActive: false,
-            round: 1,
-            currentTurnIndex: 0,
-            combatants: [],
-            turnTimerSeconds: 60,
-            showTurnTimerToPlayers: true,
-          },
-        }));
-        break;
-
-      case 'NEXT_TURN':
-      case 'PREV_TURN':
-        setState((prev) => ({
-          ...prev,
-          combatState: {
-            ...prev.combatState,
-            currentTurnIndex: msg.payload.currentTurnIndex,
-            round: msg.payload.round,
-          },
-        }));
-        break;
-
-      case 'PLAY_SFX':
-        soundEngine.playTrack(msg.payload);
-        setState((prev) => ({ ...prev, lastSfx: msg.payload }));
-        break;
-
-      case 'PLAY_SYNTH':
-        soundEngine.playSynth(msg.payload);
-        break;
-
-      case 'SET_AMBIENT':
-        soundEngine.setAmbient(
-          msg.payload.url,
-          msg.payload.playing,
-          msg.payload.volume,
-          msg.payload.crossfade
-        );
-        setState((prev) => ({
-          ...prev,
-          ambientAudioUrl: msg.payload.url,
-          ambientPlaying: msg.payload.playing,
-          ambientVolume: msg.payload.volume,
-        }));
-        break;
-
-      default:
-        console.warn('Unknown message received by Display:', msg);
-    }
+          const delay = event?.thunderDelayMs ?? 600;
+          setTimeout(() => {
+            soundEngine.playSynth('thunder');
+          }, delay);
+        }
+      },
+    });
   };
 
   // Fullscreen toggle handler
@@ -383,33 +243,92 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
     setAudioUnlocked(true);
   };
 
+  // Camera transform calculations
+  const cameraFocal = state.camera?.focalPoint || state.focalPoint || { x: 50, y: 50 };
+  const cameraZoom = state.camera?.zoom ?? state.zoom ?? 1.0;
+  const isReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cameraDurationMs = isReducedMotion ? 0 : state.cameraTransition?.durationMs ?? 800;
+
   return (
     <div
       className={`player-display-root ${state.isBlackout ? 'blackout' : ''}`}
       onMouseMove={handleMouseMove}
       style={{ cursor: showControls ? 'default' : 'none' }}
     >
-      {/* Background Layers for Smooth Crossfade */}
-      {prevBg && (
-        <div
-          className="display-bg prev-bg"
-          style={{ backgroundImage: `url(${prevBg})` }}
-        />
-      )}
+      {/* ─── STAGE CAMERA VIEWPORT (WORLD SPACE: BACKGROUND, WEATHER, CHARACTERS, PROPS) ─── */}
       <div
-        className={`display-bg active-bg ${isCrossfading ? 'fade-in' : ''}`}
-        style={{ backgroundImage: `url(${activeBg})` }}
-      />
+        className="stage-camera-viewport"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
+          transformOrigin: `${cameraFocal.x}% ${cameraFocal.y}%`,
+          transform: cameraZoom > 1.001 ? `scale(${cameraZoom})` : 'none',
+          transition:
+            cameraDurationMs > 0
+              ? `transform ${cameraDurationMs}ms cubic-bezier(0.16, 1, 0.3, 1), transform-origin ${cameraDurationMs}ms cubic-bezier(0.16, 1, 0.3, 1)`
+              : 'none',
+        }}
+      >
+        {/* Background Layers for Smooth Crossfade */}
+        {prevBg && (
+          <div
+            className="display-bg prev-bg"
+            style={{
+              backgroundImage: `url(${prevBg})`,
+              backgroundPosition: '50% 50%',
+              backgroundSize: state.fitMode === 'contain' ? 'contain' : 'cover',
+              backgroundRepeat: 'no-repeat',
+            }}
+          />
+        )}
+        <div
+          className={`display-bg active-bg ${isCrossfading ? 'fade-in' : ''}`}
+          style={{
+            backgroundImage: `url(${activeBg})`,
+            backgroundPosition: '50% 50%',
+            backgroundSize: state.fitMode === 'contain' ? 'contain' : 'cover',
+            backgroundRepeat: 'no-repeat',
+          }}
+        />
 
-      {/* Atmospheric Effects Canvas */}
-      <AtmosphereCanvas
-        weather={state.weather}
-        intensity={state.weatherIntensity}
-        lighting={state.lighting}
-        shakeTrigger={state.shakeTrigger}
-        lightningTrigger={state.lightningTrigger}
-      />
+        {/* Atmospheric Effects Canvas */}
+        <AtmosphereCanvas
+          weather={state.weather}
+          intensity={state.weatherIntensity}
+          lighting={state.lighting}
+          shakeTrigger={state.shakeTrigger}
+          lightningTrigger={state.lightningTrigger}
+        />
 
+        {/* Active Characters & Props Projection Layer */}
+        <DisplayCharactersLayer
+          characters={state.characters}
+          props={state.props || []}
+          activeTransitions={state.activeTransitions}
+          combatState={state.combatState}
+        />
+
+        {/* Localized Scene Lights Layer */}
+        <SceneLightsLayer
+          lights={state.lights}
+          characters={state.characters}
+          props={state.props || []}
+        />
+
+        {/* Localized Atmospheric Zone Emitters (Fog, Smoke, Window Rain, Embers) */}
+        <ZoneEmittersLayer
+          emitters={state.emitters}
+          characters={state.characters}
+          props={state.props || []}
+        />
+      </div>
+
+      {/* ─── HUD & SCREEN SPACE (FIXED OVERLAYS: BANNER, DIALOGUE, INITIATIVE) ─── */}
       {/* Location / Scene Title Banner */}
       {state.locationBanner.visible && (
         <div className="location-banner">
@@ -420,8 +339,14 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
         </div>
       )}
 
-      {/* Active Characters Projection Layer */}
-      <DisplayCharactersLayer characters={state.characters} />
+      {/* Handout, Document & Map Projection Layer */}
+      <HandoutDisplayLayer handout={state.activeHandout} />
+
+      {/* Opening Cinematic Recap Layer ("Anteriormente en la campaña...") */}
+      <RecapDisplayLayer recap={state.activeRecap} />
+
+      {/* Cinematic Dialogue & Narration Projection Layer */}
+      <CinematicDialogueLayer dialogue={state.dialogue} />
 
       {/* Combat Initiative Ribbon Overlay */}
       {state.combatState?.isActive && (

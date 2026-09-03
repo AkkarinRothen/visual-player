@@ -1,8 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Campaign, CombatCondition, CombatState, Combatant, SavedEncounter, Scene } from '../../types';
 import { soundEngine } from '../../services/soundEngine';
-import { peerService } from '../../services/peerService';
 import { SavedEncountersModal } from './SavedEncountersModal';
+import {
+  calculateRemainingTimerSeconds,
+  startCombatTurnTimer,
+  pauseCombatTurnTimer,
+  addSecondsToCombatTurnTimer,
+  resetCombatTurnTimer,
+  advanceCombatTurnWithTimer,
+} from '../../domain/combat/combatTimerCoordinator';
+import {
+  addConditionToCombatant,
+  removeConditionFromCombatant,
+} from '../../domain/combat/combatConditionsCatalog';
 import {
   Swords,
   Play,
@@ -46,6 +57,9 @@ const CONDITIONS_LIST: { id: CombatCondition; label: string; icon: string }[] = 
   { id: 'blessed', label: 'Bendito', icon: '✨' },
   { id: 'cursed', label: 'Maldito', icon: '🩸' },
   { id: 'frightened', label: 'Asustado', icon: '😱' },
+  { id: 'prone', label: 'Derribado', icon: '🛡️' },
+  { id: 'restrained', label: 'Apresado', icon: '⛓️' },
+  { id: 'charmed', label: 'Hechizado', icon: '💖' },
 ];
 
 export const CombatTab: React.FC<CombatTabProps> = ({
@@ -57,10 +71,8 @@ export const CombatTab: React.FC<CombatTabProps> = ({
   onSaveEncounter = () => {},
   onDeleteEncounter = () => {},
 }) => {
-  const [timerSeconds, setTimerSeconds] = useState<number>(combatState.turnTimerSeconds ?? 60);
-  const [isTimerRunning, setIsTimerRunning] = useState<boolean>(combatState.isTimerRunning ?? false);
-  const [showTimerToPlayers, setShowTimerToPlayers] = useState<boolean>(
-    combatState.showTurnTimerToPlayers ?? true
+  const [localRemaining, setLocalRemaining] = useState<number>(() =>
+    calculateRemainingTimerSeconds(combatState)
   );
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [showEncountersModal, setShowEncountersModal] = useState<boolean>(false);
@@ -88,8 +100,6 @@ export const CombatTab: React.FC<CombatTabProps> = ({
     isMonster: true,
   });
 
-  const lastBroadcastRef = useRef<number>(0);
-
   // Filter deployed vs undeployed (wave reinforcements)
   const deployedCombatants = combatState.combatants.filter((c) => c.isDeployed !== false);
   const pendingWaveReinforcements = combatState.combatants.filter((c) => c.isDeployed === false);
@@ -99,45 +109,26 @@ export const CombatTab: React.FC<CombatTabProps> = ({
     (c) => (c.triggerRound || 2) <= combatState.round
   );
 
-  // Turn countdown timer with WebRTC broadcast
+  // High-precision local countdown timer computed from absolute epoch (zero network traffic)
   useEffect(() => {
-    let interval: number | null = null;
-    if (isTimerRunning && timerSeconds > 0) {
-      interval = window.setInterval(() => {
-        setTimerSeconds((prev) => {
-          const next = prev - 1;
-          if (next === 10) {
-            soundEngine.playSynth('timer_warning');
-          }
-          if (next <= 0) {
-            setIsTimerRunning(false);
-            soundEngine.playSynth('thunder');
-          }
-          return Math.max(0, next);
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
+    const updateCountdown = () => {
+      setLocalRemaining(calculateRemainingTimerSeconds(combatState));
     };
-  }, [isTimerRunning, timerSeconds]);
 
-  // Broadcast timer tick to Display
-  useEffect(() => {
-    const now = Date.now();
-    if (now - lastBroadcastRef.current >= 900) {
-      lastBroadcastRef.current = now;
-      peerService.send({
-        type: 'TURN_TIMER_TICK',
-        payload: {
-          seconds: timerSeconds,
-          isRunning: isTimerRunning,
-          showToPlayers: showTimerToPlayers,
-        },
-      });
-    }
-  }, [timerSeconds, isTimerRunning, showTimerToPlayers]);
+    updateCountdown();
+
+    if (!combatState.isTimerRunning) return;
+
+    const interval = window.setInterval(updateCountdown, 250);
+    return () => clearInterval(interval);
+  }, [
+    combatState.isTimerRunning,
+    combatState.turnTimerEndsAt,
+    combatState.turnTimerRemainingSeconds,
+    combatState.turnTimerSeconds,
+    combatState.turnTimerTotalSeconds,
+    combatState.turnId,
+  ]);
 
   // Launch Encounter Live from SavedEncountersModal
   const handleLaunchEncounterLive = (encounter: SavedEncounter, combatants: Combatant[]) => {
@@ -147,15 +138,15 @@ export const CombatTab: React.FC<CombatTabProps> = ({
       round: 1,
       currentTurnIndex: 0,
       combatants,
+      turnTimerTotalSeconds: encounter.turnTimerSeconds || 60,
       turnTimerSeconds: encounter.turnTimerSeconds || 60,
-      isTimerRunning: true,
+      turnTimerRemainingSeconds: encounter.turnTimerSeconds || 60,
+      isTimerRunning: false,
       showTurnTimerToPlayers: true,
       encounterName: encounter.name,
       rewardsSummary: encounter.rewardsSummary,
     };
     onUpdateCombatState(newState);
-    setTimerSeconds(encounter.turnTimerSeconds || 60);
-    setIsTimerRunning(true);
   };
 
   // Load Encounter to Staging
@@ -165,7 +156,9 @@ export const CombatTab: React.FC<CombatTabProps> = ({
       round: 1,
       currentTurnIndex: 0,
       combatants,
+      turnTimerTotalSeconds: encounter.turnTimerSeconds || 60,
       turnTimerSeconds: encounter.turnTimerSeconds || 60,
+      turnTimerRemainingSeconds: encounter.turnTimerSeconds || 60,
       isTimerRunning: false,
       showTurnTimerToPlayers: true,
       encounterName: encounter.name,
@@ -202,13 +195,13 @@ export const CombatTab: React.FC<CombatTabProps> = ({
         isActive: true,
         round: 1,
         currentTurnIndex: 0,
+        turnTimerTotalSeconds: 60,
         turnTimerSeconds: 60,
-        isTimerRunning: true,
-        showTurnTimerToPlayers: showTimerToPlayers,
+        turnTimerRemainingSeconds: 60,
+        isTimerRunning: false,
+        showTurnTimerToPlayers: combatState.showTurnTimerToPlayers !== false,
       };
       onUpdateCombatState(newState);
-      setTimerSeconds(60);
-      setIsTimerRunning(true);
     } else {
       // Calculate Victory Summary
       const defeated = combatState.combatants
@@ -230,57 +223,59 @@ export const CombatTab: React.FC<CombatTabProps> = ({
       onUpdateCombatState({
         ...combatState,
         isActive: false,
+        isTimerRunning: false,
+        turnTimerEndsAt: null,
       });
-      setIsTimerRunning(false);
     }
   };
 
-  // Next / Previous Turn
+  // Next / Previous Turn using deterministic coordinator
   const handleNextTurn = () => {
     if (deployedCombatants.length === 0) return;
     soundEngine.playSynth('gong');
-    const nextIndex = combatState.currentTurnIndex + 1;
-    const isNewRound = nextIndex >= deployedCombatants.length;
-
-    onUpdateCombatState({
-      ...combatState,
-      currentTurnIndex: isNewRound ? 0 : nextIndex,
-      round: isNewRound ? combatState.round + 1 : combatState.round,
-      turnTimerSeconds: 60,
-      isTimerRunning: true,
-      showTurnTimerToPlayers: showTimerToPlayers,
-    });
-    setTimerSeconds(60);
-    setIsTimerRunning(true);
+    const nextIndex = (combatState.currentTurnIndex + 1) % deployedCombatants.length;
+    const isNewRound = nextIndex === 0;
+    const nextRound = isNewRound ? combatState.round + 1 : combatState.round;
+    const updated = advanceCombatTurnWithTimer(combatState, nextIndex, nextRound);
+    onUpdateCombatState(updated);
   };
 
   const handlePrevTurn = () => {
     if (deployedCombatants.length === 0) return;
+    soundEngine.playSynth('pop');
     const prevIndex = combatState.currentTurnIndex - 1;
+    let nextIndex = prevIndex;
+    let nextRound = combatState.round;
     if (prevIndex < 0) {
       if (combatState.round > 1) {
-        onUpdateCombatState({
-          ...combatState,
-          round: combatState.round - 1,
-          currentTurnIndex: deployedCombatants.length - 1,
-        });
+        nextRound = combatState.round - 1;
+        nextIndex = deployedCombatants.length - 1;
+      } else {
+        nextIndex = 0;
       }
+    }
+    const updated = advanceCombatTurnWithTimer(combatState, nextIndex, nextRound);
+    onUpdateCombatState(updated);
+  };
+
+  const handleToggleTimer = () => {
+    if (combatState.isTimerRunning) {
+      onUpdateCombatState(pauseCombatTurnTimer(combatState));
     } else {
-      onUpdateCombatState({
-        ...combatState,
-        currentTurnIndex: prevIndex,
-      });
+      onUpdateCombatState(startCombatTurnTimer(combatState));
     }
   };
 
-  const resetTimer = () => {
-    setTimerSeconds(60);
-    setIsTimerRunning(true);
+  const handleAddTimerSeconds = (seconds: number = 30) => {
+    onUpdateCombatState(addSecondsToCombatTurnTimer(combatState, seconds));
+  };
+
+  const handleResetTimer = () => {
+    onUpdateCombatState(resetCombatTurnTimer(combatState));
   };
 
   const toggleShowTimerToPlayers = () => {
-    const next = !showTimerToPlayers;
-    setShowTimerToPlayers(next);
+    const next = combatState.showTurnTimerToPlayers === false ? true : false;
     onUpdateCombatState({
       ...combatState,
       showTurnTimerToPlayers: next,
@@ -351,10 +346,11 @@ export const CombatTab: React.FC<CombatTabProps> = ({
     const updated = combatState.combatants.map((c) => {
       if (c.id === id) {
         const exists = c.conditions.includes(condition);
-        const newConditions = exists
-          ? c.conditions.filter((cond) => cond !== condition)
-          : [...c.conditions, condition];
-        return { ...c, conditions: newConditions };
+        if (exists) {
+          return removeConditionFromCombatant(c, condition);
+        } else {
+          return addConditionToCombatant(c, condition, true, combatState.round);
+        }
       }
       return c;
     });
@@ -444,22 +440,34 @@ export const CombatTab: React.FC<CombatTabProps> = ({
             {/* Turn Timer Controller */}
             <div className="turn-timer-ctrl-group">
               <div
-                className={`turn-timer-badge ${timerSeconds <= 10 ? 'urgent' : ''}`}
-                onClick={() => setIsTimerRunning(!isTimerRunning)}
-                title={isTimerRunning ? 'Pausar Reloj' : 'Iniciar Reloj'}
+                className={`turn-timer-badge ${localRemaining <= 10 && combatState.isTimerRunning ? 'urgent' : ''}`}
+                onClick={handleToggleTimer}
+                title={combatState.isTimerRunning ? 'Pausar Reloj' : 'Iniciar Reloj'}
               >
                 <Clock size={16} />
-                <span>{timerSeconds}s</span>
+                <span>{localRemaining}s</span>
               </div>
-              <button className="timer-mini-btn" onClick={resetTimer} title="Reiniciar a 60s">
+              <button
+                className="timer-mini-btn"
+                onClick={() => handleAddTimerSeconds(30)}
+                title="Añadir +30 segundos al turno"
+              >
+                <Plus size={12} />
+                <span className="text-[10px] font-bold">30s</span>
+              </button>
+              <button className="timer-mini-btn" onClick={handleResetTimer} title="Reiniciar reloj">
                 <RotateCcw size={14} />
               </button>
               <button
-                className={`timer-mini-btn ${showTimerToPlayers ? 'active' : ''}`}
+                className={`timer-mini-btn ${combatState.showTurnTimerToPlayers !== false ? 'active' : ''}`}
                 onClick={toggleShowTimerToPlayers}
-                title={showTimerToPlayers ? 'Reloj visible en Tablet' : 'Reloj oculto a jugadores'}
+                title={
+                  combatState.showTurnTimerToPlayers !== false
+                    ? 'Reloj visible en Mesa'
+                    : 'Reloj oculto a jugadores'
+                }
               >
-                {showTimerToPlayers ? <Eye size={14} /> : <EyeOff size={14} />}
+                {combatState.showTurnTimerToPlayers !== false ? <Eye size={14} /> : <EyeOff size={14} />}
               </button>
             </div>
 

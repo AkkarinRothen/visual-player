@@ -18,10 +18,25 @@ export type CombatCondition =
   | 'concentrating'
   | 'blessed'
   | 'cursed'
-  | 'frightened';
+  | 'frightened'
+  | 'prone'
+  | 'restrained'
+  | 'charmed';
+
+export interface ActiveCombatCondition {
+  id: string;
+  condition: CombatCondition;
+  label: string;
+  icon: string;
+  color: string;
+  description: string;
+  isPublic: boolean;
+  appliedAtRound?: number;
+}
 
 export interface Combatant {
   id: string;
+  characterId?: string; // Explicit link to CharacterOnScreen/Character instance ID
   name: string;
   avatarUrl: string;
   initiative: number;
@@ -29,11 +44,15 @@ export interface Combatant {
   maxHp: number;
   showHpToPlayers: boolean;
   conditions: CombatCondition[];
+  activeConditions?: ActiveCombatCondition[];
   isMonster: boolean;
   isWaveReinforcement?: boolean;
   triggerRound?: number;
   isDeployed?: boolean;
+  isSecret?: boolean;
 }
+
+export type CombatTrackingMode = 'manual' | 'suggest' | 'auto';
 
 export interface CombatState {
   isActive: boolean;
@@ -45,6 +64,14 @@ export interface CombatState {
   showTurnTimerToPlayers?: boolean;
   encounterName?: string;
   rewardsSummary?: string;
+  trackingMode?: CombatTrackingMode;
+  suggestedFocusCharacterId?: string | null;
+  turnId?: string;
+  turnTimerEndsAt?: number | null;
+  turnTimerRemainingSeconds?: number;
+  turnTimerTotalSeconds?: number;
+  autoStartNextTurnTimer?: boolean;
+  soundAlertOnExpire?: boolean;
 }
 
 export interface EncounterCombatant {
@@ -81,12 +108,34 @@ export interface CharacterExpression {
   avatarUrl: string;
 }
 
+export interface VisualStateVariant {
+  id: string; // Stable identifier
+  name: string; // Human-readable label (e.g. "Abierto", "Cerrado", "Herido", "En llamas")
+  assetUrl: string;
+  anchor?: 'bottom-center' | 'center';
+  offsetPercent?: { x: number; y: number };
+  scaleModifier?: number; // Multiplicative factor (default 1.0, non-accumulative)
+}
+
+export type TransitionAnimationType = 'instant' | 'fade' | 'slide-left' | 'slide-right' | 'slide-up';
+
+export interface ElementTransitionDirective {
+  transitionId: string;
+  targetId: string; // instanceId
+  targetType: 'character' | 'prop';
+  direction: 'enter' | 'exit' | 'move';
+  animation: TransitionAnimationType;
+  durationMs: number; // 200 - 1200ms (default 500ms)
+  targetRevision?: number;
+}
+
 export interface Character {
   id: string;
   name: string;
   roleOrTitle: string;
   defaultAvatarUrl: string;
   expressions?: Record<string, string>;
+  visualStates?: VisualStateVariant[];
   bio?: string;
   tags?: string[];
   maxHp?: number;
@@ -98,15 +147,261 @@ export interface CharacterOnScreen {
   name: string;
   avatarUrl: string;
   position: CharacterPosition;
+  normalizedX?: number; // 0-100% (center-bottom anchor)
+  normalizedY?: number; // 0-100% (bottom ground line anchor)
+  scale?: number; // 0.5 - 2.0 (default 1.0)
+  isFlipped?: boolean; // Horizontal mirror (default false)
+  zIndex?: number; // Stacking layer 1-50 (default 1)
+  isLocked?: boolean; // Prevent accidental drag
   isSpeaking: boolean;
   activeExpression?: string;
+  visualStateId?: string;
   statusBadge?: string;
+  revelation?: CharacterRevelationState;
+}
+
+export interface CharacterRevelationState {
+  isAppearanceRevealed: boolean; // False => projected as silhouette/darkened outline
+  isIdentityRevealed: boolean;   // False => projected with publicAlias (e.g. "Desconocido")
+  silhouetteUrl?: string;        // Specific silhouette asset URL
+  publicAlias?: string;          // Public placeholder name e.g. "Figura Encapuchada"
+}
+
+export interface SceneVariant {
+  id: string;
+  name: string;
+  backgroundUrl: string;
+  fitMode?: 'cover' | 'contain';
+  focalPoint?: { x: number; y: number };
+  zoom?: number;
+  lighting?: LightingFilter;
+  weather?: WeatherType;
+  weatherIntensity?: number;
+  ambientAudioUrl?: string;
+}
+
+export interface SceneProp {
+  id: string;
+  assetId?: string;
+  name: string;
+  assetUrl: string;
+  normalizedX: number; // 0-100%
+  normalizedY: number; // 0-100%
+  scale: number; // 0.2 to 3.0 (default 1.0)
+  rotation?: number; // -180 to 180 degrees
+  isFlipped?: boolean;
+  opacity?: number; // 0 to 1.0 (default 1.0)
+  zIndex: number; // Unified rendering layer with NPCs
+  anchor?: 'bottom-center' | 'center';
+  isLocked?: boolean;
+  visible?: boolean;
+  visualStateId?: string;
+}
+
+export interface PropAsset {
+  id: string;
+  name: string;
+  category?: 'furniture' | 'nature' | 'structure' | 'item' | 'effects';
+  assetUrl: string;
+  defaultAnchor?: 'bottom-center' | 'center';
+  defaultScale?: number;
+  visualStates?: VisualStateVariant[];
+  tags?: string[];
+}
+
+export interface PresetCharacterVisual {
+  id: string;
+  characterId?: string;
+  name: string;
+  avatarUrl: string;
+  activeExpression?: string;
+  normalizedX: number;
+  normalizedY: number;
+  scale: number;
+  isFlipped?: boolean;
+  zIndex: number;
+  position?: CharacterPosition;
+}
+
+export interface SceneCompositionPreset {
+  id: string;
+  name: string;
+  description?: string;
+  thumbnailUrl?: string;
+  sceneId?: string;
+  variantId?: string;
+  backgroundUrl?: string;
+  characters: PresetCharacterVisual[];
+  props: SceneProp[];
+  lighting?: LightingFilter;
+  weather?: WeatherType;
+  weatherIntensity?: number;
+  focalPoint?: { x: number; y: number };
+  fitMode?: 'cover' | 'contain';
+  zoom?: number;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export type DialogueStyle = 'speech' | 'narration' | 'whisper' | 'shout';
+
+export interface CinematicDialogue {
+  id: string; // Unique dialogue intervention ID
+  speakerInstanceId?: string; // Reference to CharacterOnScreen id
+  speakerName?: string; // Public alias (e.g. "Grom", "Voz Misteriosa", or undefined for pure narration)
+  text: string;
+  avatarUrl?: string; // Optional portrait avatar
+  activeExpression?: string;
+  style: DialogueStyle;
+  visible: boolean;
+  autoFocusSpeaker?: boolean; // Highlight speaker NPC while active
+  fontSize?: 'small' | 'medium' | 'large';
+  isCompleted?: boolean; // True when typewriter text is fully revealed
+}
+
+export type DialogueCameraAction = 'none' | 'general' | 'speaker' | 'group' | 'custom';
+
+export interface DialogueLineActions {
+  expression?: string;
+  cameraPreset?: DialogueCameraAction;
+  customCamera?: CameraTransform;
+  momentId?: string; // Reference to Macro/Moment in campaign.macros
+}
+
+export interface DialogueBranchChoice {
+  id: string;
+  label: string; // Private DM decision text (e.g. "Si aceptan el pacto")
+  targetLineId: string; // Target line ID in the conversation
+  conditionNote?: string; // Private DM condition note (e.g. "Requiere Persuasión DC 13")
+}
+
+export interface DialogueLine {
+  id: string;
+  speakerCharacterId?: string;
+  speakerName?: string;
+  text: string;
+  avatarUrl?: string;
+  style?: DialogueStyle;
+  activeExpression?: string;
+  autoFocusSpeaker?: boolean;
+  dmNotes?: string; // Private DM notes, strictly excluded from players
+  actions?: DialogueLineActions;
+  choices?: DialogueBranchChoice[]; // Private branching choices for the DM
+}
+
+export interface SavedConversation {
+  id: string;
+  title: string;
+  description?: string;
+  sceneId?: string;
+  lines: DialogueLine[];
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface ConversationSession {
+  conversationId?: string;
+  currentLineIndex: number;
+  lines: DialogueLine[];
+  isPaused?: boolean;
+  executedActionLineIds?: Record<string, string>; // Maps lineId -> executionAttemptId
+  selectedChoiceIds?: Record<string, string>; // Maps lineId -> selected choiceId
+}
+
+export interface CameraTransform {
+  focalPoint: { x: number; y: number }; // 0-100%
+  zoom: number; // 1.0 to 2.5
+}
+
+export interface CameraTransitionDirective {
+  transitionId: string;
+  durationMs: number;
+}
+
+export type LightPreset = 'torch' | 'candle' | 'moonlight' | 'magic' | 'custom';
+
+export interface SceneLight {
+  id: string;
+  name: string;
+  preset: LightPreset;
+  color: string; // hex or rgba e.g. '#ff9933'
+  intensity: number; // 0.1 to 1.5 (default 1.0)
+  radiusPct: number; // 5% to 60% of stage dimensions (independent of resolution)
+  normalizedX: number; // 0 to 100%
+  normalizedY: number; // 0 to 100%
+  attachedTo?: {
+    targetType: 'character' | 'prop';
+    targetId: string;
+    offsetX: number;
+    offsetY: number;
+  };
+  flicker: boolean;
+  visible: boolean;
+}
+
+export type ZoneEmitterType = 'fog' | 'smoke' | 'rain' | 'embers';
+
+export interface SceneZoneEmitter {
+  id: string;
+  type: ZoneEmitterType;
+  name?: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color?: string;
+  density: number;
+  speed: number;
+  direction?: number;
+  opacity: number;
+  zIndex: number;
+  attachedTo?: {
+    instanceId: string;
+    offsetX?: number;
+    offsetY?: number;
+  };
+  isClipped?: boolean;
+  enabled: boolean;
+}
+
+export type InteractionScope = 'scene' | 'session' | 'campaign';
+
+export interface SceneInteractionTransition {
+  id: string;
+  fromState: string;
+  toState: string;
+  label: string;
+  visualStateId?: string;
+  lightId?: string;
+  emitterId?: string;
+  sfxPreset?: string;
+  sfxAudioUrl?: string;
+  requiredHint?: string;
+}
+
+export interface SceneInteraction {
+  id: string;
+  targetInstanceId: string;
+  name: string;
+  currentState: string;
+  scope: InteractionScope;
+  transitions: SceneInteractionTransition[];
 }
 
 export interface Scene {
   id: string;
   name: string;
   backgroundUrl: string;
+  activeVariantId?: string;
+  variants?: SceneVariant[];
+  defaultCamera?: CameraTransform;
+  props?: SceneProp[];
+  lights?: SceneLight[];
+  emitters?: SceneZoneEmitter[];
+  interactions?: SceneInteraction[];
+  fitMode?: 'cover' | 'contain';
+  focalPoint?: { x: number; y: number };
+  zoom?: number;
   locationBanner?: string;
   subtitle?: string;
   weather?: WeatherType;
@@ -116,6 +411,9 @@ export interface Scene {
   ambientAudioUrl?: string;
   ambientAudioName?: string;
   suggestedNpcIds?: string[];
+  biomeProfileId?: string;
+  currentSituation?: SceneSituation;
+  activeLightingPresetId?: string;
 }
 
 export interface SFXTrack {
@@ -159,6 +457,62 @@ export interface CinematicMacro {
   description: string;
   icon: string;
   steps: MacroStep[];
+  charactersToAdd?: CharacterOnScreen[];
+  restorePreviousStateOnEnd?: boolean;
+}
+
+export type DMFavoriteType = 'scene' | 'macro' | 'sfx' | 'combatCommand' | 'checkpoint';
+
+export type ActionExecutionStatus = 'idle' | 'sending' | 'ack' | 'rejected' | 'offline';
+
+export interface DMFavoriteItem {
+  id: string;
+  type: DMFavoriteType;
+  label: string;
+  icon?: string;
+  color?: string;
+  targetId?: string; // Scene ID, Macro ID, SFX ID, etc.
+  params?: Record<string, unknown>;
+}
+
+export type KnowledgeType = 'npc_identity' | 'npc_appearance' | 'clue' | 'secret';
+
+export interface CampaignKnowledgeEntry {
+  id: string;
+  type: KnowledgeType;
+  title: string;
+  description: string;
+  targetId?: string;
+  revealedAt: number;
+  source: 'auto_interaction' | 'manual_dm';
+  sessionId?: string;
+  dmPrivateNotes?: string;
+  isCorrected?: boolean;
+  correctionReason?: string;
+}
+
+export interface CampaignWorldStateEntry {
+  id: string; // targetInstanceId
+  targetName: string;
+  state: string;
+  scope: 'session' | 'campaign';
+  lastModifiedAt: number;
+  sessionId?: string;
+  notes?: string;
+}
+
+export interface SessionPrepDraft {
+  id: string;
+  campaignId: string;
+  createdAt: number;
+  updatedAt: number;
+  selectedSceneId: string;
+  suggestedReason: string;
+  worldChoices: Record<string, 'keep' | 'reset'>; // instanceId -> 'keep' | 'reset'
+  resetTemporaryWeather: boolean;
+  resetTemporaryCombat: boolean;
+  dmSessionGoals?: string;
+  status: 'draft' | 'ready' | 'applied';
 }
 
 export interface Campaign {
@@ -172,13 +526,188 @@ export interface Campaign {
   customSfx?: SFXTrack[];
   macros?: CinematicMacro[];
   encounters?: SavedEncounter[];
+  favorites?: DMFavoriteItem[];
+  propAssets?: PropAsset[];
+  savedCompositions?: SceneCompositionPreset[];
+  savedConversations?: SavedConversation[];
+  interactionStates?: Record<string, string>; // Maps instanceId -> currentState (persists choices)
+  knowledgeEntries?: CampaignKnowledgeEntry[];
+  worldStateEntries?: CampaignWorldStateEntry[];
+  nextSessionNotes?: string;
+  sessionPrepDraft?: SessionPrepDraft;
+  savedHandouts?: HandoutState[];
+  savedRecap?: CampaignRecap;
+  soundboardBanks?: SoundboardBank[];
+  biomeProfiles?: BiomeSoundProfile[];
+  lightingPresets?: SceneLightingPreset[];
+}
+
+export type LightingApplyMode = 'replace' | 'merge';
+
+export interface SceneLightingPreset {
+  id: string;
+  name: string;
+  description?: string;
+  lights: SceneLight[];
+  lightingFilter?: LightingFilter;
+  transitionDurationMs?: number;
+}
+
+export interface PublicKnowledgeItem {
+  id: string;
+  title: string;
+  category: string;
+  summary: string;
+}
+
+export interface PublicChronicleDraft {
+  title: string;
+  campaignTitle: string;
+  sessionDateLabel: string;
+  generatedAt: number;
+  synopsis: string;
+  keyMilestones: string[];
+  publicKnowledgeEntries: PublicKnowledgeItem[];
+  activeQuestsOrObjectives: string[];
+  dmClosingNotes?: string;
+}
+
+export type EnvironmentBiome = 'tavern' | 'forest' | 'dungeon' | 'city' | 'ruins' | 'sea';
+export type SceneSituation = 'exploration' | 'tension' | 'combat' | 'rest';
+
+export interface BiomeTrackLayer {
+  musicUrl?: string;
+  musicVolume?: number;
+  ambientUrl?: string;
+  ambientVolume?: number;
+  crossfadeSeconds?: number;
+}
+
+export interface BiomeSoundProfile {
+  id: string;
+  biome: EnvironmentBiome;
+  name: string;
+  situations: Record<SceneSituation, BiomeTrackLayer>;
+}
+
+export type SoundboardCategory = 'ambient' | 'combat' | 'creature' | 'narrative';
+export type PadRetriggerPolicy = 'ignore' | 'restart' | 'overlap';
+
+export interface SoundboardPad {
+  id: string;
+  label: string;
+  category: SoundboardCategory;
+  sfxPreset?: string;
+  audioUrl?: string;
+  icon?: string;
+  color?: string;
+  volume?: number;
+  retriggerPolicy?: PadRetriggerPolicy;
+}
+
+export interface SoundboardBank {
+  id: string;
+  name: string;
+  sceneId?: string;
+  pads: SoundboardPad[];
+}
+
+export interface RecapSlide {
+  id: string;
+  title: string;
+  text: string;
+  imageUrl: string;
+  caption?: string;
+  durationSeconds?: number;
+}
+
+export interface CampaignRecap {
+  id: string;
+  title: string;
+  slides: RecapSlide[];
+  currentSlideIndex: number;
+}
+
+export interface RevealedRegionRect {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface RevealedRegionCircle {
+  id: string;
+  cx: number;
+  cy: number;
+  r: number;
+}
+
+export interface HandoutPage {
+  id: string;
+  pageNumber: number;
+  title?: string;
+  imageUrl: string;
+  revealedRects: RevealedRegionRect[];
+  revealedCircles?: RevealedRegionCircle[];
+  isFullyRevealed: boolean;
+  zoom: number;
+  panOffset: { x: number; y: number };
+}
+
+export interface HandoutState {
+  id: string;
+  title: string;
+  imageUrl?: string;
+  revealedRects?: RevealedRegionRect[];
+  revealedCircles?: RevealedRegionCircle[];
+  isFullyRevealed?: boolean;
+  zoom?: number;
+  panOffset?: { x: number; y: number };
+  isConfidential?: boolean;
+  pages?: HandoutPage[];
+  activePageIndex?: number;
+}
+
+export type DuckingPreset = 'gentle' | 'narration' | 'intense';
+
+export interface DuckingProfile {
+  preset: DuckingPreset;
+  musicTargetGain: number;
+  ambientTargetGain: number;
+  attackMs: number;
+  releaseMs: number;
+}
+
+export interface LightningConfig {
+  enabled: boolean;
+  minIntervalMs: number;
+  maxIntervalMs: number;
+  thunderDelayMs: number;
+  disableFlashes?: boolean;
+  volume: number;
+}
+
+export interface WeatherStormEvent {
+  id: string;
+  scheduledAt: number;
+  expiresAt: number;
+  flashIntensity: number;
+  thunderDelayMs: number;
+  thunderVolume: number;
+  disableFlash?: boolean;
 }
 
 export interface DisplayState {
   currentSceneId?: string;
   sceneName: string;
   backgroundUrl: string;
+  activeVariantId?: string;
+  fitMode?: 'cover' | 'contain';
+  focalPoint?: { x: number; y: number };
+  zoom?: number;
   characters: CharacterOnScreen[];
+  props?: SceneProp[];
   weather: WeatherType;
   weatherIntensity: number;
   lighting: LightingFilter;
@@ -201,6 +730,20 @@ export interface DisplayState {
     timestamp: number;
   } | null;
   combatState: CombatState;
+  activeTransitions?: ElementTransitionDirective[];
+  dialogue?: CinematicDialogue | null;
+  camera?: CameraTransform;
+  cameraTransition?: CameraTransitionDirective;
+  lights?: SceneLight[];
+  emitters?: SceneZoneEmitter[];
+  interactions?: SceneInteraction[];
+  isDmSpeakingDucked?: boolean;
+  duckingProfile?: DuckingProfile;
+  activeHandout?: HandoutState | null;
+  activeRecap?: CampaignRecap | null;
+  lightningConfig?: LightningConfig;
+  currentSituation?: SceneSituation;
+  activeBiomeId?: string;
 }
 
 // History & Checkpoint Interfaces
@@ -215,6 +758,7 @@ export interface HistoryEvent {
 export interface SessionCheckpoint {
   id: string;
   campaignId: string;
+  sessionId?: string;
   name: string;
   type: 'manual' | 'auto';
   trigger: string;
@@ -351,3 +895,118 @@ export type SyncMessage =
   | { type: 'SYNC_TEST_ACK'; payload: { probeId: string; displayChecksum: string; sessionRevision: number; matched: boolean; rttMs: number } }
   | { type: 'PING'; timestamp: number }
   | { type: 'PONG'; timestamp: number };
+
+// ─── Game Session (Biblioteca de Preparaciones) ─────────────────────────────
+
+/** Estado del guardado automático del borrador (Staging). */
+export type DraftSaveState = 'idle' | 'saving' | 'saved' | 'error';
+
+/** Estado del ciclo de vida de una sesión de partida. */
+export type GameSessionStatus = 'preparing' | 'active' | 'completed' | 'archived';
+
+/**
+ * Entidad GameSession: ciudadana de primera clase en Dexie.
+ * Sustituye el snapshot único 'active_session' para el guardado del borrador.
+ * NO almacena tokens WebRTC, roomId ni claves de conexión.
+ */
+export interface GameSession {
+  id: string;                         // 'gs-<uuid>'
+  campaignId: string;
+  name: string;                       // "Sesión 3 - El Paso del Trueno"
+  status: GameSessionStatus;
+  schemaVersion: 1;
+  planNotes: string;                  // Texto libre del director (plan, ideas)
+  stagedState: DisplayState | null;   // Borrador (Staging) persistido automáticamente
+  liveState: DisplayState | null;     // Último estado publicado a la Mesa
+  frozenScenes?: Scene[];             // Snapshot congelado de escenas de la preparación
+  frozenCharacters?: Character[];     // Snapshot congelado de personajes de la preparación
+  revision: number;                   // Contador incremental de revisiones para anti-race
+  lastExportedAt?: number;            // Timestamp de la última exportación completa
+  lastBackupConfirmedAt?: number;     // Confirmación voluntaria de copia externa segura
+  isDeleted?: boolean;                // Soft-delete (Papelera)
+  deletedAt?: number;                 // Timestamp de envío a la papelera
+  createdAt: number;
+  updatedAt: number;
+  sessionNumber?: number;             // Número ordinal dentro de la campaña
+  tags?: string[];
+}
+
+/**
+ * Plantilla de sesión: borrador sanitizado sin HP perdidos, combate activo,
+ * temporizadores ni condiciones transitorias.
+ */
+export interface GameSessionTemplate {
+  id: string;                         // 'tpl-<uuid>'
+  name: string;
+  description?: string;
+  sourceSessionId: string;
+  campaignId: string;
+  stagedState: DisplayState;
+  frozenScenes?: Scene[];
+  frozenCharacters?: Character[];
+  isDeleted?: boolean;
+  deletedAt?: number;
+  createdAt: number;
+}
+
+/** Opciones para duplicar una sesión. */
+export interface DuplicateSessionOptions {
+  excludeCombatProgress: boolean;     // Por defecto: true
+  excludeConditions: boolean;         // Por defecto: true
+  restoreNpcHp?: boolean;             // Si false conserva daño en NPCs
+  newName?: string;
+}
+
+/** Información de un activo que no pudo ser resuelto localmente ni descargado. */
+export interface MissingAssetInfo {
+  url: string;
+  context: string;                   // p.ej. "Fondo de Escena: Caverna", "Avatar: Valeros"
+  assetType: 'image' | 'audio';
+  errorReason?: string;
+}
+
+/** Informe de diagnóstico previo a la exportación. */
+export interface ExportPreflightReport {
+  totalAssets: number;
+  readyLocalCount: number;
+  downloadedCount: number;
+  missing: MissingAssetInfo[];
+  canExportOfflineComplete: boolean;
+}
+
+/** Resumen de diferencias previo a la importación segura. */
+export interface ImportDiffSummary {
+  sessionName: string;
+  isCompletePackage: boolean;
+  scenesCount: number;
+  charactersCount: number;
+  newScenesCount: number;
+  conflictingScenesCount: number;
+  missingAssets: MissingAssetInfo[];
+}
+
+/**
+ * Paquete portable de sesión (.vpp.json) para exportar/importar
+ * entre PC y Android con todos los assets incrustados como DataURL.
+ */
+export interface GameSessionPackage {
+  schemaVersion: 1;
+  exportedAt: number;
+  type: 'game_session_package';
+  session: GameSession;
+  assets: Array<{
+    id: string;
+    name: string;
+    type: 'image' | 'audio';
+    dataUrl: string;
+  }>;
+  campaignSnippet: {
+    id: string;
+    title: string;
+    scenes: Scene[];
+    characters?: Character[];
+  };
+  isCompleteOfflinePackage: boolean;
+  missingAssets?: MissingAssetInfo[];
+}
+

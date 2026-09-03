@@ -1,5 +1,30 @@
 // Web Audio API Sound Synthesizer & Player with Ambient Crossfade & Audio Focus
 import { getPlatformBridge } from '../platform';
+import type { DuckingPreset, DuckingProfile } from '../types';
+
+export const DUCKING_PRESETS: Record<DuckingPreset, DuckingProfile> = {
+  gentle: {
+    preset: 'gentle',
+    musicTargetGain: 0.65,
+    ambientTargetGain: 0.8,
+    attackMs: 300,
+    releaseMs: 600,
+  },
+  narration: {
+    preset: 'narration',
+    musicTargetGain: 0.35,
+    ambientTargetGain: 0.5,
+    attackMs: 250,
+    releaseMs: 800,
+  },
+  intense: {
+    preset: 'intense',
+    musicTargetGain: 0.15,
+    ambientTargetGain: 0.25,
+    attackMs: 200,
+    releaseMs: 1000,
+  },
+};
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
@@ -8,6 +33,13 @@ class SoundEngine {
   private targetAmbientVolume: number = 0.5;
   private crossfadeInterval: number | null = null;
   private wasPlayingBeforePause: boolean = false;
+
+  // Layered Reactive Audio & Ducking State
+  private activeDuckingTokens: Set<string> = new Set();
+  private currentDuckingProfile: DuckingProfile = DUCKING_PRESETS.narration;
+  private currentGainMultiplier: number = 1.0;
+  private duckingInterval: number | null = null;
+  private activeSfxAudios: Set<HTMLAudioElement> = new Set();
 
   constructor() {
     this.initLifecycleListeners();
@@ -307,9 +339,125 @@ class SoundEngine {
     try {
       const audio = new Audio(url);
       audio.volume = Math.max(0, Math.min(1, volume));
-      audio.play().catch((err) => console.warn('Audio play error:', err));
+      this.activeSfxAudios.add(audio);
+      audio.onended = () => this.activeSfxAudios.delete(audio);
+      audio.onerror = () => this.activeSfxAudios.delete(audio);
+
+      const playPromise = audio.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((err) => {
+          this.activeSfxAudios.delete(audio);
+          console.warn('Audio play error:', err);
+        });
+      }
     } catch (e) {
       console.error('Audio play error:', e);
+    }
+  }
+
+  public stopAllSfx(): void {
+    this.activeSfxAudios.forEach((audio) => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch (err) {
+        console.warn('Error pausing SFX:', err);
+      }
+    });
+    this.activeSfxAudios.clear();
+  }
+
+  // Ducking API
+  public getActiveDuckingTokens(): string[] {
+    return Array.from(this.activeDuckingTokens);
+  }
+
+  public isDucked(): boolean {
+    return this.activeDuckingTokens.size > 0;
+  }
+
+  public getDuckingGainMultiplier(): number {
+    return this.currentGainMultiplier;
+  }
+
+  public getDuckingProfile(): DuckingProfile {
+    return this.currentDuckingProfile;
+  }
+
+  public setDuckingProfile(profile: DuckingProfile) {
+    this.currentDuckingProfile = profile;
+    if (this.isDucked()) {
+      this.applyGainMultiplier(this.currentDuckingProfile.musicTargetGain, profile.attackMs);
+    }
+  }
+
+  public acquireDucking(tokenId: string, profile?: DuckingProfile) {
+    if (profile) {
+      this.currentDuckingProfile = profile;
+    }
+    const wasAlreadyDucked = this.activeDuckingTokens.size > 0;
+    this.activeDuckingTokens.add(tokenId);
+
+    const targetGain = this.currentDuckingProfile.musicTargetGain;
+    if (!wasAlreadyDucked || this.currentGainMultiplier > targetGain) {
+      this.applyGainMultiplier(targetGain, this.currentDuckingProfile.attackMs);
+    }
+  }
+
+  public releaseDucking(tokenId: string) {
+    this.activeDuckingTokens.delete(tokenId);
+    if (this.activeDuckingTokens.size === 0) {
+      this.applyGainMultiplier(1.0, this.currentDuckingProfile.releaseMs);
+    }
+  }
+
+  public clearAllDucking() {
+    this.activeDuckingTokens.clear();
+    this.applyGainMultiplier(1.0, this.currentDuckingProfile.releaseMs);
+  }
+
+  private applyGainMultiplier(targetMultiplier: number, durationMs: number) {
+    if (this.duckingInterval) {
+      clearInterval(this.duckingInterval);
+      this.duckingInterval = null;
+    }
+
+    const startMultiplier = this.currentGainMultiplier;
+    const diff = targetMultiplier - startMultiplier;
+    if (Math.abs(diff) < 0.01 || durationMs <= 0) {
+      this.currentGainMultiplier = targetMultiplier;
+      this.updateEffectiveAudioVolume();
+      return;
+    }
+
+    const steps = Math.max(5, Math.floor(durationMs / 30));
+    const stepTime = durationMs / steps;
+    let currentStep = 0;
+
+    this.duckingInterval = window.setInterval(() => {
+      currentStep++;
+      const progress = currentStep / steps;
+      this.currentGainMultiplier = startMultiplier + diff * progress;
+      this.updateEffectiveAudioVolume();
+
+      if (currentStep >= steps) {
+        this.currentGainMultiplier = targetMultiplier;
+        this.updateEffectiveAudioVolume();
+        if (this.duckingInterval) {
+          clearInterval(this.duckingInterval);
+          this.duckingInterval = null;
+        }
+      }
+    }, stepTime);
+  }
+
+  private updateEffectiveAudioVolume() {
+    if (this.currentAmbientAudio) {
+      const effectiveVolume = Math.max(
+        0,
+        Math.min(1, this.targetAmbientVolume * this.currentGainMultiplier)
+      );
+      this.currentAmbientAudio.volume = effectiveVolume;
     }
   }
 
@@ -317,6 +465,10 @@ class SoundEngine {
   public setAmbient(url: string, playing: boolean, volume: number = 0.5, crossfade: boolean = true) {
     try {
       this.targetAmbientVolume = Math.max(0, Math.min(1, volume));
+      const effectiveVolume = Math.max(
+        0,
+        Math.min(1, this.targetAmbientVolume * this.currentGainMultiplier)
+      );
 
       if (this.crossfadeInterval) {
         clearInterval(this.crossfadeInterval);
@@ -353,9 +505,12 @@ class SoundEngine {
 
       // If already playing the same URL, just update volume
       if (this.currentAmbientUrl === url && this.currentAmbientAudio) {
-        this.currentAmbientAudio.volume = this.targetAmbientVolume;
+        this.currentAmbientAudio.volume = effectiveVolume;
         if (this.currentAmbientAudio.paused) {
-          this.currentAmbientAudio.play().catch(console.warn);
+          const playPromise = this.currentAmbientAudio.play();
+          if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(console.warn);
+          }
         }
         return;
       }
@@ -363,8 +518,11 @@ class SoundEngine {
       // Crossfade to new URL
       const newAudio = new Audio(url);
       newAudio.loop = true;
-      newAudio.volume = crossfade ? 0.01 : this.targetAmbientVolume;
-      newAudio.play().catch((err) => console.warn('New ambient play error:', err));
+      newAudio.volume = crossfade ? 0.01 : effectiveVolume;
+      const playPromise = newAudio.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((err) => console.warn('New ambient play error:', err));
+      }
 
       const oldAudio = this.currentAmbientAudio;
       this.currentAmbientAudio = newAudio;
@@ -377,10 +535,10 @@ class SoundEngine {
           step++;
           const progress = step / totalSteps;
           if (oldAudio) {
-            oldAudio.volume = Math.max(0, this.targetAmbientVolume * (1 - progress));
+            oldAudio.volume = Math.max(0, effectiveVolume * (1 - progress));
           }
           if (this.currentAmbientAudio) {
-            this.currentAmbientAudio.volume = Math.min(this.targetAmbientVolume, this.targetAmbientVolume * progress);
+            this.currentAmbientAudio.volume = Math.min(effectiveVolume, effectiveVolume * progress);
           }
 
           if (step >= totalSteps) {
@@ -395,10 +553,21 @@ class SoundEngine {
         if (oldAudio) {
           oldAudio.pause();
         }
-        newAudio.volume = this.targetAmbientVolume;
+        newAudio.volume = effectiveVolume;
       }
     } catch (e) {
       console.error('Ambient audio error:', e);
+    }
+  }
+
+  public stopAmbient(): void {
+    if (this.currentAmbientAudio) {
+      this.currentAmbientAudio.pause();
+      this.currentAmbientAudio = null;
+    }
+    if (this.crossfadeInterval) {
+      clearInterval(this.crossfadeInterval);
+      this.crossfadeInterval = null;
     }
   }
 }

@@ -1,5 +1,11 @@
 # 🎭 Visual Player
 
+## Manual de uso
+
+Para aprender a usar la app sin conocimientos de programación, consultá el [Manual de Visual Player](docs/manual/README.md): primeros pasos, catálogo de funciones, ejemplos y problemas habituales.
+
+El manual se revisa al cerrar cada walkthrough. El [registro de revisiones](docs/manual/REVISIONES.md) indica qué se comprobó y qué sigue pendiente; el [procedimiento de mantenimiento](docs/manual/MANTENIMIENTO.md) explica cómo actualizarlo.
+
 Herramienta interactiva y audiovisual para partidas de rol en vivo (Master & Tablet/TV) con sincronización WebRTC P2P en tiempo real, motor de escenas, momentos cinematográficos, combate por turnos, efectos climáticos en Canvas, persistencia IndexedDB y soporte TURN para NAT simétrico.
 
 ## 🚀 Características

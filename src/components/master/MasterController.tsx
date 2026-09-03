@@ -12,8 +12,9 @@ import type {
   Scene,
   SessionCheckpoint,
   WeatherType,
+  CombatState,
 } from '../../types';
-import { soundEngine } from '../../services/soundEngine';
+import { soundEngine, DUCKING_PRESETS } from '../../services/soundEngine';
 import { peerService } from '../../services/peerService';
 import { getPlatformBridge } from '../../platform';
 import { sessionRecoveryService } from '../../services/sessionRecovery';
@@ -39,6 +40,7 @@ import {
   saveEncounter,
   deleteEncounter,
 } from '../../db';
+import { gameSessionService } from '../../services/gameSessionService';
 import { useMasterConnection } from '../../hooks/useMasterConnection';
 import { useDisplaySession } from '../../hooks/useDisplaySession';
 import { useMacroSequencer } from '../../hooks/useMacroSequencer';
@@ -57,6 +59,69 @@ import { SceneEditModal } from './modals/SceneEditModal';
 import { CharacterEditModal } from './modals/CharacterEditModal';
 import { SummonCharacterModal } from './modals/SummonCharacterModal';
 import { MasterQRModal } from './modals/MasterQRModal';
+import { EmergencyDock } from './EmergencyDock';
+import { SessionPanel } from './SessionPanel';
+import { ManageFavoritesModal } from './modals/ManageFavoritesModal';
+import { SceneCompositorModal } from './modals/SceneCompositorModal';
+import { ConversationEditorModal } from './modals/ConversationEditorModal';
+import { CampaignRevelationJournalModal } from './modals/CampaignRevelationJournalModal';
+import { SessionPrepWizardModal } from './modals/SessionPrepWizardModal';
+import { HandoutViewerModal } from './modals/HandoutViewerModal';
+import { CampaignRecapModal } from './modals/CampaignRecapModal';
+import { SoundboardModal } from './modals/SoundboardModal';
+import { BiomeSoundtrackModal } from './modals/BiomeSoundtrackModal';
+import { LightingPresetsModal } from './modals/LightingPresetsModal';
+import { SessionChronicleExportModal } from './modals/SessionChronicleExportModal';
+import { SessionLibraryModal } from './modals/SessionLibraryModal';
+import {
+  advanceCombatTurnWithTimer,
+  startCombatTurnTimer,
+  pauseCombatTurnTimer,
+  addSecondsToCombatTurnTimer,
+  resetCombatTurnTimer,
+} from '../../domain/combat/combatTimerCoordinator';
+import type {
+  GameSession,
+  SceneVariant,
+  SceneProp,
+  SceneCompositionPreset,
+  ElementTransitionDirective,
+  CinematicDialogue,
+  CameraTransform,
+  SavedConversation,
+  SceneLight,
+  DialogueLineActions,
+  DialogueBranchChoice,
+  SceneZoneEmitter,
+  SceneInteraction,
+  SceneInteractionTransition,
+  CampaignKnowledgeEntry,
+  CampaignWorldStateEntry,
+  SessionPrepDraft,
+  CombatTrackingMode,
+  DuckingPreset,
+  HandoutState,
+  CampaignRecap,
+  LightningConfig,
+  BiomeSoundProfile,
+  SceneSituation,
+  SceneLightingPreset,
+  LightingApplyMode,
+} from '../../types';
+import {
+  findBiomeProfile,
+  resolveBiomeTrackLayer,
+} from '../../domain/audio/biomeDefaults';
+import { resolveAudioTransitionPlan } from '../../domain/audio/biomeSoundCoordinator';
+import {
+  DEFAULT_LIGHTNING_CONFIG,
+  createWeatherStormEvent,
+  computeNextStormInterval,
+} from '../../domain/weather/weatherStormCoordinator';
+import { calculateGroupFraming } from '../../domain/display/cameraFraming';
+import { useEmergencyActions } from '../../hooks/useEmergencyActions';
+import { useFavoritesActions } from '../../hooks/useFavoritesActions';
+import { sessionCommandBus } from '../../services/sessionCommandBus';
 import { TransportStatusChip } from '../common/TransportStatusChip';
 import type { TransportStatusState } from '../common/TransportStatusChip';
 import {
@@ -143,6 +208,26 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const [showNewCharModal, setShowNewCharModal] = useState<boolean>(false);
   const [editingChar, setEditingChar] = useState<Character | null>(null);
   const [diceLog, setDiceLog] = useState<{ id: string; text: string; time: string }[]>([]);
+
+  // Session View & Favorites State
+  const [sessionViewMode, setSessionViewMode] = useState<'session' | 'classic'>('session');
+  const [showManageFavoritesModal, setShowManageFavoritesModal] = useState<boolean>(false);
+  const [showCompositorModal, setShowCompositorModal] = useState<boolean>(false);
+  const [showConversationEditor, setShowConversationEditor] = useState<boolean>(false);
+  const [editingConversation, setEditingConversation] = useState<SavedConversation | null>(null);
+  const [showRevelationJournalModal, setShowRevelationJournalModal] = useState<boolean>(false);
+  const [showSessionPrepWizardModal, setShowSessionPrepWizardModal] = useState<boolean>(false);
+  const [showHandoutViewerModal, setShowHandoutViewerModal] = useState<boolean>(false);
+  const [showCampaignRecapModal, setShowCampaignRecapModal] = useState<boolean>(false);
+  const [showSoundboardModal, setShowSoundboardModal] = useState<boolean>(false);
+  const [showBiomeSoundtrackModal, setShowBiomeSoundtrackModal] = useState<boolean>(false);
+  const [showLightingPresetsModal, setShowLightingPresetsModal] = useState<boolean>(false);
+  const [showChronicleExportModal, setShowChronicleExportModal] = useState<boolean>(false);
+  const [showSessionLibraryModal, setShowSessionLibraryModal] = useState<boolean>(false);
+  const [lightningConfig, setLightningConfig] = useState<LightningConfig>(DEFAULT_LIGHTNING_CONFIG);
+  const [executedActionLineIds, setExecutedActionLineIds] = useState<Record<string, string>>({});
+  const [selectedChoiceIds, setSelectedChoiceIds] = useState<Record<string, string>>({});
+  const [executingInteractionId, setExecutingInteractionId] = useState<string | null>(null);
 
   // 1. Connection Hook
   const {
@@ -237,37 +322,47 @@ export const MasterController: React.FC<MasterControllerProps> = ({
       setEncountersList(encs.length > 0 ? encs : DEMO_ENCOUNTERS);
 
       if (camp.scenes.length > 0) {
-        const initialScene = camp.scenes[0];
-        const initialState: DisplayState = {
-          currentSceneId: initialScene.id,
-          sceneName: initialScene.name,
-          backgroundUrl: initialScene.backgroundUrl,
-          characters: [],
-          weather: initialScene.weather || 'none',
-          weatherIntensity: initialScene.weatherIntensity ?? 0.5,
-          lighting: initialScene.lighting || 'normal',
-          locationBanner: {
-            text: initialScene.locationBanner || initialScene.name,
-            subtitle: initialScene.subtitle || '',
-            visible: true,
-          },
-          isBlackout: false,
-          shakeTrigger: 0,
-          lightningTrigger: 0,
-          ambientAudioUrl: initialScene.ambientAudioUrl || '',
-          ambientPlaying: false,
-          ambientVolume: 0.5,
-          lastSfx: null,
-          combatState: {
-            isActive: false,
-            round: 1,
-            currentTurnIndex: 0,
-            combatants: [],
-            turnTimerSeconds: 60,
-            showTurnTimerToPlayers: true,
-          },
-        };
-        initSessionState(initialState);
+        // Intentar recuperar el borrador persistido de la sesión activa
+        const activeSession = await gameSessionService.loadOrCreateSession(camp.id);
+        const persistedDraft = activeSession?.stagedState;
+
+        if (persistedDraft) {
+          // Restaurar borrador exacto (sin publicarlo a la Mesa)
+          initSessionState(persistedDraft);
+        } else {
+          // Sin borrador: inicializar desde la primera escena de la campaña
+          const initialScene = camp.scenes[0];
+          const initialState: DisplayState = {
+            currentSceneId: initialScene.id,
+            sceneName: initialScene.name,
+            backgroundUrl: initialScene.backgroundUrl,
+            characters: [],
+            weather: initialScene.weather || 'none',
+            weatherIntensity: initialScene.weatherIntensity ?? 0.5,
+            lighting: initialScene.lighting || 'normal',
+            locationBanner: {
+              text: initialScene.locationBanner || initialScene.name,
+              subtitle: initialScene.subtitle || '',
+              visible: true,
+            },
+            isBlackout: false,
+            shakeTrigger: 0,
+            lightningTrigger: 0,
+            ambientAudioUrl: initialScene.ambientAudioUrl || '',
+            ambientPlaying: false,
+            ambientVolume: 0.5,
+            lastSfx: null,
+            combatState: {
+              isActive: false,
+              round: 1,
+              currentTurnIndex: 0,
+              combatants: [],
+              turnTimerSeconds: 60,
+              showTurnTimerToPlayers: true,
+            },
+          };
+          initSessionState(initialState);
+        }
       }
     };
     loadData();
@@ -312,6 +407,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   ]);
 
   // Session Recovery: Save non-sensitive transactional snapshot for crash / process death recovery
+  // También guarda el borrador en la sesión persistida (independiente del recovery de caídas)
   useEffect(() => {
     if (roomCode && campaign) {
       sessionRecoveryService.saveIncrementalSnapshot({
@@ -329,6 +425,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         lastSceneName: activeDisplay.sceneName,
       });
     }
+    // Guardado persistente del borrador en la sesión activa (independiente del recovery de caídas)
+    gameSessionService.saveDraftDebounced(stagedState);
   }, [
     roomCode,
     campaign,
@@ -623,13 +721,259 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   };
 
   // Audio Controls
-  const toggleAmbientPlay = () => {
-    if (!activeDisplay.ambientAudioUrl) return;
+  const toggleAmbientAudio = () => {
     const next = !activeDisplay.ambientPlaying;
-    updateDisplay((prev) => ({ ...prev, ambientPlaying: next }), next ? 'Música Reanudada' : 'Música Pausada');
-    if (operationMode === 'live') {
+    updateDisplay((prev) => ({ ...prev, ambientPlaying: next }), next ? 'Música Iniciada' : 'Música Pausada');
+    if (activeDisplay.ambientAudioUrl) {
       soundEngine.setAmbient(activeDisplay.ambientAudioUrl, next, activeDisplay.ambientVolume, true);
     }
+  };
+
+  const toggleAmbientPlay = toggleAmbientAudio;
+
+  // Modular Coordinators (Strangler Pattern)
+  const {
+    isMuted: isMasterAudioMuted,
+    toggleMuteTotal: handleToggleMuteTotal,
+    toggleBlackout: handleToggleBlackout,
+    cancelRunningMacro: handleCancelRunningMacro,
+    createQuickCheckpoint: handleCreateQuickCheckpoint,
+    checkpointReceipt,
+    muteReceipt,
+    blackoutReceipt,
+  } = useEmergencyActions({
+    isBlackout: activeDisplay.isBlackout,
+    updateDisplay,
+    runningMacro,
+    cancelMacro,
+    restoreSnapshot,
+    liveState,
+    campaignId: campaign?.id || 'camp-default',
+    saveCheckpoint,
+  });
+
+  const {
+    saveFavorites: handleSaveFavorites,
+    executeFavorite: handleExecuteFavorite,
+  } = useFavoritesActions({
+    campaign,
+    updateCampaign,
+    setCampaign,
+    selectScene,
+    handleExecuteMacro,
+    liveState,
+    saveCheckpoint,
+  });
+
+  const handlePublishAllStagedWithAck = useCallback(async (): Promise<boolean> => {
+    publishAllStaged();
+    const cmdId = sessionCommandBus.dispatchFullState(stagedState, sessionRevision + 1);
+    const receipt = await sessionCommandBus.waitForResult(cmdId, 5000);
+    return receipt.status === 'applied';
+  }, [publishAllStaged, stagedState, sessionRevision]);
+
+  const handlePrepareSceneInStaging = (scene: Scene) => {
+    let suggestedCharacters: CharacterOnScreen[] = [];
+    if (scene.suggestedNpcIds && scene.suggestedNpcIds.length > 0 && campaign) {
+      suggestedCharacters = campaign.characters
+        .filter((c) => scene.suggestedNpcIds?.includes(c.id))
+        .map((c, idx) => {
+          const positions: CharacterPosition[] = ['center-left', 'center-right', 'left', 'right'];
+          return {
+            id: `active-${c.id}-${Date.now()}`,
+            characterId: c.id,
+            name: c.name,
+            avatarUrl: c.defaultAvatarUrl,
+            position: positions[idx % positions.length],
+            isSpeaking: false,
+          };
+        });
+    }
+
+    setOperationMode('staging');
+    setPreviewTab('staged');
+    updateDisplay(
+      (prev) => ({
+        ...prev,
+        currentSceneId: scene.id,
+        sceneName: scene.name,
+        backgroundUrl: scene.backgroundUrl,
+        weather: scene.weather || 'none',
+        weatherIntensity: scene.weatherIntensity ?? 0.5,
+        lighting: scene.lighting || 'normal',
+        locationBanner: {
+          text: scene.locationBanner || scene.name,
+          subtitle: scene.subtitle || '',
+          visible: true,
+        },
+        characters: suggestedCharacters.length > 0 ? suggestedCharacters : prev.characters,
+        ambientAudioUrl: scene.ambientAudioUrl || prev.ambientAudioUrl,
+        ambientPlaying: scene.ambientAudioUrl ? true : prev.ambientPlaying,
+      }),
+      `Preparada en Borrador: "${scene.name}"`
+    );
+  };
+
+  const handleNextCombatTurn = () => {
+    const cs = liveState.combatState;
+    if (!cs?.isActive || cs.combatants.length === 0) return;
+    soundEngine.playSynth('gong');
+    const deployed = cs.combatants.filter((c) => c.isDeployed !== false);
+    const nextIndex = cs.currentTurnIndex + 1;
+    const isNewRound = nextIndex >= deployed.length;
+    const newTurnIndex = isNewRound ? 0 : nextIndex;
+    const newRound = isNewRound ? cs.round + 1 : cs.round;
+    const activeCombatant = deployed[newTurnIndex];
+    const targetChar = activeCombatant
+      ? liveState.characters.find((c) => c.id === activeCombatant.characterId || c.id === activeCombatant.id)
+      : null;
+
+    const baseUpdated = advanceCombatTurnWithTimer(cs, newTurnIndex, newRound);
+    const updatedCombat: CombatState = {
+      ...baseUpdated,
+      suggestedFocusCharacterId: targetChar ? targetChar.id : null,
+    };
+
+    let newCamera = liveState.camera;
+    if (cs.trackingMode === 'auto' && targetChar) {
+      newCamera = {
+        focalPoint: {
+          x: targetChar.normalizedX ?? 50,
+          y: targetChar.normalizedY ?? 50,
+        },
+        zoom: 1.35,
+      };
+    }
+
+    updateDisplay(
+      (prev) => ({ ...prev, combatState: updatedCombat, camera: newCamera || prev.camera }),
+      `Avanzado Turno: Ronda ${updatedCombat.round}`
+    );
+  };
+
+  const handlePrevCombatTurn = () => {
+    const cs = liveState.combatState;
+    if (!cs?.isActive || cs.combatants.length === 0) return;
+    const deployed = cs.combatants.filter((c) => c.isDeployed !== false);
+    const prevIndex = cs.currentTurnIndex - 1;
+    let newTurnIndex = prevIndex;
+    let newRound = cs.round;
+
+    if (prevIndex < 0) {
+      if (cs.round > 1) {
+        newRound = cs.round - 1;
+        newTurnIndex = Math.max(0, deployed.length - 1);
+      } else {
+        newTurnIndex = 0;
+      }
+    }
+
+    const activeCombatant = deployed[newTurnIndex];
+    const targetChar = activeCombatant
+      ? liveState.characters.find((c) => c.id === activeCombatant.characterId || c.id === activeCombatant.id)
+      : null;
+
+    const baseUpdated = advanceCombatTurnWithTimer(cs, newTurnIndex, newRound);
+    const updatedCombat: CombatState = {
+      ...baseUpdated,
+      suggestedFocusCharacterId: targetChar ? targetChar.id : null,
+    };
+
+    let newCamera = liveState.camera;
+    if (cs.trackingMode === 'auto' && targetChar) {
+      newCamera = {
+        focalPoint: {
+          x: targetChar.normalizedX ?? 50,
+          y: targetChar.normalizedY ?? 50,
+        },
+        zoom: 1.35,
+      };
+    }
+
+    updateDisplay(
+      (prev) => ({ ...prev, combatState: updatedCombat, camera: newCamera || prev.camera }),
+      `Retrocedido Turno: Ronda ${updatedCombat.round}`
+    );
+  };
+
+  const handleToggleCombatTimer = () => {
+    const cs = liveState.combatState;
+    if (!cs?.isActive) return;
+    const updated = cs.isTimerRunning ? pauseCombatTurnTimer(cs) : startCombatTurnTimer(cs);
+    updateDisplay((prev) => ({ ...prev, combatState: updated }), 'Temporizador de Combate');
+  };
+
+  const handleAddCombatTimerSeconds = (seconds: number = 30) => {
+    const cs = liveState.combatState;
+    if (!cs?.isActive) return;
+    const updated = addSecondsToCombatTurnTimer(cs, seconds);
+    updateDisplay((prev) => ({ ...prev, combatState: updated }), `Añadir +${seconds}s al Turno`);
+  };
+
+  const handleResetCombatTimer = () => {
+    const cs = liveState.combatState;
+    if (!cs?.isActive) return;
+    const updated = resetCombatTurnTimer(cs);
+    updateDisplay((prev) => ({ ...prev, combatState: updated }), 'Reiniciar Temporizador');
+  };
+
+  const handleToggleCombatTimerVisibility = () => {
+    const cs = liveState.combatState;
+    if (!cs?.isActive) return;
+    const next = cs.showTurnTimerToPlayers === false ? true : false;
+    const updated: CombatState = { ...cs, showTurnTimerToPlayers: next };
+    updateDisplay((prev) => ({ ...prev, combatState: updated }), 'Visibilidad del Reloj en Mesa');
+  };
+
+  const handleFocusCombatant = async (characterId: string) => {
+    const targetChar = liveState.characters.find(
+      (c) => c.id === characterId || (c as any).characterId === characterId
+    );
+    if (!targetChar) return;
+
+    const posX = targetChar.normalizedX ?? 50;
+    const posY = targetChar.normalizedY ?? 50;
+    const newCamera: CameraTransform = {
+      focalPoint: { x: posX, y: posY },
+      zoom: 1.35,
+    };
+    await handleSetCameraTransform(newCamera);
+  };
+
+  const handleToggleCombatTrackingMode = async (mode: CombatTrackingMode) => {
+    const updatedCombat: CombatState = {
+      ...liveState.combatState,
+      trackingMode: mode,
+    };
+    updateDisplay(
+      (prev) => ({ ...prev, combatState: updatedCombat }),
+      `Seguimiento de Combate: ${mode}`,
+      true
+    );
+  };
+
+  const handleToggleDmSpeakingDucked = () => {
+    const nextDucked = !liveState.isDmSpeakingDucked;
+    if (nextDucked) {
+      soundEngine.acquireDucking('dm_speaking', liveState.duckingProfile);
+    } else {
+      soundEngine.releaseDucking('dm_speaking');
+    }
+    updateDisplay(
+      (prev) => ({ ...prev, isDmSpeakingDucked: nextDucked }),
+      nextDucked ? 'Voz DM Activada (Audio Atenuado)' : 'Voz DM Finalizada (Audio Normal)',
+      true
+    );
+  };
+
+  const handleSelectDuckingPreset = (preset: DuckingPreset) => {
+    const profile = DUCKING_PRESETS[preset];
+    soundEngine.setDuckingProfile(profile);
+    updateDisplay(
+      (prev) => ({ ...prev, duckingProfile: profile }),
+      `Perfil de Atenuación: ${preset}`,
+      true
+    );
   };
 
   const handleAmbientVolumeChange = (vol: number) => {
@@ -716,6 +1060,637 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         }
       };
     }
+  };
+
+  const handleSaveCompositorCharacters = async (
+    updatedCharacters: CharacterOnScreen[],
+    updatedProps: SceneProp[],
+    applyDirectlyToLive: boolean,
+    transitions?: ElementTransitionDirective[]
+  ) => {
+    if (applyDirectlyToLive) {
+      updateDisplay(
+        (prev) => ({
+          ...prev,
+          characters: updatedCharacters,
+          props: updatedProps,
+          activeTransitions: transitions || prev.activeTransitions,
+        }),
+        'Composición de personajes y objetos actualizada',
+        true
+      );
+      const cmdId = sessionCommandBus.dispatchFullState(
+        {
+          ...liveState,
+          characters: updatedCharacters,
+          props: updatedProps,
+          activeTransitions: transitions,
+        },
+        sessionRevision + 1
+      );
+      await sessionCommandBus.waitForResult(cmdId, 5000);
+    } else {
+      setOperationMode('staging');
+      updateDisplay(
+        (prev) => ({
+          ...prev,
+          characters: updatedCharacters,
+          props: updatedProps,
+          activeTransitions: transitions || prev.activeTransitions,
+        }),
+        'Borrador de composición preparado'
+      );
+    }
+  };
+
+  const handleSaveCompositionPreset = async (preset: SceneCompositionPreset) => {
+    if (!campaign) return;
+    const existing = campaign.savedCompositions || [];
+    const updatedCompositions = [...existing.filter((c) => c.id !== preset.id), preset];
+    const updatedCampaign: Campaign = {
+      ...campaign,
+      savedCompositions: updatedCompositions,
+      updatedAt: Date.now(),
+    };
+    await db.campaigns.put(updatedCampaign);
+    setCampaign(updatedCampaign);
+  };
+
+  const executeDialogueActions = async (
+    actions: DialogueLineActions,
+    lineId: string,
+    attempt: number = 1
+  ) => {
+    // Record attempt to prevent duplicate execution
+    setExecutedActionLineIds((prev) => ({
+      ...prev,
+      [lineId]: `att-${lineId}-${attempt}-${Date.now()}`,
+    }));
+
+    // 1. Camera action
+    if (actions.cameraPreset) {
+      if (actions.cameraPreset === 'general') {
+        await handleResetCamera();
+      } else if (actions.cameraPreset === 'speaker') {
+        const speaking =
+          liveState.characters.find((c) => c.isSpeaking) || liveState.characters[0];
+        if (speaking) {
+          const targetX = speaking.normalizedX ?? 50;
+          const targetY = Math.max(25, (speaking.normalizedY ?? 50) - 15);
+          await handleSetCameraTransform({ focalPoint: { x: targetX, y: targetY }, zoom: 1.45 });
+        }
+      } else if (actions.cameraPreset === 'group') {
+        if (liveState.characters.length >= 2) {
+          const framing = calculateGroupFraming(liveState.characters, {
+            hasActiveDialogue: true,
+            hasActiveInitiative: !!liveState.combatState?.isActive,
+            hasActiveBanner: !!liveState.locationBanner?.visible,
+          });
+          await handleSetCameraTransform(framing.camera);
+        }
+      } else if (actions.cameraPreset === 'custom' && actions.customCamera) {
+        await handleSetCameraTransform(actions.customCamera);
+      }
+    }
+
+    // 2. Character expression update
+    if (actions.expression) {
+      const targetSpeaker =
+        liveState.characters.find((c) => c.isSpeaking) || liveState.characters[0];
+      if (targetSpeaker) {
+        const updatedChars = liveState.characters.map((c) =>
+          c.id === targetSpeaker.id ? { ...c, activeExpression: actions.expression } : c
+        );
+        updateDisplay(
+          (prev) => ({ ...prev, characters: updatedChars }),
+          `Expresión: ${actions.expression}`,
+          true
+        );
+      }
+    }
+
+    // 3. Moment / Macro trigger
+    if (actions.momentId && campaign?.macros) {
+      const macro = campaign.macros.find((m) => m.id === actions.momentId);
+      if (macro) {
+        handleExecuteMacro(macro);
+      } else {
+        console.warn(`[DialogueActions] Momento ${actions.momentId} no encontrado en campaña.`);
+      }
+    }
+  };
+
+  const handlePublishDialogue = async (
+    dialogue: CinematicDialogue,
+    actions?: DialogueLineActions,
+    lineId?: string
+  ) => {
+    updateDisplay((prev) => ({ ...prev, dialogue }), 'Diálogo en pantalla proyectado', true);
+    const cmdId = sessionCommandBus.dispatchDialogue(dialogue);
+    await sessionCommandBus.waitForResult(cmdId, 5000);
+
+    // Idempotent action execution: execute ONLY once per line attempt
+    if (actions && lineId) {
+      const alreadyExecuted = executedActionLineIds[lineId];
+      if (!alreadyExecuted) {
+        await executeDialogueActions(actions, lineId, 1);
+      }
+    }
+  };
+
+  const handleRepeatDialogueActions = async (actions: DialogueLineActions, lineId: string) => {
+    await executeDialogueActions(actions, lineId, Date.now());
+  };
+
+  const handleDismissDialogue = async () => {
+    updateDisplay((prev) => ({ ...prev, dialogue: null }), 'Diálogo ocultado', true);
+    const cmdId = sessionCommandBus.dispatchDismissDialogue();
+    await sessionCommandBus.waitForResult(cmdId, 5000);
+  };
+
+  const handleCompleteDialogueText = async () => {
+    if (!liveState.dialogue) return;
+    const updated = { ...liveState.dialogue, isCompleted: true };
+    updateDisplay((prev) => ({ ...prev, dialogue: updated }), 'Texto completado', true);
+    const cmdId = sessionCommandBus.dispatchDialogue(updated);
+    await sessionCommandBus.waitForResult(cmdId, 5000);
+  };
+
+  const handleSetCameraTransform = async (camera: CameraTransform, durationMs: number = 800) => {
+    updateDisplay((prev) => ({ ...prev, camera }), `Cámara: Zoom ${camera.zoom.toFixed(1)}x`, true);
+    const cmdId = sessionCommandBus.dispatchCameraTransform(camera, durationMs);
+    await sessionCommandBus.waitForResult(cmdId, 5000);
+  };
+
+  const handleResetCamera = async () => {
+    await handleSetCameraTransform({ focalPoint: { x: 50, y: 50 }, zoom: 1.0 }, 600);
+  };
+
+  const handleRevealCharacterAppearance = async (instanceId: string) => {
+    const updatedChars = liveState.characters.map((c) =>
+      c.id === instanceId && c.revelation
+        ? {
+            ...c,
+            revelation: {
+              ...c.revelation,
+              isAppearanceRevealed: true,
+            },
+          }
+        : c
+    );
+    updateDisplay((prev) => ({ ...prev, characters: updatedChars }), 'Rostro de personaje revelado', true);
+
+    if (campaign) {
+      const existing = campaign.knowledgeEntries || [];
+      const target = liveState.characters.find((c) => c.id === instanceId);
+      const entryId = `know-app-${instanceId}`;
+      if (!existing.some((k) => k.id === entryId)) {
+        const newEntry: CampaignKnowledgeEntry = {
+          id: entryId,
+          type: 'npc_appearance',
+          title: `Rostro de ${target?.name || 'Personaje'} revelado`,
+          description: `Los jugadores vieron por primera vez la apariencia real de ${target?.name || 'este personaje'}.`,
+          targetId: instanceId,
+          revealedAt: Date.now(),
+          source: 'auto_interaction',
+        };
+        const updatedCamp: Campaign = {
+          ...campaign,
+          knowledgeEntries: [newEntry, ...existing],
+          updatedAt: Date.now(),
+        };
+        await db.campaigns.put(updatedCamp);
+        setCampaign(updatedCamp);
+      }
+    }
+  };
+
+  const handleRevealCharacterIdentity = async (instanceId: string) => {
+    const updatedChars = liveState.characters.map((c) =>
+      c.id === instanceId && c.revelation
+        ? {
+            ...c,
+            revelation: {
+              ...c.revelation,
+              isIdentityRevealed: true,
+            },
+          }
+        : c
+    );
+    updateDisplay((prev) => ({ ...prev, characters: updatedChars }), 'Identidad de personaje revelada', true);
+
+    if (campaign) {
+      const existing = campaign.knowledgeEntries || [];
+      const target = liveState.characters.find((c) => c.id === instanceId);
+      const entryId = `know-id-${instanceId}`;
+      if (!existing.some((k) => k.id === entryId)) {
+        const newEntry: CampaignKnowledgeEntry = {
+          id: entryId,
+          type: 'npc_identity',
+          title: `Identidad de ${target?.name || 'Personaje'} revelada`,
+          description: `Se reveló el verdadero nombre e identidad de ${target?.name || 'este personaje'}.`,
+          targetId: instanceId,
+          revealedAt: Date.now(),
+          source: 'auto_interaction',
+        };
+        const updatedCamp: Campaign = {
+          ...campaign,
+          knowledgeEntries: [newEntry, ...existing],
+          updatedAt: Date.now(),
+        };
+        await db.campaigns.put(updatedCamp);
+        setCampaign(updatedCamp);
+      }
+    }
+  };
+
+  const handleSaveConversation = async (conversationToSave: SavedConversation) => {
+    if (!campaign) return;
+    const existing = campaign.savedConversations || [];
+    const updatedConversations = [
+      ...existing.filter((c) => c.id !== conversationToSave.id),
+      conversationToSave,
+    ];
+    const updatedCampaign: Campaign = {
+      ...campaign,
+      savedConversations: updatedConversations,
+      updatedAt: Date.now(),
+    };
+    await db.campaigns.put(updatedCampaign);
+    setCampaign(updatedCampaign);
+  };
+
+  const handleUpdateSceneLights = async (lights: SceneLight[]) => {
+    updateDisplay((prev) => ({ ...prev, lights }), `Luces de escena actualizadas (${lights.length})`, true);
+    const cmdId = sessionCommandBus.dispatchSceneLights(lights);
+    await sessionCommandBus.waitForResult(cmdId, 5000);
+  };
+
+  const handleUpdateZoneEmitters = async (emitters: SceneZoneEmitter[]) => {
+    updateDisplay(
+      (prev) => ({ ...prev, emitters }),
+      `Emisores de ambiente actualizados (${emitters.length})`,
+      true
+    );
+    const cmdId = sessionCommandBus.dispatchZoneEmitters(emitters);
+    await sessionCommandBus.waitForResult(cmdId, 5000);
+  };
+
+  const handleTriggerInteraction = async (
+    interaction: SceneInteraction,
+    transition: SceneInteractionTransition
+  ) => {
+    if (executingInteractionId) return;
+    setExecutingInteractionId(transition.id);
+
+    try {
+      // 1. Update interactions list with new currentState
+      const updatedInteractions = (liveState.interactions || []).map((i) =>
+        i.id === interaction.id ? { ...i, currentState: transition.toState } : i
+      );
+
+      // 2. Update target prop visualStateId if specified
+      let updatedProps = liveState.props || [];
+      if (transition.visualStateId && interaction.targetInstanceId) {
+        updatedProps = updatedProps.map((p) =>
+          p.id === interaction.targetInstanceId
+            ? { ...p, visualStateId: transition.visualStateId }
+            : p
+        );
+      }
+
+      // 3. Update linked light visibility if specified
+      let updatedLights = liveState.lights || [];
+      if (transition.lightId) {
+        updatedLights = updatedLights.map((l) =>
+          l.id === transition.lightId
+            ? { ...l, visible: transition.toState === 'lit' || transition.toState === 'open' }
+            : l
+        );
+      }
+
+      // 4. Update linked emitter if specified
+      let updatedEmitters = liveState.emitters || [];
+      if (transition.emitterId) {
+        updatedEmitters = updatedEmitters.map((e) =>
+          e.id === transition.emitterId
+            ? { ...e, enabled: transition.toState === 'lit' || transition.toState === 'open' }
+            : e
+        );
+      }
+
+      // 5. Persist to campaign if scope is 'session' or 'campaign'
+      if ((interaction.scope === 'session' || interaction.scope === 'campaign') && campaign) {
+        const existingStates = campaign.interactionStates || {};
+        const existingWorld = campaign.worldStateEntries || [];
+        const updatedWorld: CampaignWorldStateEntry[] = [
+          ...existingWorld.filter((w) => w.id !== interaction.targetInstanceId),
+          {
+            id: interaction.targetInstanceId,
+            targetName: interaction.name,
+            state: transition.toState,
+            scope: interaction.scope,
+            lastModifiedAt: Date.now(),
+          },
+        ];
+        const updatedCampaign: Campaign = {
+          ...campaign,
+          interactionStates: {
+            ...existingStates,
+            [interaction.targetInstanceId]: transition.toState,
+          },
+          worldStateEntries: updatedWorld,
+          updatedAt: Date.now(),
+        };
+        await db.campaigns.put(updatedCampaign);
+        setCampaign(updatedCampaign);
+      }
+
+      // 6. Update display and dispatch full state with real ACK
+      const nextDisplay: DisplayState = {
+        ...liveState,
+        props: updatedProps,
+        lights: updatedLights,
+        emitters: updatedEmitters,
+        interactions: updatedInteractions,
+      };
+
+      updateDisplay(
+        () => nextDisplay,
+        `Interacción: ${interaction.name} -> ${transition.label}`,
+        true
+      );
+      const cmdId = sessionCommandBus.dispatchFullState(nextDisplay);
+      await sessionCommandBus.waitForResult(cmdId, 5000);
+
+      // 7. Ephemeral SFX dispatch (deduplicated, non-blocking)
+      if (transition.sfxPreset || transition.sfxAudioUrl) {
+        sessionCommandBus.dispatchSfx(
+          transition.sfxPreset || 'interaction',
+          transition.sfxAudioUrl,
+          transition.label
+        );
+      }
+    } catch (err) {
+      console.error('[SceneInteraction] Error executing interaction:', err);
+    } finally {
+      setExecutingInteractionId(null);
+    }
+  };
+
+  const handleApplySessionPrepDraft = async (
+    draft: SessionPrepDraft,
+    preparedState: DisplayState
+  ) => {
+    setOperationMode('staging');
+    updateDisplay(() => preparedState, 'Borrador de sesión preparado en Staging', false);
+
+    if (campaign) {
+      const updatedCampaign: Campaign = {
+        ...campaign,
+        sessionPrepDraft: {
+          ...draft,
+          status: 'applied',
+          updatedAt: Date.now(),
+        },
+        updatedAt: Date.now(),
+      };
+      await db.campaigns.put(updatedCampaign);
+      setCampaign(updatedCampaign);
+    }
+  };
+
+  const handleSaveSessionPrepDraft = async (draft: SessionPrepDraft) => {
+    if (campaign) {
+      const updatedCampaign: Campaign = {
+        ...campaign,
+        sessionPrepDraft: draft,
+        updatedAt: Date.now(),
+      };
+      await db.campaigns.put(updatedCampaign);
+      setCampaign(updatedCampaign);
+    }
+  };
+
+  const handleProjectHandout = async (handout: HandoutState) => {
+    updateDisplay((prev) => ({ ...prev, activeHandout: handout }), `Handout: "${handout.title}" proyectado`, true);
+    const cmdId = sessionCommandBus.dispatchActiveHandout(handout);
+    await sessionCommandBus.waitForResult(cmdId, 5000);
+  };
+
+  const handleDismissHandout = async () => {
+    updateDisplay((prev) => ({ ...prev, activeHandout: null }), 'Handout retirado de la Mesa', true);
+    const cmdId = sessionCommandBus.dispatchActiveHandout(null);
+    await sessionCommandBus.waitForResult(cmdId, 5000);
+  };
+
+  const handleProjectRecap = async (recap: CampaignRecap) => {
+    updateDisplay(
+      (prev) => ({ ...prev, activeRecap: recap }),
+      `Crónica de apertura proyectada (Diapositiva ${recap.currentSlideIndex + 1})`,
+      true
+    );
+    const cmdId = sessionCommandBus.dispatchActiveRecap(recap);
+    await sessionCommandBus.waitForResult(cmdId, 5000);
+  };
+
+  const handleDismissRecap = async () => {
+    updateDisplay((prev) => ({ ...prev, activeRecap: null }), 'Crónica de apertura cerrada', true);
+    const cmdId = sessionCommandBus.dispatchActiveRecap(null);
+    await sessionCommandBus.waitForResult(cmdId, 5000);
+  };
+
+  const handleSaveRecap = async (recap: CampaignRecap) => {
+    if (campaign) {
+      const updatedCampaign: Campaign = {
+        ...campaign,
+        savedRecap: recap,
+        updatedAt: Date.now(),
+      };
+      await db.campaigns.put(updatedCampaign);
+      setCampaign(updatedCampaign);
+    }
+  };
+
+  const handleSelectSceneVariant = async (variant: SceneVariant) => {
+    updateDisplay(
+      (prev) => ({
+        ...prev,
+        backgroundUrl: variant.backgroundUrl,
+        activeVariantId: variant.id,
+        fitMode: variant.fitMode || prev.fitMode,
+        focalPoint: variant.focalPoint || prev.focalPoint,
+        zoom: variant.zoom !== undefined ? variant.zoom : prev.zoom,
+        lighting: variant.lighting || prev.lighting,
+        weather: variant.weather || prev.weather,
+        weatherIntensity: variant.weatherIntensity !== undefined ? variant.weatherIntensity : prev.weatherIntensity,
+        ambientAudioUrl: variant.ambientAudioUrl || prev.ambientAudioUrl,
+      }),
+      `Variante: "${variant.name}"`,
+      true
+    );
+
+    const cmdId = sessionCommandBus.dispatchFullState(
+      {
+        ...activeDisplay,
+        backgroundUrl: variant.backgroundUrl,
+        activeVariantId: variant.id,
+        fitMode: variant.fitMode,
+        focalPoint: variant.focalPoint,
+        zoom: variant.zoom,
+        lighting: variant.lighting || activeDisplay.lighting,
+        weather: variant.weather || activeDisplay.weather,
+        weatherIntensity: variant.weatherIntensity ?? activeDisplay.weatherIntensity,
+        ambientAudioUrl: variant.ambientAudioUrl || activeDisplay.ambientAudioUrl,
+      },
+      sessionRevision + 1
+    );
+    await sessionCommandBus.waitForResult(cmdId, 5000);
+  };
+
+  // Storm Coordinator loop: stochastic strikes when enabled during rain/storm
+  useEffect(() => {
+    if (!lightningConfig.enabled) return;
+    if (liveState.weather !== 'storm' && liveState.weather !== 'rain') return;
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let isMounted = true;
+
+    const scheduleNextStrike = () => {
+      const intervalMs = computeNextStormInterval(lightningConfig, liveState.weatherIntensity);
+      timeoutId = setTimeout(() => {
+        if (!isMounted) return;
+        const stormEvent = createWeatherStormEvent(lightningConfig, liveState.weatherIntensity);
+        sessionCommandBus.dispatchStormLightning(stormEvent);
+        scheduleNextStrike();
+      }, intervalMs);
+    };
+
+    scheduleNextStrike();
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [
+    lightningConfig.enabled,
+    lightningConfig.minIntervalMs,
+    lightningConfig.maxIntervalMs,
+    lightningConfig.disableFlashes,
+    liveState.weather,
+    liveState.weatherIntensity,
+  ]);
+
+  const handleToggleAutoStorm = () => {
+    setLightningConfig((prev) => ({ ...prev, enabled: !prev.enabled }));
+  };
+
+  const handleToggleDisableFlash = () => {
+    setLightningConfig((prev) => ({ ...prev, disableFlashes: !prev.disableFlashes }));
+  };
+
+  const handleSelectSituation = async (situation: SceneSituation) => {
+    const activeScene = campaign?.scenes?.find((s) => s.id === liveState.currentSceneId);
+    const profile = findBiomeProfile(
+      campaign?.biomeProfiles,
+      activeScene?.biomeProfileId || activeScene?.name?.toLowerCase() || 'tavern'
+    );
+    if (!profile) return;
+
+    const targetLayer = resolveBiomeTrackLayer(profile, situation);
+    const plan = resolveAudioTransitionPlan(
+      {
+        url: liveState.ambientAudioUrl,
+        volume: liveState.ambientVolume,
+        playing: liveState.ambientPlaying,
+      },
+      targetLayer
+    );
+
+    if (plan.url) {
+      updateDisplay(
+        (prev) => ({
+          ...prev,
+          ambientAudioUrl: plan.url,
+          ambientVolume: plan.volume,
+          ambientPlaying: true,
+          currentSituation: situation,
+        }),
+        `Tono: ${situation}`
+      );
+      soundEngine.setAmbient(plan.url, true, plan.volume, plan.crossfade);
+    } else {
+      updateDisplay(
+        (prev) => ({
+          ...prev,
+          currentSituation: situation,
+        }),
+        `Tono: ${situation}`
+      );
+    }
+  };
+
+  const handleApplySoundtrack = async (url: string, volume: number, crossfade: boolean) => {
+    updateDisplay(
+      (prev) => ({
+        ...prev,
+        ambientAudioUrl: url,
+        ambientVolume: volume,
+        ambientPlaying: true,
+      }),
+      'Banda Sonora Aplicada'
+    );
+    soundEngine.setAmbient(url, true, volume, crossfade);
+  };
+
+  const handleSaveBiomeProfiles = async (newProfiles: BiomeSoundProfile[]) => {
+    if (!campaign) return;
+    const updatedCampaign: Campaign = {
+      ...campaign,
+      biomeProfiles: newProfiles,
+    };
+    await db.campaigns.put(updatedCampaign);
+    setCampaign(updatedCampaign);
+  };
+
+  const handleApplyLightingPreset = async (
+    preset: SceneLightingPreset,
+    mode: LightingApplyMode,
+    newLights: SceneLight[]
+  ) => {
+    updateDisplay(
+      (prev) => ({
+        ...prev,
+        lights: newLights,
+        lighting: preset.lightingFilter || prev.lighting,
+      }),
+      `Preset Luz: ${preset.name} (${mode === 'replace' ? 'Reemplazado' : 'Combinado'})`
+    );
+    sessionCommandBus.dispatchSceneLights(newLights);
+  };
+
+  const handleSaveLightingPreset = async (newPreset: SceneLightingPreset) => {
+    if (!campaign) return;
+    const updatedCampaign: Campaign = {
+      ...campaign,
+      lightingPresets: [...(campaign.lightingPresets || []), newPreset],
+    };
+    await db.campaigns.put(updatedCampaign);
+    setCampaign(updatedCampaign);
+  };
+
+  const handleLoadSessionFromLibrary = (loadedSession: GameSession, mode: 'live' | 'staged') => {
+    if (mode === 'live' && loadedSession.liveState) {
+      initSessionState(loadedSession.liveState);
+      broadcastFullState(loadedSession.liveState);
+    } else {
+      const targetState = loadedSession.stagedState || loadedSession.liveState;
+      if (targetState) {
+        initSessionState(targetState);
+        setOperationMode('staging');
+      }
+    }
+    setShowSessionLibraryModal(false);
   };
 
   const joinUrl = `${window.location.origin}${window.location.pathname}#join=${roomCode}${pairingSecret ? `&secret=${pairingSecret}` : ''}`;
@@ -1017,7 +1992,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
             onClick={() => setActiveTab('live')}
           >
             <Sliders size={16} />
-            <span>En Vivo</span>
+            <span>{sessionViewMode === 'session' ? 'Sesión' : 'En Vivo'}</span>
           </button>
           <button
             className={`nav-tab ${activeTab === 'moments' ? 'active' : ''}`}
@@ -1052,9 +2027,102 @@ export const MasterController: React.FC<MasterControllerProps> = ({
 
       {/* Main Tab Content */}
       <main className="master-content">
-        {/* TAB 1: LIVE STAGE */}
-        {activeTab === 'live' && (
+        {/* TAB 1: LIVE STAGE / SESSION PANEL */}
+        {activeTab === 'live' && sessionViewMode === 'session' && (
+          <SessionPanel
+            campaign={campaign}
+            liveState={liveState}
+            stagedState={stagedState}
+            operationMode={operationMode}
+            pendingChangesCount={pendingChangesCount}
+            connectionStatus={connectionStatus}
+            latencyMs={latencyMs}
+            roomCode={roomCode}
+            onSelectScene={selectScene}
+            onPrepareSceneInStaging={handlePrepareSceneInStaging}
+            onPublishAllStaged={handlePublishAllStagedWithAck}
+            onOpenSelectivePublish={() => setShowSelectivePublishModal(true)}
+            onDiscardStaged={discardStaged}
+            onToggleOperationMode={handleToggleOperationMode}
+            onTriggerLightning={triggerLightning}
+            onTriggerShake={triggerScreenShake}
+            onToggleBlackout={toggleBlackout}
+            onToggleBanner={() => {
+              const next = !activeDisplay.locationBanner.visible;
+              updateDisplay(
+                (prev) => ({ ...prev, locationBanner: { ...prev.locationBanner, visible: next } }),
+                `Cartel: ${next ? 'Visible' : 'Oculto'}`
+              );
+            }}
+            onToggleAmbientAudio={toggleAmbientAudio}
+            onExecuteFavorite={handleExecuteFavorite}
+            onOpenManageFavorites={() => setShowManageFavoritesModal(true)}
+            onSwitchToTab={(tab) => setActiveTab(tab)}
+            onToggleClassicView={() => setSessionViewMode('classic')}
+            onOpenCompositor={() => setShowCompositorModal(true)}
+            onSelectSceneVariant={handleSelectSceneVariant}
+            onNextCombatTurn={handleNextCombatTurn}
+            onPrevCombatTurn={handlePrevCombatTurn}
+            onPublishDialogue={handlePublishDialogue}
+            onDismissDialogue={handleDismissDialogue}
+            onCompleteDialogueText={handleCompleteDialogueText}
+            onSetCameraTransform={handleSetCameraTransform}
+            onResetCamera={handleResetCamera}
+            onOpenNewConversation={() => {
+              setEditingConversation(null);
+              setShowConversationEditor(true);
+            }}
+            onOpenEditConversation={(conv) => {
+              setEditingConversation(conv);
+              setShowConversationEditor(true);
+            }}
+            onRepeatActions={handleRepeatDialogueActions}
+            executedActionLineIds={executedActionLineIds}
+            selectedChoiceIds={selectedChoiceIds}
+            onSelectBranchChoice={(choice: DialogueBranchChoice) => {
+              setSelectedChoiceIds((prev) => ({ ...prev, [choice.id]: choice.id }));
+            }}
+            onUpdateSceneLights={handleUpdateSceneLights}
+            onUpdateZoneEmitters={handleUpdateZoneEmitters}
+            onRevealCharacterAppearance={handleRevealCharacterAppearance}
+            onRevealCharacterIdentity={handleRevealCharacterIdentity}
+            onTriggerInteraction={handleTriggerInteraction}
+            executingInteractionId={executingInteractionId}
+            onOpenRevelationJournal={() => setShowRevelationJournalModal(true)}
+            onOpenSessionPrepWizard={() => setShowSessionPrepWizardModal(true)}
+            onFocusCombatant={handleFocusCombatant}
+            onToggleCombatTrackingMode={handleToggleCombatTrackingMode}
+            onToggleDmSpeakingDucked={handleToggleDmSpeakingDucked}
+            onSelectDuckingPreset={handleSelectDuckingPreset}
+            onOpenHandoutViewer={() => setShowHandoutViewerModal(true)}
+            onOpenCampaignRecap={() => setShowCampaignRecapModal(true)}
+            onOpenSoundboard={() => setShowSoundboardModal(true)}
+            lightningConfig={lightningConfig}
+            onToggleAutoStorm={handleToggleAutoStorm}
+            onToggleDisableFlash={handleToggleDisableFlash}
+            onOpenBiomeSoundtrack={() => setShowBiomeSoundtrackModal(true)}
+            onSelectSituation={handleSelectSituation}
+            onOpenLightingPresets={() => setShowLightingPresetsModal(true)}
+            onOpenChronicleExport={() => setShowChronicleExportModal(true)}
+            onToggleCombatTimer={handleToggleCombatTimer}
+            onAddCombatTimerSeconds={handleAddCombatTimerSeconds}
+            onResetCombatTimer={handleResetCombatTimer}
+            onToggleCombatTimerVisibility={handleToggleCombatTimerVisibility}
+            onOpenSessionLibrary={() => setShowSessionLibraryModal(true)}
+          />
+        )}
+
+        {activeTab === 'live' && sessionViewMode === 'classic' && (
           <div className="live-panel">
+            <div className="classic-view-return-bar">
+              <span className="classic-view-notice">Modo Clásico de Edición En Vivo</span>
+              <button
+                className="btn-return-session"
+                onClick={() => setSessionViewMode('session')}
+              >
+                Volver a Vista Sesión
+              </button>
+            </div>
             {/* Quick Moments Shortcuts in Live Panel */}
             {campaign?.macros && campaign.macros.length > 0 && (
               <section className="control-section quick-moments-live-section">
@@ -1935,6 +3003,170 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         />
       )}
 
+      {/* EMERGENCY DOCK (PERMANENT & ACCESSIBLE) */}
+      <EmergencyDock
+        isBlackout={activeDisplay.isBlackout}
+        onToggleBlackout={handleToggleBlackout}
+        isMuted={isMasterAudioMuted}
+        onToggleMuteTotal={handleToggleMuteTotal}
+        hasRunningMacro={!!runningMacro}
+        runningMacroName={runningMacro?.macro.name}
+        onCancelMacro={handleCancelRunningMacro}
+        onCreateQuickCheckpoint={handleCreateQuickCheckpoint}
+        connectionStatus={connectionStatus}
+        checkpointReceipt={checkpointReceipt}
+        muteReceipt={muteReceipt}
+        blackoutReceipt={blackoutReceipt}
+      />
+
+      {/* MODAL: GESTIONAR FAVORITOS */}
+      {showManageFavoritesModal && campaign && (
+        <ManageFavoritesModal
+          campaign={campaign}
+          favorites={campaign.favorites || []}
+          onSaveFavorites={handleSaveFavorites}
+          onClose={() => setShowManageFavoritesModal(false)}
+        />
+      )}
+
+      {/* MODAL: COMPOSITOR TÁCTIL DE ESCENA */}
+      {showCompositorModal && (
+        <SceneCompositorModal
+          initialState={operationMode === 'staging' ? stagedState : liveState}
+          campaign={campaign}
+          operationMode={operationMode}
+          onSaveState={handleSaveCompositorCharacters}
+          onSaveCompositionPreset={handleSaveCompositionPreset}
+          onClose={() => setShowCompositorModal(false)}
+        />
+      )}
+
+      {/* MODAL: EDITOR DE CONVERSACIONES Y DIÁLOGOS */}
+      {showConversationEditor && campaign && (
+        <ConversationEditorModal
+          isOpen={showConversationEditor}
+          campaign={campaign}
+          conversation={editingConversation}
+          onSave={handleSaveConversation}
+          onClose={() => {
+            setShowConversationEditor(false);
+            setEditingConversation(null);
+          }}
+        />
+      )}
+
+      {/* MODAL: DIARIO DE REVELACIONES Y ESTADO DE CAMPAÑA */}
+      {showRevelationJournalModal && campaign && (
+        <CampaignRevelationJournalModal
+          isOpen={showRevelationJournalModal}
+          campaign={campaign}
+          onUpdateCampaign={async (updated) => {
+            await db.campaigns.put(updated);
+            setCampaign(updated);
+          }}
+          onClose={() => setShowRevelationJournalModal(false)}
+        />
+      )}
+
+      {/* MODAL: ASISTENTE DE PREPARACIÓN DE SESIÓN */}
+      {showSessionPrepWizardModal && campaign && (
+        <SessionPrepWizardModal
+          isOpen={showSessionPrepWizardModal}
+          campaign={campaign}
+          liveState={liveState}
+          onApplyDraftToStaging={handleApplySessionPrepDraft}
+          onSaveDraft={handleSaveSessionPrepDraft}
+          onClose={() => setShowSessionPrepWizardModal(false)}
+        />
+      )}
+
+      {/* MODAL: VISOR DE HANDOUTS Y DOCUMENTOS */}
+      {showHandoutViewerModal && (
+        <HandoutViewerModal
+          isOpen={showHandoutViewerModal}
+          activeHandout={liveState.activeHandout}
+          savedHandouts={campaign?.savedHandouts || []}
+          onProjectHandout={handleProjectHandout}
+          onDismissHandout={handleDismissHandout}
+          onClose={() => setShowHandoutViewerModal(false)}
+        />
+      )}
+
+      {/* MODAL: CRÓNICA CINEMATOGRÁFICA DE APERTURA */}
+      {showCampaignRecapModal && campaign && (
+        <CampaignRecapModal
+          isOpen={showCampaignRecapModal}
+          campaign={campaign}
+          activeRecap={liveState.activeRecap}
+          onProjectRecap={handleProjectRecap}
+          onDismissRecap={handleDismissRecap}
+          onSaveRecap={handleSaveRecap}
+          onClose={() => setShowCampaignRecapModal(false)}
+        />
+      )}
+
+      {/* MODAL: SOUNDBOARD MATRIZ RÁPIDA DE SFX */}
+      {showSoundboardModal && (
+        <SoundboardModal
+          isOpen={showSoundboardModal}
+          campaign={campaign}
+          onTriggerSfx={async (pad) => {
+            sessionCommandBus.dispatchSfx(pad.sfxPreset || pad.id, pad.audioUrl, pad.label);
+          }}
+          onStopAllSfx={async () => {
+            sessionCommandBus.dispatchStopAllSfx();
+          }}
+          onClose={() => setShowSoundboardModal(false)}
+        />
+      )}
+
+      {/* MODAL: SELECTOR DE BANDA SONORA POR BIOMA */}
+      {showBiomeSoundtrackModal && (
+        <BiomeSoundtrackModal
+          isOpen={showBiomeSoundtrackModal}
+          campaign={campaign}
+          currentAmbientUrl={liveState.ambientAudioUrl}
+          currentAmbientVolume={liveState.ambientVolume}
+          currentAmbientPlaying={liveState.ambientPlaying}
+          onApplySoundtrack={handleApplySoundtrack}
+          onSaveProfiles={handleSaveBiomeProfiles}
+          onClose={() => setShowBiomeSoundtrackModal(false)}
+        />
+      )}
+
+      {/* MODAL: PRESETS DE ILUMINACIÓN POR ESCENA */}
+      {showLightingPresetsModal && (
+        <LightingPresetsModal
+          isOpen={showLightingPresetsModal}
+          campaign={campaign}
+          currentLights={liveState.lights || []}
+          currentLightingFilter={liveState.lighting}
+          onApplyPreset={handleApplyLightingPreset}
+          onSavePreset={handleSaveLightingPreset}
+          onClose={() => setShowLightingPresetsModal(false)}
+        />
+      )}
+
+      {/* MODAL: EXPORTADOR DE CRÓNICA Y DIARIO DE SESIÓN */}
+      {showChronicleExportModal && (
+        <SessionChronicleExportModal
+          isOpen={showChronicleExportModal}
+          campaign={campaign}
+          liveState={liveState}
+          onClose={() => setShowChronicleExportModal(false)}
+        />
+      )}
+
+      {/* MODAL: BIBLIOTECA DE PREPARACIONES Y SESIONES */}
+      {showSessionLibraryModal && campaign && (
+        <SessionLibraryModal
+          isOpen={showSessionLibraryModal}
+          campaignId={campaign.id}
+          onLoadSession={handleLoadSessionFromLibrary}
+          onClose={() => setShowSessionLibraryModal(false)}
+        />
+      )}
+
       {/* MOBILE ONE-HAND BOTTOM NAVIGATION BAR */}
       <nav className="mobile-bottom-nav" aria-label="Navegación Móvil del Master">
         <button
@@ -1943,7 +3175,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
           onClick={() => setActiveTab('live')}
         >
           <Tv size={20} />
-          <span>En Vivo</span>
+          <span>{sessionViewMode === 'session' ? 'Sesión' : 'En Vivo'}</span>
         </button>
 
         <button

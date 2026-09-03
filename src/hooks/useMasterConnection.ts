@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ConnectionStatus, DisplayState, SyncMessage } from '../types';
 import { peerService } from '../services/peerService';
+import { sessionCommandBus } from '../services/sessionCommandBus';
 import { acquireServerSessionToken, startTurnRenewalWatcher } from '../services/iceConfig';
 
 interface UseMasterConnectionOptions {
@@ -26,6 +27,7 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
     try {
       setRoomCode(code);
       hasConnectedRef.current = code;
+      sessionCommandBus.setSessionId(code);
       if (secret) {
         await acquireServerSessionToken(code, secret, 'master');
       }
@@ -48,6 +50,7 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
 
   useEffect(() => {
     const activeCode = initialRoomCode || roomCode || 'VP-DEMO';
+    sessionCommandBus.setSessionId(activeCode);
     const stopWatcher = startTurnRenewalWatcher(activeCode);
 
     if (initialRoomCode && hasConnectedRef.current !== initialRoomCode) {
@@ -71,8 +74,9 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
       stopWatcher();
       unsubStatus();
       unsubMsg();
+      sessionCommandBus.cancelPendingCommands('Desconectado de la sala');
     };
-  }, [initialRoomCode, pairingSecret, connectToRoom]);
+  }, [initialRoomCode, pairingSecret, connectToRoom, roomCode]);
 
   return {
     roomCode,

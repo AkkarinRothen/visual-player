@@ -610,7 +610,8 @@ class PeerService {
     } else {
       versioned = createVersionedMessage(
         msg.type as SyncMessageType,
-        'payload' in msg ? msg.payload : undefined
+        'payload' in msg ? msg.payload : undefined,
+        { commandId: 'commandId' in msg ? (msg.commandId as string) : undefined }
       );
     }
 
