@@ -319,6 +319,10 @@ export class SessionCommandBus {
     };
   }
 
+  public onTelemetry(listener: (telemetry: MesaTelemetryInfo | null) => void): () => void {
+    return this.onMesaTelemetry(listener);
+  }
+
   public setConnectionEpoch(epoch: number): void {
     if (epoch !== this.connectionEpoch) {
       this.cancelPendingCommands(`Invalidado por cambio de época de conexión (${this.connectionEpoch} -> ${epoch})`);

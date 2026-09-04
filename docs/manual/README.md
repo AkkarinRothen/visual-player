@@ -27,7 +27,12 @@ No necesitás saber programación. Cuando un paso diga «tocá», también podé
 
 ### 1. Prepará los dispositivos
 
-Necesitás tener acceso a la app en el dispositivo que usará quien dirige y en el que verá el grupo. Por ejemplo: un celular como control y una tablet como pantalla. Usá la misma versión de la app en ambos.
+Necesitás tener acceso a la app en el dispositivo que usará quien dirige y en el que verá el grupo. Por ejemplo: un celular como control y una tablet como pantalla.
+
+- **Misma versión recomendada:** Procurá usar la misma versión en ambos dispositivos. Si conectás un control actualizado (ej. v1.1.0) con una Mesa rezagada (v1.0.0), la app te mostrará un **Aviso de compatibilidad** en la barra superior advirtiendo de diferencias de protocolo o de funciones avanzadas no soportadas por la Mesa, para evitar desincronizaciones en la partida.
+- **Actualizar en Android sin perder datos:** Al instalar un nuevo archivo APK de actualización, instalalo **directamente sobre la versión existente sin desinstalarla**. De esta forma, el sistema operativo conserva intactas todas tus campañas, sesiones, notas y fichas de personajes. Si desinstalás la app antes de actualizar, Android eliminará la base de datos interna.
+- **Adaptación a celulares y tablets:** En celulares, los controles se adaptan verticalmente con una barra de navegación inferior cómoda para usar con el pulgar. En tablets horizontales, la pantalla se organiza en dos columnas para mantener el escenario 16:9 visible a la izquierda mientras desplazás los controles a la derecha. La interfaz respeta los recortes de cámara frontal (*notch*) y las barras del sistema operativo (*áreas seguras*).
+- **Botón Atrás de Android:** En dispositivos móviles, el botón o gesto Atrás nativo no cierra la app de golpe. Sigue un orden seguro: primero cierra el teclado virtual si estás escribiendo, luego cancela arrastres o cierra paneles y ventanas emergentes, y finalmente pide confirmación antes de salir al menú inicial.
 
 Para este primer recorrido, usá conexión a Internet. El funcionamiento sin Internet y la conexión local de Android quedan pendientes de una guía comprobada en dispositivos reales. Si vas a usar imágenes o sonidos mediante enlaces, esos enlaces también deben poder abrirse desde los dispositivos.
 
@@ -480,6 +485,8 @@ El control **Mute Total** se ofrece para silenciar y cambia a **Reactivar**. En 
 | Falta un botón avanzado | Algunas opciones requieren personajes, un combate activo o recursos configurados. Probá la vista indicada en el catálogo; la disposición en celular está pendiente de comprobación. |
 | El personaje quedó fuera del encuadre | Usá **Cámara → Restablecer** y revisá su posición en el Compositor. |
 | No veo mis campañas en otro dispositivo | Los datos son locales. Usá una copia exportada para trasladar la campaña. |
+| Aparece «Aviso de compatibilidad de versión» | El control y la Mesa ejecutan versiones con protocolo distinto o la Mesa carece de funciones recientes. Actualizá la app del dispositivo rezagado al concluir la sesión. |
+| El botón Atrás de Android no cierra la app | El botón Atrás está protegido para evitar pérdidas de datos: primero cierra el teclado, luego menús o ventanas emergentes y finalmente pide confirmación antes de salir. |
 
 ### Modo Dirección Táctil y Composición de Escenas
 
@@ -547,6 +554,9 @@ Si sospechás que la pantalla de los jugadores se quedó congelada o desincroniz
 | Plantilla de sesión | Preparación sanitizada: sin combate activo, HP al máximo y sin condiciones. Sirve para empezar otra sesión similar desde cero. |
 | .vpp.json | Archivo portable de exportación de una preparación. Incluye los assets incrustados y funciona sin conexión. |
 | Duplicar sesión | Crear una copia con IDs nuevos. Pods excluir el progreso de combate y las condiciones transitorias. |
+| Aviso de compatibilidad | Alerta en la cabecera cuando el control del director y la pantalla de la Mesa tienen versiones con protocolos incompatibles o funciones no soportadas. |
+| Pila del botón Atrás | Sistema que gestiona el botón Atrás nativo de Android de forma ordenada (cierra primero el teclado, luego menús o modales y por último pide confirmación para salir). |
+| Área segura (Safe Area) | Margen automático que evita que la cámara frontal (*notch*) o las barras de navegación de Android tapen botones o textos de la app. |
 
 ## Cómo se mantiene este manual
 

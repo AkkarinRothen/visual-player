@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import React from 'react';
 import { render } from '@testing-library/react';
 import { DisplayCharactersLayer } from '../../components/display/DisplayCharactersLayer';
 import type { CharacterOnScreen, SceneOcclusionRegion, StageWaypoint, Character } from '../../types';
@@ -25,7 +24,7 @@ describe('Serie 1, 2, 3 & 4: Profundidad de Escenario, Waypoints y Legibilidad A
         id: 'char-innkeeper',
         name: 'Tabernero Brom',
         avatarUrl: 'https://example.com/brom.png',
-        position: 'center',
+        position: 'center-left',
         normalizedX: 30,
         normalizedY: 5,
         zIndex: 10, // Detrás del mostrador
@@ -35,7 +34,7 @@ describe('Serie 1, 2, 3 & 4: Profundidad de Escenario, Waypoints y Legibilidad A
         id: 'char-patron',
         name: 'Cliente Sediento',
         avatarUrl: 'https://example.com/patron.png',
-        position: 'center',
+        position: 'center-right',
         normalizedX: 25,
         normalizedY: 0,
         zIndex: 20, // Delante del mostrador
@@ -48,7 +47,6 @@ describe('Serie 1, 2, 3 & 4: Profundidad de Escenario, Waypoints y Legibilidad A
         characters={characters}
         occlusionRegions={occlusionRegions}
         backgroundUrl={bg}
-        isMesaView={true}
       />
     );
 
@@ -74,14 +72,14 @@ describe('Serie 1, 2, 3 & 4: Profundidad de Escenario, Waypoints y Legibilidad A
         name: 'En la puerta',
         normalizedX: 10,
         normalizedY: 0,
-        suggestedZIndex: 10,
+        targetZIndex: 10,
       },
       {
         id: 'wp-bar',
         name: 'Detrás de la barra',
         normalizedX: 35,
         normalizedY: 5,
-        suggestedZIndex: 10,
+        targetZIndex: 10,
       },
     ];
 
@@ -90,7 +88,7 @@ describe('Serie 1, 2, 3 & 4: Profundidad de Escenario, Waypoints y Legibilidad A
         id: 'c1',
         name: 'Guarda',
         avatarUrl: 'https://example.com/guard.png',
-        position: 'center',
+        position: 'center-left',
         normalizedX: 11, // Muy cerca de wp-door (distancia < 5%)
         normalizedY: 1,
         isSpeaking: false,
@@ -117,7 +115,7 @@ describe('Serie 1, 2, 3 & 4: Profundidad de Escenario, Waypoints y Legibilidad A
         id: 'c-bottom',
         name: 'Aldeano',
         avatarUrl: 'https://example.com/npc.png',
-        position: 'center',
+        position: 'center-left',
         normalizedX: 50,
         normalizedY: 5, // Está en la parte baja de la pantalla
         nameplatePosition: 'auto',
@@ -127,7 +125,7 @@ describe('Serie 1, 2, 3 & 4: Profundidad de Escenario, Waypoints y Legibilidad A
         id: 'c-forced-top',
         name: 'Mago',
         avatarUrl: 'https://example.com/mage.png',
-        position: 'center',
+        position: 'center-right',
         normalizedX: 70,
         normalizedY: 50,
         nameplatePosition: 'top',
@@ -137,7 +135,7 @@ describe('Serie 1, 2, 3 & 4: Profundidad de Escenario, Waypoints y Legibilidad A
         id: 'c-forced-side',
         name: 'Pícaro',
         avatarUrl: 'https://example.com/rogue.png',
-        position: 'center',
+        position: 'left',
         normalizedX: 20,
         normalizedY: 50,
         nameplatePosition: 'side',
@@ -150,7 +148,6 @@ describe('Serie 1, 2, 3 & 4: Profundidad de Escenario, Waypoints y Legibilidad A
       <DisplayCharactersLayer
         characters={characters}
         hasActiveDialogue={true}
-        isMesaView={true}
       />
     );
 
@@ -174,18 +171,43 @@ describe('Serie 1, 2, 3 & 4: Profundidad de Escenario, Waypoints y Legibilidad A
         id: 'c-buffed',
         name: 'Paladín Afectado',
         avatarUrl: 'https://example.com/paladin.png',
-        position: 'center',
+        position: 'center-right',
         normalizedX: 50,
         normalizedY: 20,
-        activeConditions: ['blinded', 'charmed', 'poisoned', 'stunned'], // 4 condiciones
         isSpeaking: false,
       },
     ];
 
+    const combatState = {
+      isActive: true,
+      round: 1,
+      currentTurnIndex: 0,
+      combatants: [
+        {
+          id: 'comb-1',
+          characterId: 'c-buffed',
+          name: 'Paladín Afectado',
+          avatarUrl: 'https://example.com/paladin.png',
+          initiative: 15,
+          currentHp: 30,
+          maxHp: 30,
+          showHpToPlayers: true,
+          conditions: ['blinded', 'charmed', 'poisoned', 'stunned'] as const,
+          isMonster: false,
+        },
+      ],
+      turnTimerSeconds: 60,
+      isTimerRunning: false,
+      mode: 'manual' as const,
+      trackingMode: 'manual' as const,
+      notificationSettings: { soundEnabled: false, alertAtSeconds: 10 },
+      log: [],
+    };
+
     const { container } = render(
       <DisplayCharactersLayer
         characters={characters}
-        isMesaView={true}
+        combatState={combatState as any}
       />
     );
 
@@ -202,11 +224,11 @@ describe('Serie 1, 2, 3 & 4: Profundidad de Escenario, Waypoints y Legibilidad A
     const originalCampaignChar: Character = {
       id: 'char-hero',
       name: 'Héroe Épico',
+      roleOrTitle: 'Guerrero',
       defaultAvatarUrl: 'https://example.com/hero.png',
-      visualAnchorOffsetY: -3,
       expressionAnchors: {
-        'happy': { x: 50, y: 30, scale: 1.1 },
-        'angry': { x: 52, y: 28, scale: 1.0 },
+        'happy': 5,
+        'angry': 8,
       },
     };
 
@@ -215,24 +237,23 @@ describe('Serie 1, 2, 3 & 4: Profundidad de Escenario, Waypoints y Legibilidad A
       id: `instance-${Date.now()}`,
       name: originalCampaignChar.name,
       avatarUrl: originalCampaignChar.defaultAvatarUrl,
-      position: 'center',
+      position: 'center-left',
       isSpeaking: false,
-      visualAnchorOffsetY: originalCampaignChar.visualAnchorOffsetY,
+      visualAnchorOffsetY: originalCampaignChar.expressionAnchors?.['happy'] ?? 0,
       instanceVariantAnchors: originalCampaignChar.expressionAnchors
         ? JSON.parse(JSON.stringify(originalCampaignChar.expressionAnchors))
         : undefined,
     };
 
     // Ahora mutamos la campaña original (el usuario edita la biblioteca posteriormente)
-    originalCampaignChar.visualAnchorOffsetY = 15;
     if (originalCampaignChar.expressionAnchors) {
-      originalCampaignChar.expressionAnchors['happy'] = { x: 99, y: 99, scale: 2.0 };
+      originalCampaignChar.expressionAnchors['happy'] = 30;
       delete originalCampaignChar.expressionAnchors['angry'];
     }
 
     // La instancia en pantalla preserva fielmente sus coordenadas congeladas
-    expect(onScreenChar.visualAnchorOffsetY).toBe(-3);
-    expect(onScreenChar.instanceVariantAnchors?.['happy']).toEqual({ x: 50, y: 30, scale: 1.1 });
-    expect(onScreenChar.instanceVariantAnchors?.['angry']).toEqual({ x: 52, y: 28, scale: 1.0 });
+    expect(onScreenChar.visualAnchorOffsetY).toBe(5);
+    expect(onScreenChar.instanceVariantAnchors?.['happy']).toBe(5);
+    expect(onScreenChar.instanceVariantAnchors?.['angry']).toBe(8);
   });
 });

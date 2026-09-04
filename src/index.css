@@ -26,6 +26,10 @@
   --radius-full: 9999px;
   --shadow-gold: 0 0 25px rgba(245, 158, 11, 0.3);
   --shadow-subtle: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 }
 
 * {
@@ -5236,22 +5240,58 @@ body, html {
   cursor: pointer;
 }
 
-/* ─── CARDS GRID ─── */
+/* ─── CARDS GRID RESPONSIVE ARCHITECTURE ─── */
 .session-cards-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 14px;
 }
 
-@media (min-width: 860px) {
+/* Tablet Landscape & Desktop Split (Landscape >= 900px) */
+@media (min-width: 900px) and (orientation: landscape) {
   .session-cards-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: minmax(0, 1.35fr) minmax(350px, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .session-cards-grid .active-scene-card {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: 12px;
+  }
+
+  .session-cards-grid .next-scene-card {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .session-cards-grid .combat-context-card {
+    grid-column: 2;
+    grid-row: 2;
   }
 }
 
-@media (min-width: 1200px) {
+/* Very wide desktop displays */
+@media (min-width: 1440px) and (orientation: landscape) {
   .session-cards-grid {
-    grid-template-columns: 1.1fr 1fr 1fr;
+    grid-template-columns: minmax(0, 1.5fr) minmax(380px, 1fr) minmax(340px, 0.9fr);
+  }
+
+  .session-cards-grid .active-scene-card {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .session-cards-grid .next-scene-card {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .session-cards-grid .combat-context-card {
+    grid-column: 3;
+    grid-row: 1;
   }
 }
 

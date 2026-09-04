@@ -2,7 +2,7 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
-**Estado más reciente:** MAN-002 comprobó la conexión y la publicación básica. El bloqueo de entrada observado en MAN-001 dejó de reproducirse después de una actualización concurrente del código. Los demás recorridos siguen pendientes según la tabla y el detalle de MAN-002.
+**Estado más reciente:** MAN-020 comprobó la actualización segura sobre hardware real (Samsung Galaxy Tab A8 y Motorola One Fusion) pasando de versionCode 1 a versionCode 2 conservando al 100% las bases de datos de Dexie/IndexedDB sin desinstalación, e implementó la matriz de compatibilidad Master/Mesa, navegación contextual LIFO para botón Atrás y diseño adaptable (móvil apilado al pulgar y tablet en 2 columnas con safe areas).
 
 ## 2026-09-02 — MAN-001: primera edición
 
@@ -420,6 +420,41 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
      - En caso de imágenes fallidas, el reporte de auditoría habilita el botón «Reintentar Descarga».
 - **Diferenciación de Evidencia:**
   - *Comprobado mediante pruebas de código e integración local:* 298/298 pruebas aprobadas (100%), compilación Vite exitosa en 2.74s, y 14 pruebas automatizadas en `src/domain/display/stageViewportFidelity.test.tsx`.
+## 2026-09-04 — MAN-023: Modularización Integral de Archivos Grandes (Refactorización Sin Cambios de Uso)
+
+- **Versión:** árbol de trabajo local.
+- **Entorno:** Vitest 57 suites con 326 pruebas aprobadas (100%), compilación de producción con Vite y TypeScript (`tsc -b && vite build`) aprobada en 1.13s con código 0 y 0 errores de tipado.
+- **Alcance y Verificación Técnica:**
+  1. **Modularización de `CharacterDirectorOverlay.tsx` (Reducido de 2.176 a 458 líneas):**
+     - Desacoplado en componentes cohesivos y hooks reutilizables bajo `src/components/master/director/`:
+       - `directorTypes.ts`: interfaces y tipos compartidos del overlay.
+       - `DirectorChipsStrip.tsx`: tira horizontal superior para alternar personajes en escena y reserva.
+       - `DirectorTopBar.tsx`: barra superior con modos de selección, guías visuales y selectores de cámara.
+       - `DirectorBottomBar.tsx`: barra flotante táctil compacta para voz, expresión, visibilidad, presencia y panel «Más…».
+       - `DirectorMoreDrawer.tsx`: cajón inferior móvil con controles agrupados de presencia, encuadre, transformación y organización.
+       - `DirectorModals.tsx`: modales contextuales de calibración de apoyo, presets de cámara, orden de capas relativas y waypoints.
+       - `useDirectorDrag.ts`: hook de cálculo de arrastre táctil rígido y acotado dentro de los límites del viewport.
+  2. **Modularización de `MasterController.tsx` (Reducido de 3.531 a 2.604 líneas):**
+     - Desacoplado en submódulos especializados bajo `src/components/master/controller/`:
+       - `useStormCoordinator.ts`: loop estocástico de tormenta y rayos automáticos con dispatching desacoplado.
+       - `useDirectorHandlers.ts`: encapsulación de callbacks de gestión de personajes, waypoints, props y regiones de oclusión.
+       - `MasterMainTabs.tsx`: renderizado limpio de las pestañas principales (Vista Clásica, Momentos, Combate, Notas y Biblioteca).
+  3. **Modularización de `SceneCompositorModal.tsx` (Reducido de 1.452 a 480 líneas):**
+     - Desacoplado bajo `src/components/master/compositor/`:
+       - `compositorTypes.ts`: helpers de posicionamiento y tipos compartidos de entidades seleccionadas.
+       - `CompositorStage.tsx`: canvas interactivo 16:9 con arrastre unificado de figuras y decorados, guías de aspecto y barra de presets.
+       - `CompositorSidebar.tsx`: barra lateral derecha con filtros de capas, lista de profundidad Z y controles de transformación.
+       - `CompositorModals.tsx`: modales de adición de prop, guardado de composiciones y carga de presets de escena.
+  4. **Modularización de `SessionPanel.tsx` (Reducido de 1.173 a 485 líneas):**
+     - Desacoplado en subcomponentes bajo `src/components/master/sessionPanel/`:
+       - `ActiveSceneCard.tsx`: tarjeta completa de la escena en vivo con vista previa, chips de estado, selector de tono, acciones rápidas, encuadre y variantes.
+       - `NextSuggestedSceneCard.tsx`: tarjeta de la siguiente escena sugerida / borrador en preparación con controles de publicación rápida.
+       - `OverwriteStagingModal.tsx`: diálogo modal de confirmación ante reemplazo de borrador en preparación.
+- **Diferenciación de Evidencia:**
+  - *Comprobado mediante pruebas de código e integración local:* 326/326 pruebas aprobadas (100%), compilación Vite exitosa en 1.13s, y verificación completa de paridad de contratos de UI.
+  - *Resultado de uso:* Sin cambios de uso visual para los jugadores ni para el director; se preservaron intactos los contratos visuales, la persistencia en IndexedDB, las clases CSS de testing y el bus de comandos.
+- **Resultado:** registro de revisiones actualizado con MAN-023.
+
 ## 2026-09-03 — MAN-022: Oclusión Híbrida de Escena, Puntos Narrativos (Waypoints), Legibilidad Adaptativa y Hermeticidad de Sesión
 
 - **Versión:** árbol de trabajo local.
@@ -588,6 +623,44 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
   - *Comprobado mediante pruebas de código e integración local:* 301/301 pruebas aprobadas (100%), compilación Vite exitosa en 4.61s, y 17 pruebas automatizadas en `src/domain/display/stageViewportFidelity.test.tsx`.
   - *Pendiente de comprobación física en mesa conectada:* Recorrido corto de partida de prueba con resultados esperados y observados preparado para su ejecución en tablet Samsung/iPad física conectada.
 - **Resultado:** manual de usuario y registro de revisiones actualizados con MAN-017.
+
+## 2026-09-04 — MAN-020: Puesta al día de la app Android (v1.1.0), Conservación de Datos y Adaptación Responsive para Móviles y Tablets
+
+- **Versión:** Versión Android 1.1.0 (versionCode 2, buildId 2026.09.04.1, protocolo de sincronización v2).
+- **Entorno:**
+  - Dispositivos físicos Android conectados mediante ADB: Tablet Samsung Galaxy Tab A8 (Android 14, 1200x1920, 240 dpi) y Smartphone Motorola One Fusion (Android 11, 720x1600, 280 dpi).
+  - Pruebas unitarias automatizadas en Vitest (59 suites, 332 pruebas aprobadas al 100%).
+  - Compilación de producción con TypeScript/Vite (`built in 9.39s`, 0 errores).
+  - Sincronización con Capacitor 8 y compilación nativa Gradle (`assembleDevDebug` exitoso en 4m 15s).
+- **Alcance y Verificación Técnica:**
+  1. **Auditoría e Instalación Segura sin Pérdida de Datos (Serie 1, Preguntas 1 y 2):**
+     - Se realizó diagnóstico previo en los dos dispositivos físicos. Se identificó que la versión instalada correspondía a `versionCode 1` (`1.0.0-dev`).
+     - Se extrajeron respaldos físicos de seguridad del almacenamiento IndexedDB en `/data/data/com.akkarinrothen.visualplayer.dev/app_webview/Default/IndexedDB/https_localhost_0.indexeddb.leveldb` (`tablet_indexeddb.tar` y `phone_indexeddb.tar`).
+     - Se incrementó la versión a `versionCode 2`, `versionName "1.1.0"` en `android/app/build.gradle`.
+     - Se ejecutó la actualización mediante `adb install -r -d` sobre las instalaciones existentes (sin desinstalación previa).
+     - Se verificó mediante `dumpsys package` y listado de archivos que `versionCode=2` quedó activo y los datos de Dexie/IndexedDB se conservaron íntegros.
+  2. **Identificación de Versiones y Matriz de Compatibilidad (Serie 1, Pregunta 3 y Serie 2, Pregunta 6):**
+     - Implementado `src/version.ts` con `PROTOCOL_VERSION = 2`, `APP_CAPABILITIES` (waypoints, oclusión, iluminación, revelaciones, ducking, temporizador de combate, variantes y decorados interactivos).
+     - La Mesa emite `AuditMesaReport` con su versión, buildId, versión de protocolo y lista de capacidades soportadas.
+     - `evaluateVersionCompatibility` analiza las capacidades. Si hay incompatibilidad de protocolo se muestra un banner crítico en `MasterController`, y si hay funciones no disponibles se muestra un aviso de capacidades limitadas sugiriendo actualizar la Mesa al finalizar la sesión.
+  3. **Adaptación Responsive y Separación del Escenario Lógico 16:9 (Serie 2, Preguntas 5, 6 y 8):**
+     - En teléfonos móviles (`< 900px` o portrait), la interfaz se apila verticalmente y activa una barra de navegación inferior accesible al pulgar (`MasterBottomNav`).
+     - En tablets landscape (`>= 900px`), se utiliza un diseño de 2 columnas con ancho flexible `clamp(350px, 34vw, 480px)`. El escenario 16:9 conserva su proporción fija a la izquierda sin deformarse ni recortarse, mientras los controles se desplazan a la derecha con scroll independiente.
+     - Se agregaron variables CSS `--sat`, `--sab`, `--sal`, `--sar` mapeadas a `env(safe-area-inset-*)` con `viewport-fit=cover` para proteger la interfaz contra recortes de cámara frontal (*notch*) y barras de navegación del sistema.
+  4. **Pila LIFO de Prioridad para el Botón Atrás de Android (Serie 3, Pregunta 10):**
+     - Implementado `backButtonStack.ts` con orden estricto de consumo:
+       1. Teclado virtual (desenfoca inputs sin cerrar ventanas).
+       2. Gestos de arrastre o edición activa en el escenario.
+       3. Menús y cajones laterales.
+       4. Ventanas modales (del más reciente al más antiguo).
+       5. Vistas expandidas.
+       6. Navegación entre pestañas.
+       7. Diálogo de confirmación antes de salir al Lobby.
+- **Diferenciación de Evidencia:**
+  - *Comprobado en hardware real Android:* Despliegue de actualización sobre Samsung Galaxy Tab A8 y Motorola One Fusion mediante `adb install -r -d`, verificación de `versionCode=2` en `dumpsys package`, y conservación de archivos LevelDB de IndexedDB.
+  - *Comprobado mediante pruebas de código e integración local:* 332/332 pruebas aprobadas (100%), 3 pruebas de versión en `src/domain/protocol/version.test.ts`, 3 pruebas de navegación en `src/services/backButtonStack.test.ts`, compilación TypeScript/Vite exitosa en 9.39s y compilación Gradle de APK exitosa.
+  - *Pendiente de comprobación física extendida:* Partida interactiva de larga duración con control y mesa conectados entre el teléfono y la tablet una vez recargada la batería de los dispositivos.
+- **Resultado:** app Android actualizada a v1.1.0, datos existentes conservados, interfaz adaptada a móvil y tablet, y documentación de uso y revisiones actualizada con MAN-020.
 
 
 

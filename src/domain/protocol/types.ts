@@ -94,6 +94,9 @@ export type DisplayAudioStatus = 'unknown' | 'interaction_required' | 'enabled' 
 export interface AuditMesaReport {
   deviceId?: string;
   appVersion: string;
+  buildId?: string;
+  protocolVersion?: number;
+  capabilities?: string[];
   sessionId: string;
   revision: number;
   checksum: string;

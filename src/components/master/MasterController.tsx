@@ -10,8 +10,6 @@ import type {
   LightingFilter,
   SavedEncounter,
   Scene,
-  SceneOcclusionRegion,
-  StageWaypoint,
   SessionCheckpoint,
   WeatherType,
   CombatState,
@@ -20,6 +18,7 @@ import { soundEngine, DUCKING_PRESETS } from '../../services/soundEngine';
 import { peerService } from '../../services/peerService';
 import { getPlatformBridge } from '../../platform';
 import { sessionRecoveryService } from '../../services/sessionRecovery';
+import { backButtonStack } from '../../services/backButtonStack';
 import {
   db,
   BUILTIN_SFX,
@@ -39,16 +38,12 @@ import {
   saveCheckpoint,
   deleteCheckpoint,
   getCampaignEncounters,
-  saveEncounter,
-  deleteEncounter,
 } from '../../db';
 import { gameSessionService } from '../../services/gameSessionService';
 import { useMasterConnection } from '../../hooks/useMasterConnection';
 import { useDisplaySession } from '../../hooks/useDisplaySession';
 import { useMacroSequencer } from '../../hooks/useMacroSequencer';
 import { accumulateMacroToState } from '../../domain/macros/macroEngine';
-import { CombatTab } from './CombatTab';
-import { MomentsTab } from './MomentsTab';
 import { QuickMomentsDropdown } from './QuickMomentsDropdown';
 import { SelectivePublishModal } from './SelectivePublishModal';
 import { LiveMiniPreview } from './LiveMiniPreview';
@@ -65,6 +60,9 @@ import { EmergencyDock } from './EmergencyDock';
 import { SessionPanel } from './SessionPanel';
 import { MasterAuxiliaryModals } from './modals/MasterAuxiliaryModals';
 import { MasterBottomNav } from './navigation/MasterBottomNav';
+import { useStormCoordinator } from './controller/useStormCoordinator';
+import { useDirectorHandlers } from './controller/useDirectorHandlers';
+import { MasterMainTabs } from './controller/MasterMainTabs';
 import {
   advanceCombatTurnWithTimer,
   startCombatTurnTimer,
@@ -94,7 +92,6 @@ import type {
   DuckingPreset,
   HandoutState,
   CampaignRecap,
-  LightningConfig,
   BiomeSoundProfile,
   SceneSituation,
   SceneLightingPreset,
@@ -105,15 +102,10 @@ import {
   resolveBiomeTrackLayer,
 } from '../../domain/audio/biomeDefaults';
 import { resolveAudioTransitionPlan } from '../../domain/audio/biomeSoundCoordinator';
-import {
-  DEFAULT_LIGHTNING_CONFIG,
-  createWeatherStormEvent,
-  computeNextStormInterval,
-} from '../../domain/weather/weatherStormCoordinator';
 import { calculateGroupFraming } from '../../domain/display/cameraFraming';
 import { useEmergencyActions } from '../../hooks/useEmergencyActions';
 import { useFavoritesActions } from '../../hooks/useFavoritesActions';
-import { sessionCommandBus } from '../../services/sessionCommandBus';
+import { sessionCommandBus, type MesaTelemetryInfo } from '../../services/sessionCommandBus';
 import { TransportStatusChip } from '../common/TransportStatusChip';
 import type { TransportStatusState } from '../common/TransportStatusChip';
 import { ConnectionDiagnosticModal } from '../common/ConnectionDiagnosticModal';
@@ -122,35 +114,14 @@ import {
   Activity,
   AlertTriangle,
   EyeOff,
-  CloudRain,
-  CloudLightning,
-  Snowflake,
-  Wind,
-  Flame,
   Sparkles,
-  Sun,
-  Moon,
-  Sunset,
-  Skull,
-  UserPlus,
-  Mic,
-  Volume2,
-  VolumeX,
   BookOpen,
   Sliders,
   FolderOpen,
-  Plus,
   Trash2,
-  Edit,
-  Upload,
-  Download,
-  Dices,
-  RefreshCw,
   X,
   LogOut,
   Swords,
-  Music,
-  FolderSync,
   Send,
   RotateCcw,
   RotateCw,
@@ -161,6 +132,12 @@ import {
   CheckCheck,
   WifiOff,
 } from 'lucide-react';
+import {
+  PROTOCOL_VERSION,
+  APP_CAPABILITIES,
+  evaluateVersionCompatibility,
+  type VersionCompatibilityResult,
+} from '../../version';
 
 interface MasterControllerProps {
   initialRoomCode?: string;
@@ -219,7 +196,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const [showScenePresetModal, setShowScenePresetModal] = useState<boolean>(false);
   const [scenePresetMode, setScenePresetMode] = useState<'save' | 'insert'>('save');
   const [showReadinessModal, setShowReadinessModal] = useState<boolean>(false);
-  const [lightningConfig, setLightningConfig] = useState<LightningConfig>(DEFAULT_LIGHTNING_CONFIG);
   const [executedActionLineIds, setExecutedActionLineIds] = useState<Record<string, string>>({});
   const [selectedChoiceIds, setSelectedChoiceIds] = useState<Record<string, string>>({});
   const [executingInteractionId, setExecutingInteractionId] = useState<string | null>(null);
@@ -262,6 +238,27 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     [campaign]
   );
 
+  // Version & Feature Capability Matrix Evaluation
+  const [versionCompatibility, setVersionCompatibility] = useState<VersionCompatibilityResult | null>(null);
+
+  useEffect(() => {
+    const unsub = sessionCommandBus.onTelemetry((telemetry: MesaTelemetryInfo | null) => {
+      if (telemetry?.lastAuditReport) {
+        const report = telemetry.lastAuditReport;
+        const result = evaluateVersionCompatibility({
+          localRole: 'master',
+          localProtocolVersion: PROTOCOL_VERSION,
+          remoteProtocolVersion: report.protocolVersion ?? 1,
+          localCapabilities: APP_CAPABILITIES,
+          remoteCapabilities: report.capabilities ?? [],
+          remoteAppVersion: report.appVersion ?? '1.0.0',
+        });
+        setVersionCompatibility(result);
+      }
+    });
+    return unsub;
+  }, []);
+
   // 2. Display Session Hook (useReducer)
   const {
     liveState,
@@ -290,6 +287,13 @@ export const MasterController: React.FC<MasterControllerProps> = ({
       createAutoCheckpoint(triggerName, state);
     },
   });
+
+  // Storm Coordinator Hook
+  const {
+    lightningConfig,
+    handleToggleAutoStorm,
+    handleToggleDisableFlash,
+  } = useStormCoordinator({ liveState });
 
   // 3. Macro Sequencer Hook
   const { runningMacro, executeMacro, cancelMacro } = useMacroSequencer({
@@ -366,13 +370,17 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     loadData();
   }, [initSessionState]);
 
-  // Platform Bridge: Unlock Orientation & Handle Native Back Button on Modals
+  // Platform Bridge: Unlock Orientation & Handle Native Back Button with LIFO Stack
   useEffect(() => {
     const bridge = getPlatformBridge();
     bridge.screen.setOrientation('unlocked');
 
     const unbindBack = bridge.lifecycle.onBackButton(() => {
-      // If any modal is open, close it and prevent app exit
+      // 1. Dispatch through centralized LIFO stack (handles keyboard, active drawers, drag gestures)
+      const consumedByStack = backButtonStack.dispatchBack();
+      if (consumedByStack) return true;
+
+      // 2. Modals layer (ordered by visual priority)
       if (showQRModal) { setShowQRModal(false); return true; }
       if (showDiagnosticsModal) { setShowDiagnosticsModal(false); return true; }
       if (showHistoryModal) { setShowHistoryModal(false); return true; }
@@ -383,7 +391,29 @@ export const MasterController: React.FC<MasterControllerProps> = ({
       if (showNewCharModal) { setShowNewCharModal(false); return true; }
       if (showCampaignPickerModal) { setShowCampaignPickerModal(false); return true; }
       if (showSelectivePublishModal) { setShowSelectivePublishModal(false); return true; }
+      if (showCompositorModal) { setShowCompositorModal(false); return true; }
+      if (showConversationEditor) { setShowConversationEditor(false); return true; }
+      if (showSessionLibraryModal) { setShowSessionLibraryModal(false); return true; }
+      if (showManageFavoritesModal) { setShowManageFavoritesModal(false); return true; }
+      if (showRevelationJournalModal) { setShowRevelationJournalModal(false); return true; }
+      if (showSessionPrepWizardModal) { setShowSessionPrepWizardModal(false); return true; }
+      if (showHandoutViewerModal) { setShowHandoutViewerModal(false); return true; }
+      if (showCampaignRecapModal) { setShowCampaignRecapModal(false); return true; }
+      if (showSoundboardModal) { setShowSoundboardModal(false); return true; }
+      if (showLightingPresetsModal) { setShowLightingPresetsModal(false); return true; }
+      if (showChronicleExportModal) { setShowChronicleExportModal(false); return true; }
+      if (showReadinessModal) { setShowReadinessModal(false); return true; }
+
+      // 3. Expanded Private Preview / Director Mode
       if (showFullScreenPreview) { setShowFullScreenPreview(false); return true; }
+
+      // 4. Secondary Tab Return: Navigate back to main 'live' session tab before exiting
+      if (activeTab !== 'live') {
+        setActiveTab('live');
+        return true;
+      }
+
+      // Root reached: let system handle or prompt exit confirmation
       return false;
     });
 
@@ -401,7 +431,20 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     showNewCharModal,
     showCampaignPickerModal,
     showSelectivePublishModal,
+    showCompositorModal,
+    showConversationEditor,
+    showSessionLibraryModal,
+    showManageFavoritesModal,
+    showRevelationJournalModal,
+    showSessionPrepWizardModal,
+    showHandoutViewerModal,
+    showCampaignRecapModal,
+    showSoundboardModal,
+    showLightingPresetsModal,
+    showChronicleExportModal,
+    showReadinessModal,
     showFullScreenPreview,
+    activeTab,
   ]);
 
   // Session Recovery: Save non-sensitive transactional snapshot for crash / process death recovery
@@ -1117,319 +1160,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     }
   };
 
-  const handleDirectorUpdateCharacter = async (
-    characterId: string,
-    updates: Partial<CharacterOnScreen>,
-    description: string
-  ) => {
-    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        characters: prev.characters.map((c) =>
-          c.id === characterId ? { ...c, ...updates } : c
-        ),
-      }),
-      description,
-      !isTargetStaged
-    );
-
-    if (!isTargetStaged) {
-      const nextCharacters = liveState.characters.map((c) =>
-        c.id === characterId ? { ...c, ...updates } : c
-      );
-      const cmdId = sessionCommandBus.dispatchFullState(
-        { ...liveState, characters: nextCharacters },
-        sessionRevision + 1
-      );
-      await sessionCommandBus.waitForResult(cmdId, 5000);
-    }
-  };
-
-  const handleDirectorUpdateMultiplePositions = async (
-    updates: { id: string; normalizedX: number; normalizedY: number }[],
-    description: string
-  ) => {
-    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
-    const updatesMap = new Map(updates.map((u) => [u.id, u]));
-
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        characters: prev.characters.map((c) => {
-          const u = updatesMap.get(c.id);
-          return u ? { ...c, normalizedX: u.normalizedX, normalizedY: u.normalizedY } : c;
-        }),
-      }),
-      description,
-      !isTargetStaged
-    );
-
-    if (!isTargetStaged) {
-      const nextCharacters = liveState.characters.map((c) => {
-        const u = updatesMap.get(c.id);
-        return u ? { ...c, normalizedX: u.normalizedX, normalizedY: u.normalizedY } : c;
-      });
-      const cmdId = sessionCommandBus.dispatchFullState(
-        { ...liveState, characters: nextCharacters },
-        sessionRevision + 1
-      );
-      await sessionCommandBus.waitForResult(cmdId, 5000);
-    }
-  };
-
-  const handleDirectorFocusCamera = async (focalX: number, focalY: number) => {
-    await handleSetCameraTransform({ focalPoint: { x: focalX, y: focalY }, zoom: 1.35 }, 600);
-  };
-
-  const handleSaveCameraPreset = async (name: string, camera: CameraTransform) => {
-    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
-    const newPreset = { id: `cam-${Date.now()}`, name, camera };
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        savedCameraPresets: [...(prev.savedCameraPresets || []), newPreset],
-        camera,
-        manualCameraOverride: true,
-      }),
-      `Guardar encuadre "${name}"`,
-      !isTargetStaged
-    );
-
-    if (!isTargetStaged) {
-      const nextPresets = [...(liveState.savedCameraPresets || []), newPreset];
-      const cmdId = sessionCommandBus.dispatchFullState(
-        { ...liveState, savedCameraPresets: nextPresets, camera, manualCameraOverride: true },
-        sessionRevision + 1
-      );
-      await sessionCommandBus.waitForResult(cmdId, 5000);
-    }
-  };
-
-  const handleDirectorReorderLayers = async (
-    items: { id: string; type: 'character' | 'prop' | 'occlusion'; zIndex: number }[],
-    description: string
-  ) => {
-    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
-    const charZMap = new Map(items.filter((i) => i.type === 'character').map((i) => [i.id, i.zIndex]));
-    const propZMap = new Map(items.filter((i) => i.type === 'prop').map((i) => [i.id, i.zIndex]));
-    const occZMap = new Map(items.filter((i) => i.type === 'occlusion').map((i) => [i.id, i.zIndex]));
-
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        characters: prev.characters.map((c) => {
-          const newZ = charZMap.get(c.id);
-          return newZ !== undefined ? { ...c, zIndex: newZ } : c;
-        }),
-        props: (prev.props || []).map((p) => {
-          const newZ = propZMap.get(p.id);
-          return newZ !== undefined ? { ...p, zIndex: newZ } : p;
-        }),
-        occlusionRegions: (prev.occlusionRegions || []).map((o) => {
-          const newZ = occZMap.get(o.id);
-          return newZ !== undefined ? { ...o, zIndex: newZ } : o;
-        }),
-      }),
-      description,
-      !isTargetStaged
-    );
-
-    if (!isTargetStaged) {
-      const nextCharacters = liveState.characters.map((c) => {
-        const newZ = charZMap.get(c.id);
-        return newZ !== undefined ? { ...c, zIndex: newZ } : c;
-      });
-      const nextProps = (liveState.props || []).map((p) => {
-        const newZ = propZMap.get(p.id);
-        return newZ !== undefined ? { ...p, zIndex: newZ } : p;
-      });
-      const nextOcc = (liveState.occlusionRegions || []).map((o) => {
-        const newZ = occZMap.get(o.id);
-        return newZ !== undefined ? { ...o, zIndex: newZ } : o;
-      });
-      const cmdId = sessionCommandBus.dispatchFullState(
-        { ...liveState, characters: nextCharacters, props: nextProps, occlusionRegions: nextOcc },
-        sessionRevision + 1
-      );
-      await sessionCommandBus.waitForResult(cmdId, 5000);
-    }
-  };
-
-  const handleDirectorUpdateProp = async (
-    propId: string,
-    updates: Partial<SceneProp>,
-    description: string
-  ) => {
-    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
-
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        props: (prev.props || []).map((p) => (p.id === propId ? { ...p, ...updates } : p)),
-      }),
-      description,
-      !isTargetStaged
-    );
-
-    if (!isTargetStaged) {
-      const nextProps = (liveState.props || []).map((p) => (p.id === propId ? { ...p, ...updates } : p));
-      const cmdId = sessionCommandBus.dispatchFullState(
-        { ...liveState, props: nextProps },
-        sessionRevision + 1
-      );
-      await sessionCommandBus.waitForResult(cmdId, 5000);
-    }
-  };
-
-  const handleDirectorSaveWaypoint = async (waypointData: Omit<StageWaypoint, 'id'>) => {
-    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
-    const newWaypoint: StageWaypoint = {
-      ...waypointData,
-      id: `wp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    };
-
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        waypoints: [...(prev.waypoints || []), newWaypoint],
-      }),
-      `Guardar punto narrativo "${newWaypoint.name}"`,
-      !isTargetStaged
-    );
-
-    if (currentScene && campaign) {
-      const updatedScenes = campaign.scenes.map((s) => {
-        if (s.id !== currentScene.id) return s;
-        return {
-          ...s,
-          waypoints: [...(s.waypoints || []), newWaypoint],
-        };
-      });
-      const updatedCampaign: Campaign = { ...campaign, scenes: updatedScenes, updatedAt: Date.now() };
-      await db.campaigns.put(updatedCampaign);
-      setCampaign(updatedCampaign);
-    }
-
-    if (!isTargetStaged) {
-      const nextWaypoints = [...(liveState.waypoints || []), newWaypoint];
-      const cmdId = sessionCommandBus.dispatchFullState(
-        { ...liveState, waypoints: nextWaypoints },
-        sessionRevision + 1
-      );
-      await sessionCommandBus.waitForResult(cmdId, 5000);
-    }
-  };
-
-  const handleDirectorDeleteWaypoint = async (waypointId: string) => {
-    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
-
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        waypoints: (prev.waypoints || []).filter((w) => w.id !== waypointId),
-      }),
-      `Eliminar punto narrativo`,
-      !isTargetStaged
-    );
-
-    if (currentScene && campaign) {
-      const updatedScenes = campaign.scenes.map((s) => {
-        if (s.id !== currentScene.id) return s;
-        return {
-          ...s,
-          waypoints: (s.waypoints || []).filter((w) => w.id !== waypointId),
-        };
-      });
-      const updatedCampaign: Campaign = { ...campaign, scenes: updatedScenes, updatedAt: Date.now() };
-      await db.campaigns.put(updatedCampaign);
-      setCampaign(updatedCampaign);
-    }
-
-    if (!isTargetStaged) {
-      const nextWaypoints = (liveState.waypoints || []).filter((w) => w.id !== waypointId);
-      const cmdId = sessionCommandBus.dispatchFullState(
-        { ...liveState, waypoints: nextWaypoints },
-        sessionRevision + 1
-      );
-      await sessionCommandBus.waitForResult(cmdId, 5000);
-    }
-  };
-
-  const handleDirectorSaveOcclusionRegion = async (regionData: Omit<SceneOcclusionRegion, 'id'>) => {
-    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
-    const newRegion: SceneOcclusionRegion = {
-      ...regionData,
-      id: `occ-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    };
-
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        occlusionRegions: [...(prev.occlusionRegions || []), newRegion],
-      }),
-      `Crear región de oclusión "${newRegion.name}"`,
-      !isTargetStaged
-    );
-
-    if (currentScene && campaign) {
-      const updatedScenes = campaign.scenes.map((s) => {
-        if (s.id !== currentScene.id) return s;
-        return {
-          ...s,
-          occlusionRegions: [...(s.occlusionRegions || []), newRegion],
-        };
-      });
-      const updatedCampaign: Campaign = { ...campaign, scenes: updatedScenes, updatedAt: Date.now() };
-      await db.campaigns.put(updatedCampaign);
-      setCampaign(updatedCampaign);
-    }
-
-    if (!isTargetStaged) {
-      const nextRegions = [...(liveState.occlusionRegions || []), newRegion];
-      const cmdId = sessionCommandBus.dispatchFullState(
-        { ...liveState, occlusionRegions: nextRegions },
-        sessionRevision + 1
-      );
-      await sessionCommandBus.waitForResult(cmdId, 5000);
-    }
-  };
-
-  const handleDirectorDeleteOcclusionRegion = async (regionId: string) => {
-    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
-
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        occlusionRegions: (prev.occlusionRegions || []).filter((r) => r.id !== regionId),
-      }),
-      `Eliminar región de oclusión`,
-      !isTargetStaged
-    );
-
-    if (currentScene && campaign) {
-      const updatedScenes = campaign.scenes.map((s) => {
-        if (s.id !== currentScene.id) return s;
-        return {
-          ...s,
-          occlusionRegions: (s.occlusionRegions || []).filter((r) => r.id !== regionId),
-        };
-      });
-      const updatedCampaign: Campaign = { ...campaign, scenes: updatedScenes, updatedAt: Date.now() };
-      await db.campaigns.put(updatedCampaign);
-      setCampaign(updatedCampaign);
-    }
-
-    if (!isTargetStaged) {
-      const nextRegions = (liveState.occlusionRegions || []).filter((r) => r.id !== regionId);
-      const cmdId = sessionCommandBus.dispatchFullState(
-        { ...liveState, occlusionRegions: nextRegions },
-        sessionRevision + 1
-      );
-      await sessionCommandBus.waitForResult(cmdId, 5000);
-    }
-  };
-
   const handleUpdateCampaignCharacter = async (
     characterId: string,
     updates: Partial<Character>
@@ -1569,6 +1299,30 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const handleResetCamera = async () => {
     await handleSetCameraTransform({ focalPoint: { x: 50, y: 50 }, zoom: 1.0 }, 600);
   };
+
+  // Director Overlay Handlers Hook
+  const {
+    handleDirectorUpdateCharacter,
+    handleDirectorUpdateMultiplePositions,
+    handleDirectorFocusCamera,
+    handleSaveCameraPreset,
+    handleDirectorReorderLayers,
+    handleDirectorUpdateProp,
+    handleDirectorSaveWaypoint,
+    handleDirectorDeleteWaypoint,
+    handleDirectorSaveOcclusionRegion,
+    handleDirectorDeleteOcclusionRegion,
+  } = useDirectorHandlers({
+    operationMode,
+    previewTab,
+    liveState,
+    sessionRevision,
+    currentScene,
+    campaign,
+    setCampaign,
+    updateDisplay,
+    handleSetCameraTransform,
+  });
 
   const handleRevealCharacterAppearance = async (instanceId: string) => {
     const updatedChars = liveState.characters.map((c) =>
@@ -1896,47 +1650,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     await sessionCommandBus.waitForResult(cmdId, 5000);
   };
 
-  // Storm Coordinator loop: stochastic strikes when enabled during rain/storm
-  useEffect(() => {
-    if (!lightningConfig.enabled) return;
-    if (liveState.weather !== 'storm' && liveState.weather !== 'rain') return;
-
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    let isMounted = true;
-
-    const scheduleNextStrike = () => {
-      const intervalMs = computeNextStormInterval(lightningConfig, liveState.weatherIntensity);
-      timeoutId = setTimeout(() => {
-        if (!isMounted) return;
-        const stormEvent = createWeatherStormEvent(lightningConfig, liveState.weatherIntensity);
-        sessionCommandBus.dispatchStormLightning(stormEvent);
-        scheduleNextStrike();
-      }, intervalMs);
-    };
-
-    scheduleNextStrike();
-
-    return () => {
-      isMounted = false;
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [
-    lightningConfig.enabled,
-    lightningConfig.minIntervalMs,
-    lightningConfig.maxIntervalMs,
-    lightningConfig.disableFlashes,
-    liveState.weather,
-    liveState.weatherIntensity,
-  ]);
-
-  const handleToggleAutoStorm = () => {
-    setLightningConfig((prev) => ({ ...prev, enabled: !prev.enabled }));
-  };
-
-  const handleToggleDisableFlash = () => {
-    setLightningConfig((prev) => ({ ...prev, disableFlashes: !prev.disableFlashes }));
-  };
-
   const handleSelectSituation = async (situation: SceneSituation) => {
     const activeScene = campaign?.scenes?.find((s) => s.id === liveState.currentSceneId);
     const profile = findBiomeProfile(
@@ -2240,6 +1953,49 @@ export const MasterController: React.FC<MasterControllerProps> = ({
           </div>
         )}
 
+        {/* VERSION COMPATIBILITY WARNING BANNER */}
+        {versionCompatibility && versionCompatibility.status !== 'compatible' && (
+          <div
+            style={{
+              padding: '6px 16px',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              background: versionCompatibility.status === 'incompatible' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.2)',
+              borderBottom: `1px solid ${versionCompatibility.status === 'incompatible' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(245, 158, 11, 0.5)'}`,
+              color: versionCompatibility.status === 'incompatible' ? '#fca5a5' : '#fbbf24',
+              backdropFilter: 'blur(8px)',
+              zIndex: 10,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={15} className={versionCompatibility.status === 'incompatible' ? 'text-red-400 animate-pulse' : 'text-amber-400'} />
+              <span>
+                <strong>{versionCompatibility.status === 'incompatible' ? 'AVISO CRÍTICO DE COMPATIBILIDAD' : 'AVISO DE CAPACIDADES'}</strong>: {versionCompatibility.message}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDiagnosticsModal(true)}
+              style={{
+                background: versionCompatibility.status === 'incompatible' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.25)',
+                border: `1px solid ${versionCompatibility.status === 'incompatible' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(245, 158, 11, 0.5)'}`,
+                borderRadius: '6px',
+                color: versionCompatibility.status === 'incompatible' ? '#fecaca' : '#fbbf24',
+                padding: '3px 10px',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Diagnóstico
+            </button>
+          </div>
+        )}
+
         {/* ACTIVE RUNNING MACRO SEQUENCE BAR */}
         {runningMacro && (
           <div className="running-macro-banner">
@@ -2521,624 +2277,51 @@ export const MasterController: React.FC<MasterControllerProps> = ({
           />
         )}
 
-        {activeTab === 'live' && sessionViewMode === 'classic' && (
-          <div className="live-panel">
-            <div className="classic-view-return-bar">
-              <span className="classic-view-notice">Modo Clásico de Edición En Vivo</span>
-              <button
-                className="btn-return-session"
-                onClick={() => setSessionViewMode('session')}
-              >
-                Volver a Vista Sesión
-              </button>
-            </div>
-            {/* Quick Moments Shortcuts in Live Panel */}
-            {campaign?.macros && campaign.macros.length > 0 && (
-              <section className="control-section quick-moments-live-section">
-                <div className="section-header">
-                  <div className="flex-align-gap">
-                    <Sparkles size={16} className="text-amber-400" />
-                    <span className="section-title">Momentos Rápidos</span>
-                  </div>
-                  <button className="link-button" onClick={() => setActiveTab('moments')}>
-                    Ver todos ({campaign.macros.length})
-                  </button>
-                </div>
-                <div className="quick-moments-scroll-row">
-                  {campaign.macros.map((m) => (
-                    <button
-                      key={m.id}
-                      className="quick-moment-chip"
-                      onClick={() => handleExecuteMacro(m)}
-                      title={m.description}
-                    >
-                      <Sparkles size={14} className="text-amber-400" />
-                      <span>{m.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* 1. Location Banner Quick Control */}
-            <section className="control-section banner-section">
-              <div className="section-header">
-                <span className="section-title">Cartel de Ubicación en Pantalla</span>
-                <button
-                  className={`mini-toggle ${activeDisplay.locationBanner.visible ? 'on' : 'off'}`}
-                  onClick={() => {
-                    const next = !activeDisplay.locationBanner.visible;
-                    updateDisplay(
-                      (prev) => ({ ...prev, locationBanner: { ...prev.locationBanner, visible: next } }),
-                      `Cartel: ${next ? 'Visible' : 'Oculto'}`
-                    );
-                  }}
-                >
-                  {activeDisplay.locationBanner.visible ? 'Visible' : 'Oculto'}
-                </button>
-              </div>
-              <div className="banner-inputs">
-                <input
-                  type="text"
-                  placeholder="Título (Ej. RUINAS DE ELDORIA)"
-                  value={activeDisplay.locationBanner.text}
-                  onChange={(e) =>
-                    updateDisplay((prev) => ({
-                      ...prev,
-                      locationBanner: { ...prev.locationBanner, text: e.target.value },
-                    }))
-                  }
-                  onBlur={updateBanner}
-                  className="master-input"
-                />
-                <input
-                  type="text"
-                  placeholder="Subtítulo (Ej. Sala del Trono Olvidado)"
-                  value={activeDisplay.locationBanner.subtitle || ''}
-                  onChange={(e) =>
-                    updateDisplay((prev) => ({
-                      ...prev,
-                      locationBanner: { ...prev.locationBanner, subtitle: e.target.value },
-                    }))
-                  }
-                  onBlur={updateBanner}
-                  className="master-input secondary"
-                />
-              </div>
-            </section>
-
-            {/* 2. Scene Switcher Grid */}
-            <section className="control-section">
-              <div className="section-header">
-                <span className="section-title">Cambiar Escenario</span>
-                <span className="section-count">{campaign?.scenes.length || 0} escenas</span>
-              </div>
-              <div className="scenes-carousel">
-                {campaign?.scenes.map((sc) => {
-                  const isSelected = activeDisplay.currentSceneId === sc.id;
-                  return (
-                    <button
-                      key={sc.id}
-                      className={`scene-card ${isSelected ? 'selected' : ''}`}
-                      onClick={() => selectScene(sc)}
-                    >
-                      <div
-                        className="scene-thumb"
-                        style={{ backgroundImage: `url(${sc.backgroundUrl})` }}
-                      >
-                        {isSelected && (
-                          <div className="active-badge">
-                            {operationMode === 'live' ? 'EN PANTALLA' : 'BORRADOR'}
-                          </div>
-                        )}
-                      </div>
-                      <span className="scene-name">{sc.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* 3. Ambient Audio Bar for Current Scene */}
-            {activeDisplay.ambientAudioUrl && (
-              <section className="control-section audio-control-section">
-                <div className="section-header">
-                  <div className="flex-align-gap">
-                    <Music size={16} className="text-amber-400" />
-                    <span className="section-title">
-                      {currentScene?.ambientAudioName || 'Música Ambiental'}
-                    </span>
-                  </div>
-                  <button
-                    className={`mini-toggle ${activeDisplay.ambientPlaying ? 'on' : 'off'}`}
-                    onClick={toggleAmbientPlay}
-                  >
-                    {activeDisplay.ambientPlaying ? 'Reproduciendo' : 'Pausado'}
-                  </button>
-                </div>
-                <div className="audio-slider-row">
-                  {activeDisplay.ambientPlaying ? <Volume2 size={16} /> : <VolumeX size={16} />}
-                  <input
-                    type="range"
-                    min="0.05"
-                    max="1.0"
-                    step="0.05"
-                    value={activeDisplay.ambientVolume}
-                    onChange={(e) => handleAmbientVolumeChange(parseFloat(e.target.value))}
-                    className="master-range"
-                  />
-                  <span className="slider-label">{Math.round(activeDisplay.ambientVolume * 100)}%</span>
-                </div>
-              </section>
-            )}
-
-            {/* 4. Stage Characters */}
-            <section className="control-section">
-              <div className="section-header">
-                <span className="section-title">Personajes en Escena ({activeDisplay.characters.length})</span>
-                <button
-                  className="btn-primary-sm"
-                  onClick={() => setShowSummonModal(true)}
-                >
-                  <UserPlus size={14} />
-                  <span>Invocar NPC</span>
-                </button>
-              </div>
-
-              {activeDisplay.characters.length === 0 ? (
-                <div className="empty-roster-box">
-                  <p>No hay personajes en la pantalla.</p>
-                  <button className="btn-secondary-sm" onClick={() => setShowSummonModal(true)}>
-                    + Invocar de la Biblioteca
-                  </button>
-                </div>
-              ) : (
-                <div className="active-chars-grid">
-                  {activeDisplay.characters.map((char) => {
-                    const originalChar = campaign?.characters.find((c) => c.id === char.characterId);
-                    return (
-                      <div
-                        key={char.id}
-                        className={`active-char-card ${char.isSpeaking ? 'speaking-focus' : ''}`}
-                      >
-                        <div className="char-card-top">
-                          <img src={char.avatarUrl} alt={char.name} className="char-avatar" />
-                          <div className="char-meta">
-                            <span className="char-title">{char.name}</span>
-                            <div className="position-pills">
-                              {(['left', 'center-left', 'center-right', 'right'] as CharacterPosition[]).map(
-                                (pos) => (
-                                  <button
-                                    key={pos}
-                                    className={`pos-btn ${char.position === pos ? 'pos-active' : ''}`}
-                                    onClick={() => changeCharacterPosition(char.id, pos)}
-                                  >
-                                    {pos === 'left' ? 'Izq' : pos === 'center-left' ? 'C-Izq' : pos === 'center-right' ? 'C-Der' : 'Der'}
-                                  </button>
-                                )
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            className="dismiss-btn"
-                            onClick={() => dismissCharacter(char.id)}
-                            title="Quitar de Pantalla"
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-
-                        {/* Speaking Toggle & Expressions */}
-                        <div className="char-card-actions">
-                          <button
-                            className={`speak-btn ${char.isSpeaking ? 'active' : ''}`}
-                            onClick={() => toggleSpeaking(char.id)}
-                          >
-                            <Mic size={14} />
-                            <span>{char.isSpeaking ? 'Hablando (En Foco)' : 'Dar Foco de Voz'}</span>
-                          </button>
-
-                          {originalChar?.expressions && Object.keys(originalChar.expressions).length > 0 && (
-                            <div className="expressions-row">
-                              {Object.entries(originalChar.expressions).map(([expName, url]) => (
-                                <button
-                                  key={expName}
-                                  className={`exp-btn ${char.avatarUrl === url ? 'exp-active' : ''}`}
-                                  onClick={() => changeCharacterExpression(char.id, expName, url)}
-                                >
-                                  {expName}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            {/* 5. Weather & Atmosphere Controls */}
-            <section className="control-section">
-              <span className="section-title">Clima y Partículas</span>
-              <div className="weather-grid">
-                <button
-                  className={`weather-btn ${activeDisplay.weather === 'none' ? 'active' : ''}`}
-                  onClick={() => setWeatherEffect('none')}
-                >
-                  <Sun size={18} />
-                  <span>Despejado</span>
-                </button>
-                <button
-                  className={`weather-btn ${activeDisplay.weather === 'rain' ? 'active' : ''}`}
-                  onClick={() => setWeatherEffect('rain')}
-                >
-                  <CloudRain size={18} />
-                  <span>Lluvia</span>
-                </button>
-                <button
-                  className={`weather-btn ${activeDisplay.weather === 'storm' ? 'active' : ''}`}
-                  onClick={() => setWeatherEffect('storm')}
-                >
-                  <CloudLightning size={18} />
-                  <span>Tormenta</span>
-                </button>
-                <button
-                  className={`weather-btn ${activeDisplay.weather === 'snow' ? 'active' : ''}`}
-                  onClick={() => setWeatherEffect('snow')}
-                >
-                  <Snowflake size={18} />
-                  <span>Nieve</span>
-                </button>
-                <button
-                  className={`weather-btn ${activeDisplay.weather === 'fog' ? 'active' : ''}`}
-                  onClick={() => setWeatherEffect('fog')}
-                >
-                  <Wind size={18} />
-                  <span>Niebla</span>
-                </button>
-                <button
-                  className={`weather-btn ${activeDisplay.weather === 'embers' ? 'active' : ''}`}
-                  onClick={() => setWeatherEffect('embers')}
-                >
-                  <Flame size={18} />
-                  <span>Ascuas</span>
-                </button>
-                <button
-                  className={`weather-btn ${activeDisplay.weather === 'fireflies' ? 'active' : ''}`}
-                  onClick={() => setWeatherEffect('fireflies')}
-                >
-                  <Sparkles size={18} />
-                  <span>Luciérnagas</span>
-                </button>
-              </div>
-
-              {activeDisplay.weather !== 'none' && (
-                <div className="intensity-slider-row">
-                  <span className="slider-label">Intensidad: {Math.round(activeDisplay.weatherIntensity * 100)}%</span>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="1.0"
-                    step="0.05"
-                    value={activeDisplay.weatherIntensity}
-                    onChange={(e) => setWeatherIntensityVal(parseFloat(e.target.value))}
-                    className="master-range"
-                  />
-                </div>
-              )}
-            </section>
-
-            {/* 6. Lighting Color Filter */}
-            <section className="control-section">
-              <span className="section-title">Filtro de Luz e Iluminación</span>
-              <div className="lighting-grid">
-                <button
-                  className={`light-btn ${activeDisplay.lighting === 'normal' ? 'active' : ''}`}
-                  onClick={() => setLightingPreset('normal')}
-                >
-                  <Sun size={16} />
-                  <span>Día / Normal</span>
-                </button>
-                <button
-                  className={`light-btn ${activeDisplay.lighting === 'torch_flicker' ? 'active' : ''}`}
-                  onClick={() => setLightingPreset('torch_flicker')}
-                >
-                  <Flame size={16} />
-                  <span>Antorchas</span>
-                </button>
-                <button
-                  className={`light-btn ${activeDisplay.lighting === 'night' ? 'active' : ''}`}
-                  onClick={() => setLightingPreset('night')}
-                >
-                  <Moon size={16} />
-                  <span>Noche</span>
-                </button>
-                <button
-                  className={`light-btn ${activeDisplay.lighting === 'sunset' ? 'active' : ''}`}
-                  onClick={() => setLightingPreset('sunset')}
-                >
-                  <Sunset size={16} />
-                  <span>Atardecer</span>
-                </button>
-                <button
-                  className={`light-btn ${activeDisplay.lighting === 'blood_moon' ? 'active' : ''}`}
-                  onClick={() => setLightingPreset('blood_moon')}
-                >
-                  <Skull size={16} />
-                  <span>Luna de Sangre</span>
-                </button>
-                <button
-                  className={`light-btn ${activeDisplay.lighting === 'mystic_violet' ? 'active' : ''}`}
-                  onClick={() => setLightingPreset('mystic_violet')}
-                >
-                  <Sparkles size={16} />
-                  <span>Arcano / Místico</span>
-                </button>
-              </div>
-            </section>
-
-            {/* 7. SFX Soundboard */}
-            <section className="control-section">
-              <span className="section-title">Sonidos FX Instantáneos (SFX)</span>
-              <div className="sfx-grid">
-                {BUILTIN_SFX.map((sfx) => (
-                  <button
-                    key={sfx.id}
-                    className="sfx-btn"
-                    onClick={() => playSfx(sfx)}
-                  >
-                    <Volume2 size={16} />
-                    <span>{sfx.name}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* TAB 2: MOMENTS / MACROS */}
-        {activeTab === 'moments' && (
-          <MomentsTab
-            campaign={campaign}
-            onExecuteMacro={handleExecuteMacro}
-            onLoadMacroToStaging={handleLoadMacroToStaging}
-            onUpdateMacros={handleUpdateMacros}
-          />
-        )}
-
-        {/* TAB 3: COMBAT & INITIATIVE TRACKER */}
-        {activeTab === 'combat' && (
-          <CombatTab
-            combatState={activeDisplay.combatState}
-            campaign={campaign}
-            currentScene={currentScene}
-            encounters={encountersList}
-            onSaveEncounter={async (saved) => {
-              await saveEncounter(saved);
-              if (campaign) {
-                const updated = await getCampaignEncounters(campaign.id);
-                setEncountersList(updated);
-              }
-            }}
-            onDeleteEncounter={async (id) => {
-              await deleteEncounter(id);
-              if (campaign) {
-                const updated = await getCampaignEncounters(campaign.id);
-                setEncountersList(updated);
-              }
-            }}
-            onUpdateCombatState={(newState) => {
-              if (activeDisplay.combatState.isActive !== newState.isActive) {
-                createAutoCheckpoint(
-                  newState.isActive ? 'Inicio de Combate' : 'Finalización de Combate',
-                  liveState
-                );
-              }
-              updateDisplay(
-                (prev) => ({ ...prev, combatState: newState }),
-                `Combate: Ronda ${newState.round}, Turno ${newState.currentTurnIndex + 1}`
-              );
-              if (!newState.isActive) {
-                broadcastMessage({ type: 'END_COMBAT' });
-              } else {
-                broadcastMessage({ type: 'UPDATE_COMBAT', payload: newState });
-              }
-            }}
-          />
-        )}
-
-        {/* TAB 4: DM NOTES & DICE */}
-        {activeTab === 'notes' && (
-          <div className="notes-panel">
-            <div className="notes-card">
-              <h2 className="notes-header">Notas Secretas: {currentScene?.name || 'Sin Escenario'}</h2>
-              <textarea
-                className="dm-notes-textarea"
-                value={currentScene?.dmNotes || ''}
-                placeholder="Escribe notas, estadísticas de monstruos, pistas o diálogos clave para esta escena..."
-                onChange={(e) => {
-                  if (!currentScene || !campaign) return;
-                  const updatedScene = { ...currentScene, dmNotes: e.target.value };
-                  const updatedScenes = campaign.scenes.map((s) => (s.id === updatedScene.id ? updatedScene : s));
-                  const updatedCamp = { ...campaign, scenes: updatedScenes };
-                  setCampaign(updatedCamp);
-                  updateCampaign(updatedCamp);
-                }}
-              />
-            </div>
-
-            {/* Quick Dice Roller */}
-            <div className="dice-roller-card">
-              <div className="section-header">
-                <span className="section-title">Lanzador de Dados del Master</span>
-                <Dices size={18} />
-              </div>
-              <div className="dice-buttons">
-                {[4, 6, 8, 10, 12, 20, 100].map((d) => (
-                  <button key={d} className="die-btn" onClick={() => rollDice(d)}>
-                    d{d}
-                  </button>
-                ))}
-              </div>
-
-              {diceLog.length > 0 && (
-                <div className="dice-history">
-                  {diceLog.map((log) => (
-                    <div key={log.id} className="dice-log-entry">
-                      <span className="dice-time">{log.time}</span>
-                      <span className="dice-result">{log.text}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 5: LIBRARY & CAMPAIGNS */}
-        {activeTab === 'library' && (
-          <div className="library-panel">
-            <div className="campaign-meta-box">
-              <div className="meta-info">
-                <div className="flex-between">
-                  <h2 className="campaign-title">{campaign?.title}</h2>
-                  <button
-                    className="btn-secondary-sm"
-                    onClick={() => setShowCampaignPickerModal(true)}
-                  >
-                    <FolderSync size={14} />
-                    <span>Cambiar Campaña</span>
-                  </button>
-                </div>
-                <p className="campaign-desc">{campaign?.description || 'Sin descripción'}</p>
-              </div>
-              <div className="campaign-tools">
-                <button className="tool-btn" onClick={exportCampaignJSON} title="Descargar Copia de Seguridad">
-                  <Download size={16} />
-                  <span>Exportar</span>
-                </button>
-                <label className="tool-btn file-label" title="Restaurar Copia de Seguridad">
-                  <Upload size={16} />
-                  <span>Importar</span>
-                  <input type="file" accept=".json" onChange={importCampaignJSON} style={{ display: 'none' }} />
-                </label>
-                <button className="tool-btn danger" onClick={handleResetDemo} title="Cargar Datos de Prueba">
-                  <RefreshCw size={16} />
-                  <span>Reset Demo</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Scenes Management */}
-            <div className="library-section">
-              <div className="section-header">
-                <span className="section-title">Escenarios de la Campaña ({campaign?.scenes.length || 0})</span>
-                <button
-                  className="btn-primary-sm"
-                  onClick={() => {
-                    setEditingScene(null);
-                    setShowNewSceneModal(true);
-                  }}
-                >
-                  <Plus size={14} />
-                  <span>Nuevo Escenario</span>
-                </button>
-              </div>
-              <div className="library-list">
-                {campaign?.scenes.map((sc) => (
-                  <div key={sc.id} className="library-item">
-                    <img src={sc.backgroundUrl} alt={sc.name} className="item-thumb" />
-                    <div className="item-info">
-                      <span className="item-title">{sc.name}</span>
-                      <span className="item-subtitle">{sc.subtitle || 'Sin subtítulo'}</span>
-                    </div>
-                    <div className="item-actions">
-                      <button
-                        className="item-action-btn"
-                        onClick={() => openEditSceneModal(sc)}
-                        title="Editar Escenario"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        className="item-delete-btn"
-                        onClick={async () => {
-                          if (!campaign || campaign.scenes.length <= 1) {
-                            alert('Debe quedar al menos un escenario en la campaña.');
-                            return;
-                          }
-                          if (window.confirm(`¿Eliminar el escenario "${sc.name}"?`)) {
-                            const updatedScenes = campaign.scenes.filter((s) => s.id !== sc.id);
-                            const updatedCamp = { ...campaign, scenes: updatedScenes };
-                            await updateCampaign(updatedCamp);
-                            setCampaign(updatedCamp);
-                          }
-                        }}
-                        title="Eliminar Escenario"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Characters Management */}
-            <div className="library-section">
-              <div className="section-header">
-                <span className="section-title">Fichas de NPCs y Personajes ({campaign?.characters.length || 0})</span>
-                <button
-                  className="btn-primary-sm"
-                  onClick={() => {
-                    setEditingChar(null);
-                    setShowNewCharModal(true);
-                  }}
-                >
-                  <Plus size={14} />
-                  <span>Nuevo NPC</span>
-                </button>
-              </div>
-              <div className="library-list">
-                {campaign?.characters.map((ch) => (
-                  <div key={ch.id} className="library-item">
-                    <img src={ch.defaultAvatarUrl} alt={ch.name} className="item-thumb circle" />
-                    <div className="item-info">
-                      <span className="item-title">{ch.name}</span>
-                      <span className="item-subtitle">{ch.roleOrTitle}</span>
-                    </div>
-                    <div className="item-actions">
-                      <button
-                        className="item-action-btn"
-                        onClick={() => openEditCharModal(ch)}
-                        title="Editar NPC"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        className="item-delete-btn"
-                        onClick={async () => {
-                          if (!campaign) return;
-                          if (window.confirm(`¿Eliminar al personaje "${ch.name}"?`)) {
-                            const updatedChars = campaign.characters.filter((c) => c.id !== ch.id);
-                            const updatedCamp = { ...campaign, characters: updatedChars };
-                            await updateCampaign(updatedCamp);
-                            setCampaign(updatedCamp);
-                          }
-                        }}
-                        title="Eliminar NPC"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        <MasterMainTabs
+          activeTab={activeTab}
+          sessionViewMode={sessionViewMode}
+          setSessionViewMode={setSessionViewMode}
+          setActiveTab={setActiveTab}
+          campaign={campaign}
+          setCampaign={setCampaign}
+          currentScene={currentScene}
+          activeDisplay={activeDisplay}
+          liveState={liveState}
+          operationMode={operationMode}
+          updateDisplay={updateDisplay}
+          updateBanner={updateBanner}
+          selectScene={selectScene}
+          toggleAmbientPlay={toggleAmbientPlay}
+          handleAmbientVolumeChange={handleAmbientVolumeChange}
+          setShowSummonModal={setShowSummonModal}
+          changeCharacterPosition={changeCharacterPosition}
+          dismissCharacter={dismissCharacter}
+          toggleSpeaking={toggleSpeaking}
+          changeCharacterExpression={changeCharacterExpression}
+          setWeatherEffect={setWeatherEffect}
+          setWeatherIntensityVal={setWeatherIntensityVal}
+          setLightingPreset={setLightingPreset}
+          playSfx={playSfx}
+          handleExecuteMacro={handleExecuteMacro}
+          handleLoadMacroToStaging={handleLoadMacroToStaging}
+          handleUpdateMacros={handleUpdateMacros}
+          encountersList={encountersList}
+          setEncountersList={setEncountersList}
+          createAutoCheckpoint={createAutoCheckpoint}
+          broadcastMessage={broadcastMessage}
+          diceLog={diceLog}
+          rollDice={rollDice}
+          setShowCampaignPickerModal={setShowCampaignPickerModal}
+          exportCampaignJSON={exportCampaignJSON}
+          importCampaignJSON={importCampaignJSON}
+          handleResetDemo={handleResetDemo}
+          setEditingScene={setEditingScene}
+          setShowNewSceneModal={setShowNewSceneModal}
+          openEditSceneModal={openEditSceneModal}
+          setEditingChar={setEditingChar}
+          setShowNewCharModal={setShowNewCharModal}
+          openEditCharModal={openEditCharModal}
+        />
       </main>
 
       {/* SELECTIVE PUBLISH MODAL */}

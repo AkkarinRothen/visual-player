@@ -14,6 +14,7 @@ import { DisplayPairingOverlay } from './DisplayPairingOverlay';
 import { DisplayHUD } from './DisplayHUD';
 import { HandoutDisplayLayer } from './HandoutDisplayLayer';
 import { RecapDisplayLayer } from './RecapDisplayLayer';
+import { APP_VERSION, BUILD_ID, PROTOCOL_VERSION, APP_CAPABILITIES } from '../../version';
 
 interface PlayerDisplayProps {
   initialRoomCode?: string;
@@ -156,7 +157,10 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
           type: 'AUDIT_MESA_RESPONSE',
           payload: {
             deviceId: peerService.getMyId() || 'mesa-display',
-            appVersion: '1.0.0',
+            appVersion: APP_VERSION,
+            buildId: BUILD_ID,
+            protocolVersion: PROTOCOL_VERSION,
+            capabilities: APP_CAPABILITIES,
             sessionId: initialRoomCode || 'mesa-session',
             revision: displayCommandExecutor.getCurrentRevision(),
             checksum: displayCommandExecutor.getLastChecksum(),
