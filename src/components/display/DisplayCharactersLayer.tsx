@@ -5,14 +5,20 @@ import type {
   CharacterPosition,
   ElementTransitionDirective,
   SceneProp,
+  SceneOcclusionRegion,
   CombatState,
 } from '../../types';
 
 interface DisplayCharactersLayerProps {
   characters: CharacterOnScreen[];
   props?: SceneProp[];
+  occlusionRegions?: SceneOcclusionRegion[];
+  backgroundUrl?: string;
+  hasActiveDialogue?: boolean;
   activeTransitions?: ElementTransitionDirective[];
   combatState?: CombatState;
+  nameDisplayMode?: 'always' | 'speaker_only' | 'hidden';
+  groundLineY?: number;
 }
 
 function getSlotPositionPercent(pos: CharacterPosition): number {
@@ -32,7 +38,8 @@ function getSlotPositionPercent(pos: CharacterPosition): number {
 
 type StageItem =
   | { type: 'character'; data: CharacterOnScreen; zIndex: number }
-  | { type: 'prop'; data: SceneProp; zIndex: number };
+  | { type: 'prop'; data: SceneProp; zIndex: number }
+  | { type: 'occlusion'; data: SceneOcclusionRegion; zIndex: number };
 
 interface ExitingStageItem {
   item: StageItem;
@@ -43,14 +50,20 @@ interface ExitingStageItem {
 export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
   characters,
   props = [],
+  occlusionRegions = [],
+  backgroundUrl,
+  hasActiveDialogue = false,
   activeTransitions = [],
   combatState,
+  nameDisplayMode = 'always',
+  groundLineY = 0,
 }) => {
   const hasSpeaking = characters.some((c) => c.isSpeaking);
 
   // Track previous items to detect elements removed with an 'exit' transition directive
   const prevItemsRef = useRef<StageItem[]>([]);
   const [exitingItems, setExitingItems] = useState<ExitingStageItem[]>([]);
+  const [failedAvatarUrls, setFailedAvatarUrls] = useState<Set<string>>(() => new Set());
 
   // Current active stage items
   const currentStageItems: StageItem[] = [
@@ -66,6 +79,11 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
         data: p,
         zIndex: p.zIndex,
       })),
+    ...occlusionRegions.map((occ) => ({
+      type: 'occlusion' as const,
+      data: occ,
+      zIndex: occ.zIndex !== undefined ? occ.zIndex : 25,
+    })),
   ];
 
   // Detect exiting items
@@ -147,11 +165,15 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
           const char = item.data;
           const posX =
             char.normalizedX !== undefined ? char.normalizedX : getSlotPositionPercent(char.position);
-          const posY = char.normalizedY !== undefined ? char.normalizedY : 0;
+          const posY = (char.normalizedY !== undefined ? char.normalizedY : 0) + (groundLineY || 0);
           const effectiveScale = char.scale !== undefined ? char.scale : 1.0;
           const isFlipped = !!char.isFlipped;
           const isDimmed = hasSpeaking && !char.isSpeaking;
+          const visualAnchorOffsetY = char.visualAnchorOffsetY || 0;
 
+          const combatant = combatState?.combatants?.find(
+            (c) => c.characterId === char.id || c.id === char.id
+          );
           const activeCombatant = combatState?.isActive
             ? combatState.combatants[combatState.currentTurnIndex]
             : null;
@@ -159,11 +181,20 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
             !!activeCombatant &&
             (activeCombatant.characterId === char.id || activeCombatant.id === char.id);
 
+          const rawConditions =
+            (char as any).activeConditions ||
+            (char as any).conditions ||
+            combatant?.conditions ||
+            (isActiveCombatant ? activeCombatant?.conditions : null) ||
+            [];
+          const hasConditions = Array.isArray(rawConditions) && rawConditions.length > 0;
+
           return (
             /* 1. OUTER WRAPPER: Coordinates and displacement */
             <div
               key={char.id}
-              className="stage-item-pos-wrapper"
+              data-character-id={char.id}
+              className="stage-item-pos-wrapper character-display-wrapper"
               style={{
                 position: 'absolute',
                 left: `${posX}%`,
@@ -189,7 +220,7 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
                   } ${isActiveCombatant ? 'active-combatant-focal ring-2 ring-amber-400/80 rounded-2xl' : ''}`}
                   style={{
                     transformOrigin: 'bottom center',
-                    transform: `translate(-50%, 0) scale(${effectiveScale}) scaleX(${
+                    transform: `translate(-50%, ${visualAnchorOffsetY}%) scale(${effectiveScale}) scaleX(${
                       isFlipped ? -1 : 1
                     })`,
                     transition: 'filter 0.4s ease',
@@ -198,8 +229,8 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
                   {char.isSpeaking && <div className="speaking-aura" />}
                   {isActiveCombatant && <div className="active-combatant-aura" />}
 
-                  {/* Active combatant condition badges */}
-                  {isActiveCombatant && activeCombatant?.conditions && activeCombatant.conditions.length > 0 && (
+                  {/* Active combatant and general condition badges */}
+                  {hasConditions && (
                     <div
                       className="active-combatant-conditions"
                       style={{
@@ -215,10 +246,10 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {activeCombatant.conditions.map((cond, idx) => (
+                      {rawConditions.slice(0, 2).map((cond: string, idx: number) => (
                         <span
                           key={idx}
-                          className="combat-condition-chip"
+                          className="combat-condition-chip condition-badge"
                           style={{
                             fontSize: '9px',
                             fontWeight: 'bold',
@@ -234,40 +265,173 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
                           {cond}
                         </span>
                       ))}
+                      {rawConditions.length > 2 && (
+                        <span
+                          className="combat-condition-chip-more condition-badge-more"
+                          style={{
+                            fontSize: '9px',
+                            fontWeight: 'bold',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            background: 'rgba(120, 53, 15, 0.9)',
+                            color: '#fef3c7',
+                            border: '1px solid rgba(245, 158, 11, 0.7)',
+                            boxShadow: '0 2px 5px rgba(0,0,0,0.6)',
+                          }}
+                          title={rawConditions.slice(2).join(', ')}
+                        >
+                          +{rawConditions.length - 2}
+                        </span>
+                      )}
                     </div>
                   )}
 
-                  <div className="standee-proportional-frame">
-                    <img
-                      src={char.avatarUrl}
-                      alt={char.name}
-                      className="standee-proportional-img"
-                      loading="eager"
-                    />
-                    {char.isSpeaking && (
-                      <div
-                        className="speaking-indicator"
-                        style={{ transform: `scaleX(${isFlipped ? -1 : 1})` }}
-                      >
-                        <Sparkles size={16} />
-                      </div>
-                    )}
-                  </div>
+                  {(() => {
+                    const isIdentityHidden = char.revelation && !char.revelation.isIdentityRevealed;
+                    const publicDisplayName = isIdentityHidden
+                      ? (char.revelation?.publicAlias || 'Desconocido')
+                      : char.name;
+                    const isAppearanceHidden = char.revelation && !char.revelation.isAppearanceRevealed;
+                    const fallbackInitial = isAppearanceHidden ? '?' : (publicDisplayName ? publicDisplayName.charAt(0).toUpperCase() : '?');
 
-                  <div
-                    className="character-tag"
-                    style={{ transform: `scaleX(${isFlipped ? -1 : 1})` }}
-                  >
-                    <span className="char-name">{char.name}</span>
-                    {char.activeExpression && (
-                      <span className="char-expression">({char.activeExpression})</span>
-                    )}
-                    {char.statusBadge && (
-                      <span className="char-status-badge">{char.statusBadge}</span>
-                    )}
-                  </div>
+                    return (
+                      <>
+                        <div className="standee-proportional-frame">
+                          {failedAvatarUrls.has(char.avatarUrl) ? (
+                            <div className="standee-fallback-token flex flex-col items-center justify-center w-full h-full min-h-[160px] bg-neutral-950/90 border-2 border-amber-500/50 rounded-2xl p-4 shadow-xl text-center">
+                              <div className="w-14 h-14 rounded-full bg-neutral-900 border border-amber-500/60 flex items-center justify-center text-amber-300 font-serif text-2xl font-bold shadow-inner">
+                                {fallbackInitial}
+                              </div>
+                              <span className="text-xs text-amber-100 font-serif font-medium mt-2 max-w-[130px] truncate">{publicDisplayName}</span>
+                              <span className="text-[9px] text-amber-400/60 mt-0.5">Avatar no disponible</span>
+                            </div>
+                          ) : (
+                            <img
+                              src={char.avatarUrl}
+                              alt={publicDisplayName}
+                              className="standee-proportional-img"
+                              loading="eager"
+                              onError={() => {
+                                setFailedAvatarUrls((prev) => new Set(prev).add(char.avatarUrl));
+                              }}
+                            />
+                          )}
+                          {char.isSpeaking && (
+                            <div
+                              className="speaking-indicator"
+                              style={{ transform: `scaleX(${isFlipped ? -1 : 1})` }}
+                            >
+                              <Sparkles size={16} />
+                            </div>
+                          )}
+                        </div>
+
+                        {(() => {
+                          const isNameVisible =
+                            nameDisplayMode === 'always' ||
+                            !nameDisplayMode ||
+                            (nameDisplayMode === 'speaker_only' && char.isSpeaking);
+
+                          const hasVisibleContent = isNameVisible || !!char.statusBadge;
+                          if (!hasVisibleContent) return null;
+
+                          const isNameplateTop =
+                            char.nameplatePosition === 'top' ||
+                            (char.nameplatePosition !== 'bottom' &&
+                              char.nameplatePosition !== 'side' &&
+                              (hasActiveDialogue && posY < 18));
+                          const isNameplateSide = char.nameplatePosition === 'side';
+
+                          const tagPlacementStyle: React.CSSProperties = isNameplateTop
+                            ? {
+                                position: 'absolute',
+                                top: '-34px',
+                                left: '50%',
+                                transform: `translateX(-50%) scaleX(${isFlipped ? -1 : 1})`,
+                                zIndex: 26,
+                              }
+                            : isNameplateSide
+                            ? {
+                                position: 'absolute',
+                                left: '102%',
+                                bottom: '20px',
+                                transform: `scaleX(${isFlipped ? -1 : 1})`,
+                                zIndex: 26,
+                              }
+                            : {
+                                transform: `scaleX(${isFlipped ? -1 : 1})`,
+                              };
+
+                          return (
+                            <div
+                              className={`character-tag ${
+                                isNameplateTop
+                                  ? 'character-tag-top'
+                                  : isNameplateSide
+                                  ? 'character-tag-side'
+                                  : 'character-tag-bottom'
+                              }`}
+                              style={tagPlacementStyle}
+                            >
+                              {isNameVisible && (
+                                <span className="char-name" title={publicDisplayName}>
+                                  {publicDisplayName}
+                                </span>
+                              )}
+                              {isNameVisible && char.activeExpression && !isIdentityHidden && (
+                                <span className="char-expression">({char.activeExpression})</span>
+                              )}
+                              {char.statusBadge && (
+                                <span className="char-status-badge">{char.statusBadge}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
+            </div>
+          );
+        }
+
+        // Occlusion Region rendering
+        if (item.type === 'occlusion') {
+          const occ = item.data;
+          const leftPercent = occ.x;
+          const bottomPercent = occ.y;
+          const widthPercent = Math.max(1, occ.width);
+          const heightPercent = Math.max(1, occ.height);
+
+          return (
+            <div
+              key={occ.id}
+              className="stage-occlusion-region"
+              style={{
+                position: 'absolute',
+                left: `${leftPercent}%`,
+                bottom: `${bottomPercent}%`,
+                width: `${widthPercent}%`,
+                height: `${heightPercent}%`,
+                zIndex: item.zIndex,
+                pointerEvents: 'none',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                className="stage-occlusion-inner"
+                style={{
+                  position: 'absolute',
+                  left: `-${(leftPercent / widthPercent) * 100}%`,
+                  bottom: `-${(bottomPercent / heightPercent) * 100}%`,
+                  width: `${(100 / widthPercent) * 100}%`,
+                  height: `${(100 / heightPercent) * 100}%`,
+                  backgroundImage: backgroundUrl ? `url(${backgroundUrl})` : undefined,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
+              />
             </div>
           );
         }

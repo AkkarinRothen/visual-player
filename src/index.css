@@ -599,6 +599,8 @@ body, html {
   z-index: 25;
   pointer-events: none;
   animation: bannerSlideDown 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  padding: 0 16px;
+  box-sizing: border-box;
 }
 
 @keyframes bannerSlideDown {
@@ -611,6 +613,7 @@ body, html {
   align-items: center;
   gap: 18px;
   padding: 14px 36px;
+  max-width: min(720px, calc(100% - 480px));
   background: linear-gradient(180deg, rgba(15, 18, 30, 0.88) 0%, rgba(8, 10, 18, 0.95) 100%);
   border: 1px solid var(--border-gold);
   border-radius: var(--radius-md);
@@ -618,10 +621,22 @@ body, html {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(245, 158, 11, 0.2);
 }
 
+@container (max-width: 900px) {
+  .cinematic-banner-container {
+    top: 64px;
+  }
+  .cinematic-banner {
+    max-width: 90%;
+    padding: 8px 18px;
+    gap: 10px;
+  }
+}
+
 .banner-rune-left, .banner-rune-right {
   color: var(--primary);
   font-size: 1.4rem;
   text-shadow: 0 0 10px rgba(245, 158, 11, 0.8);
+  flex-shrink: 0;
 }
 
 .banner-content {
@@ -753,13 +768,20 @@ body, html {
   position: relative;
   width: 200px;
   height: 280px;
-  max-height: 48vh;
-  max-width: 22vw;
+  max-height: calc(var(--stage-height, 100vh) * 0.48);
+  max-width: calc(var(--stage-width, 100vw) * 0.22);
   border-radius: var(--radius-lg);
   overflow: hidden;
   border: 3px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8);
   background: rgba(17, 17, 17, 0.4);
+}
+
+@supports (container-type: size) {
+  .avatar-frame {
+    max-height: 48cqh;
+    max-width: 22cqw;
+  }
 }
 
 /* Proportional Standee Frame (Conserving Natural Aspect Ratio & Transparency) */
@@ -768,20 +790,34 @@ body, html {
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  max-height: 52vh;
-  max-width: 24vw;
+  max-height: calc(var(--stage-height, 100vh) * 0.52);
+  max-width: calc(var(--stage-width, 100vw) * 0.24);
   filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.85));
   transition: transform 0.3s ease, filter 0.3s ease;
 }
 
+@supports (container-type: size) {
+  .standee-proportional-frame {
+    max-height: 52cqh;
+    max-width: 24cqw;
+  }
+}
+
 .standee-proportional-img {
-  max-height: 52vh;
-  max-width: 24vw;
+  max-height: calc(var(--stage-height, 100vh) * 0.52);
+  max-width: calc(var(--stage-width, 100vw) * 0.24);
   width: auto;
   height: auto;
   object-fit: contain;
   pointer-events: none;
   user-select: none;
+}
+
+@supports (container-type: size) {
+  .standee-proportional-img {
+    max-height: 52cqh;
+    max-width: 24cqw;
+  }
 }
 
 .character-card.is-speaking .avatar-frame,

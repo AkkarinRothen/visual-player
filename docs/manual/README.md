@@ -88,6 +88,19 @@ Algunas escenas preparadas ya traen personajes y audio. Revisá qué cargó la e
 
 **Guardar** conserva contenido para usarlo después. **Publicar** cambia lo que recibe la Mesa. Guardar una campaña, una conversación o una composición no significa que ya esté en pantalla.
 
+### Previsualización y los tres indicadores de la Mesa
+
+La barra superior del director incluye una previsualización que reproduce exactamente lo que ve el grupo:
+- **Escenario 16:9 con bandas neutras:** La escena se calcula en una proporción estándar (16:9) y se adapta a la forma física de la pantalla del grupo (sea televisor 16:9, tablet 16:10 o celular) rellenando los bordes sobrantes con bandas negras neutras, sin recortar ni deformar las figuras. Si el dispositivo está en vertical, la previsualización sugiere girarlo para mejorar la visibilidad.
+- **Pestaña «En Pantalla»:** Muestra la última composición que la Mesa física confirmó haber recibido.
+- **Pestaña «Borrador»:** Muestra lo que estás preparando antes de enviarlo.
+- **Botón «Vista prevista»:** Si la Mesa acaba de conectarse y todavía no envió su primera confirmación, te permite revisar qué imagen local espera proyectar.
+
+Debajo de la previsualización verás **tres indicadores independientes**:
+1. **Estado:** Informa si la orden fue recibida (`Rev. X`), si está en tránsito (`Enviando`) o si falló (`Error`).
+2. **Imágenes:** Indica si los retratos y fondos ya cargaron en la pantalla (`Img listas`) o si están descargándose (`Cargando X pend.`). Si proyectás una imagen que la Mesa todavía no tiene lista, aparecerá una advertencia: *«Imagen pendiente de descarga en la Mesa»*.
+3. **Audio:** Informa si el sonido está habilitado (`Audio OK`) o si requiere atención (`Tocar Mesa`). Muchos navegadores bloquean la música hasta que alguien toca físicamente la pantalla del dispositivo de los jugadores.
+
 Preparación se aplica al borrador de la escena. Las herramientas con acciones explícitas como **Ejecutar en Vivo**, **Proyectar a la Mesa**, **Rayo** o los efectos de sonido pueden actuar sobre la Mesa directamente. Para ensayar sonidos o conversaciones, usá su opción específica de ensayo privado. La cobertura de Preparación en las herramientas avanzadas sigue pendiente de prueba completa.
 
 Si la app pregunta si querés reemplazar un borrador, tené en cuenta que el nuevo reemplaza los cambios que estabas preparando. Elegí **Cancelar** si necesitás revisarlos primero.
@@ -188,13 +201,48 @@ En **SFX Pad**, seleccioná un banco y un efecto. Revisá si está en **Ensayo A
 
 ### Mover personajes, objetos y cámara
 
-1. Abrí **Sesión → Compositor**.
+1. Abrí **Sesión → Compositor** o tocá **Modo Dirección** en la previsualización superior.
 2. Seleccioná un personaje u objeto y arrastralo a su lugar. Ajustá tamaño y el orden de frente/fondo según corresponda.
-3. **Objeto** permite agregar un elemento de decorado mediante su nombre e imagen.
+3. **Objeto** permite agregar un elemento de decorado mediante su nombre e imagen independiente.
 4. Podés guardar la disposición con **Guardar Preset** y recuperar una con **Cargar**.
 5. Confirmá con **Publicar a Mesa (ACK)** o **Guardar en Borrador**, según el modo activo.
 
 **Ejemplo:** colocá al tabernero detrás de una barra y al visitante delante. Si el encuadre queda demasiado cerca, usá **Cámara → Restablecer**.
+
+### Ocultación detrás del decorado (Regiones de oclusión)
+
+Cuando un elemento clave del decorado (como un mostrador de madera, un pilar de piedra o una balaustrada) ya forma parte de la imagen de fondo, podés hacer que los personajes queden físicamente detrás sin necesidad de recortar la imagen original en un editor externo:
+
+1. En el **Modo Dirección**, abrí el visor de capas de escena (botón **Capas** en la barra superior o en el panel de personaje).
+2. Tocá **Nueva región oclusión**.
+3. Escribí un nombre descriptivo (ej. *«Mostrador taberna»* o *«Pilar izquierdo»*) e indicá su posición (`X`, `Y`) y tamaño (`Ancho`, `Alto`) en porcentaje de la pantalla.
+4. Asigná el nivel de capa (`zIndex`). Por ejemplo, con capa 15, cualquier personaje con capa 10 quedará oculto por detrás de esa parte del fondo, mientras que un cliente con capa 20 se verá por delante.
+5. Tocá **Crear región**.
+
+**Resultado esperado:** la región clona con precisión subpíxel la porción del fondo y se intercala entre las figuras. Los nombres de las regiones de oclusión son privados del director y nunca se muestran al grupo.
+
+### Puntos narrativos de escena (Waypoints)
+
+Para mover personajes rápidamente entre ubicaciones recurrentes de la historia (como *«En la puerta»*, *«Detrás de la barra»* o *«Junto al fuego»*) sin tener que adivinar las coordenadas a mano cada vez:
+
+1. Colocá a una figura en la posición deseada dentro del escenario.
+2. Tocá el botón **Más…** en la barra inferior del personaje y buscá la sección **Puntos Narrativos de Escena**.
+3. Tocá **Guardar como punto…**, escribí el nombre del punto (ej. *«Entrada principal»*) y confirmá. El punto queda guardado de forma permanente para esa escena.
+4. Para mover a cualquier personaje a ese punto, tocalo, abrí **Más… → Mover a punto…** y elegí el destino.
+5. Podés elegir entre movimiento **Instantáneo** (teletransporte inmediato) o **Suave (0.4s)** (desplazamiento cinematográfico visible en la Mesa).
+6. Si otro personaje ya está ocupando esa ubicación, la ventana te advertirá con un aviso amarillo para evitar solapamientos accidentales.
+
+### Legibilidad de nombres y condiciones
+
+Para evitar que los nombres tapen los rostros o las peanas de criaturas pequeñas o en composiciones apretadas:
+
+1. En **Más… → Posición de la etiqueta**, podés elegir entre:
+   - **Auto:** La etiqueta se ubica en la base, pero si hay subtítulos de diálogo activos y el personaje está abajo (`Y < 18%`), la app eleva la etiqueta automáticamente sobre su cabeza para que no quede tapada.
+   - **Abajo:** Siempre al pie de la figura.
+   - **Arriba:** Siempre flotando sobre la cabeza.
+   - **Lateral:** Al costado derecho de la figura, ideal para tokens compactos.
+2. Los nombres largos se truncan con puntos suspensivos sin desbordar los márgenes de la figura.
+3. Si un combatiente acumula varias condiciones de combate, la Mesa muestra las dos primeras y agrupa las restantes en una insignia compacta `+N` (ej. `+2`) para no saturar la imagen.
 
 En **Presets Luz**, elegí un conjunto y decidí entre **Combinar con Actuales** o **Reemplazar Iluminación**. Las variantes, interacciones, revelaciones y efectos localizados solo aparecen cuando la escena o sus personajes tienen esa información preparada. La creación completa de esos recursos necesita un recorrido específico y no se da por comprobada en esta edición.
 
@@ -433,7 +481,42 @@ El control **Mute Total** se ofrece para silenciar y cambia a **Reactivar**. En 
 | El personaje quedó fuera del encuadre | Usá **Cámara → Restablecer** y revisá su posición en el Compositor. |
 | No veo mis campañas en otro dispositivo | Los datos son locales. Usá una copia exportada para trasladar la campaña. |
 
-La app tiene herramientas de diagnóstico de conexión. Para un uso normal, consultá el estado y las opciones de reconexión; **Modo Caos (DEV)** está destinado a pruebas de fallos.
+### Modo Dirección Táctil y Composición de Escenas
+
+Podés colocar y dirigir a tus personajes directamente sobre la pantalla de previsualización sin entrar a ventanas complejas:
+
+1. **Activar Modo Dirección:** Tocá el botón **Modo Dirección** en la esquina superior de la previsualización (o a pantalla completa). La vista previa normal permanece protegida contra toques accidentales; al encender el modo, podés tocar figuras para seleccionarlas y arrastrarlas con una silueta fantasma en tiempo real que no satura la red de la Mesa. Tocar el fondo deselecciona sin mover la cámara.
+2. **Calibrar apoyo en el suelo y expresiones:** Si una imagen PNG tiene bordes transparentes debajo de los pies, la figura puede parecer que «flota». Seleccioná al personaje, tocá **Más…** y elegí **Calibrar apoyo visual…**. Ajustá el deslizador sobre el fondo cuadriculado para que los pies toquen la línea roja de suelo:
+   - **Guardar en esta figura:** Aplica la corrección únicamente a esta instancia en el escenario actual.
+   - **Guardar apoyo (Ficha/Biblioteca):** Guarda la calibración en la ficha del personaje para la expresión activa. Al cambiar de gesto (sonrisa, asombro, ira) con márgenes transparentes diferentes, la app aplica automáticamente la calibración correspondiente sin que la figura salte de altura ni cambie de tamaño.
+3. **Línea de suelo por escena:** Las escenas con escaleras, puentes o tarimas pueden tener una altura de suelo personalizada. El botón **Guías** muestra la línea de apoyo y los márgenes seguros para diálogos. Con dos o más personajes seleccionados, el botón **Al suelo** nivela a todos en la base de la escena considerando sus apoyos calibrados.
+4. **Controles cómodos para celular (uso con una sola mano):** La barra de acciones rápidas se ubica al pie de la pantalla sin tapar a la figura. Ofrece accesos directos de un toque:
+   - **Voz:** Activa o desactiva el resplandor de habla del personaje.
+   - **Expresión:** Abre el menú de gestos faciales del personaje.
+   - **Ocultar / Mostrar:** Conmuta si los jugadores ven o no a la figura en pantalla, conservando su posición exacta.
+   - **Más…:** Despliega un panel inferior con cuatro secciones:
+     - *Presencia:* Enviar a la reserva, hacer entrar a escena o preparar entrada animada.
+     - *Encuadre:* Centrar la cámara en este personaje.
+     - *Transformación:* Girar en espejo, agrandar/achicar escala (+/-) y calibrar apoyo visual.
+     - *Capas y Profundidad:*
+       - **Al frente / Al fondo:** Mueve la figura al primer plano o detrás de todo.
+       - **Delante de… / Detrás de…:** Abre una lista con las figuras y objetos de la escena (como un mostrador de taberna o una tarima) para intercalar al personaje en el plano exacto sin solapamientos.
+       - **Ver capas de escena:** Muestra la lista de orden de profundidad completa para ordenar capas una a una con flechas.
+     - *Organización:* Bloquear contra arrastres accidentales y asignar etiqueta privada del DM (ej. *«Guardia puerta»*).
+   - Durante el arrastre con el dedo, la barra se oculta temporalmente para que veas la escena completa.
+5. **Movimiento grupal rígido y seguridad del arrastre:** Con **Seleccionar varios**, arrastrar mueve al conjunto manteniendo exactamente la distancia entre ellos:
+   - **Freno en bloque:** Si cualquier figura del grupo alcanza el borde de la pantalla (márgenes seguros `0% a 100%`), todo el conjunto se detiene de forma rígida sin aplastar la formación.
+   - **Figuras bloqueadas:** Si una figura tiene el candado activado, queda fija en su lugar y no es arrastrada con el resto.
+   - **Cancelación segura:** Si la cámara se mueve durante el arrastre, o si el dedo/mouse sale del área de la pantalla o se interrumpe el gesto, el arrastre se cancela automáticamente sin producir saltos ni publicar movimientos accidentales a la Mesa.
+6. **Preparar entradas desde reserva:** Cuando un personaje está fuera de escena, seleccioná su ficha, tocá **Más…** y elegí **Preparar entrada…**. Podés elegir su animación (fundido o deslizamiento desde un borde) y verificar que la imagen pública ya esté descargada en la Mesa. Al tocar **Hacer entrar a escena**, aparecerá con animación suave y sin demoras ni recortes.
+7. **Encuadres guardados con nombre:** En el menú **Cámara**, podés elegir **Guardar encuadre actual…** para recordar planos como *«Mostrador»* o *«Puerta del sótano»*. Tocarlos mueve la cámara al encuadre guardado sin desplazar a los personajes y suspende el seguimiento automático del hablante hasta que lo reactives.
+
+### Diagnóstico y recuperación de la Mesa
+
+Si sospechás que la pantalla de los jugadores se quedó congelada o desincronizada, tocá la pastilla de estado de conexión en la barra superior para abrir la ventana de **Diagnóstico de Conexión y Sincronización**:
+- **Comprobar Mesa:** Envía una consulta no destructiva que no altera la partida. Muestra en pantalla el dispositivo conectado, la resolución exacta, los recursos descargados y el estado del audio.
+- **Resincronizar Mesa:** Si la Mesa no refleja la escena actual, esta acción reenvía la instantánea pública completa. Restaura de forma limpia el estado visual **sin repetir efectos sonoros, truenos pasados ni reiniciar los cronómetros de combate**.
+- **Copiar Diagnóstico:** Genera un informe técnico completo en el portapapeles con datos de red, latencia y telemetría de pantalla. Está completamente saneado: no incluye notas privadas del director, textos secretos ni contraseñas.
 
 <a id="glosario"></a>
 ## Palabras que aparecen en la app

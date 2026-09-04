@@ -24,24 +24,27 @@ export const GENERIC_SILHOUETTE_URL =
  * If identity is unrevealed, replaces name with the public alias or 'Desconocido'.
  */
 export function sanitizeCharacterForDisplay(char: CharacterOnScreen): CharacterOnScreen {
-  if (!char.revelation) {
-    return char;
+  // Strip DM-only privateLabel so it is never transmitted to the Mesa
+  const { privateLabel, ...cleanedChar } = char;
+
+  if (!cleanedChar.revelation) {
+    return cleanedChar;
   }
 
-  const { isAppearanceRevealed, isIdentityRevealed, silhouetteUrl, publicAlias } = char.revelation;
+  const { isAppearanceRevealed, isIdentityRevealed, silhouetteUrl, publicAlias } = cleanedChar.revelation;
 
   const publicAvatarUrl =
     isAppearanceRevealed === false
       ? silhouetteUrl || GENERIC_SILHOUETTE_URL
-      : char.avatarUrl;
+      : cleanedChar.avatarUrl;
 
   const publicName =
     isIdentityRevealed === false
       ? publicAlias || 'Desconocido'
-      : char.name;
+      : cleanedChar.name;
 
   return {
-    ...char,
+    ...cleanedChar,
     avatarUrl: publicAvatarUrl,
     name: publicName,
   };
@@ -49,14 +52,20 @@ export function sanitizeCharacterForDisplay(char: CharacterOnScreen): CharacterO
 
 /**
  * Sanitizes entire DisplayState before dispatching across WebRTC / network to the players Mesa.
- * Ensures strict Zero-Leak security: secret names and portraits are eliminated before transmission.
+ * Ensures strict Zero-Leak security:
+ * 1. Secret names and portraits are eliminated before transmission.
+ * 2. Hidden characters (isHidden: true) and in-reserve characters (presence: 'in_reserve') are pruned.
+ * 3. DM-only privateLabel is suppressed.
  */
 export function sanitizeDisplayStateForDisplay(state: DisplayState): DisplayState {
   if (!state.characters || state.characters.length === 0) {
     return state;
   }
 
-  const sanitizedCharacters = state.characters.map(sanitizeCharacterForDisplay);
+  // Filter out any character that is hidden or in reserve
+  const publicActiveCharacters = state.characters
+    .filter((c) => c.presence !== 'in_reserve' && c.isHidden !== true)
+    .map(sanitizeCharacterForDisplay);
 
   let sanitizedDialogue = state.dialogue;
   if (sanitizedDialogue && sanitizedDialogue.speakerInstanceId) {
@@ -83,7 +92,7 @@ export function sanitizeDisplayStateForDisplay(state: DisplayState): DisplayStat
 
   return {
     ...state,
-    characters: sanitizedCharacters,
+    characters: publicActiveCharacters,
     dialogue: sanitizedDialogue,
   };
 }

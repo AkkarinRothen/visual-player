@@ -66,7 +66,10 @@ export type SyncMessageType =
   | 'UPDATE_ZONE_EMITTERS'
   | 'UPDATE_SCENE_INTERACTIONS'
   | 'UPDATE_ACTIVE_HANDOUT'
-  | 'UPDATE_ACTIVE_RECAP';
+  | 'UPDATE_ACTIVE_RECAP'
+  | 'MESA_VIEWPORT_CHANGED'
+  | 'AUDIT_MESA_REQUEST'
+  | 'AUDIT_MESA_RESPONSE';
 
 export interface AckPayload {
   ackMessageId: string;
@@ -82,7 +85,22 @@ export interface DisplayViewportTelemetry {
 export interface DisplayAssetsStatus {
   isReady: boolean;
   missingCount: number;
+  failedCount?: number;
   pendingUrls?: string[];
+}
+
+export type DisplayAudioStatus = 'unknown' | 'interaction_required' | 'enabled' | 'error';
+
+export interface AuditMesaReport {
+  deviceId?: string;
+  appVersion: string;
+  sessionId: string;
+  revision: number;
+  checksum: string;
+  viewport: DisplayViewportTelemetry;
+  assetsStatus: DisplayAssetsStatus;
+  audioStatus: DisplayAudioStatus;
+  timestamp: number;
 }
 
 export interface CommandResultPayload {
@@ -98,6 +116,7 @@ export interface CommandResultPayload {
   errorMessage?: string;
   viewport?: DisplayViewportTelemetry;
   assetsStatus?: DisplayAssetsStatus;
+  audioStatus?: DisplayAudioStatus;
 }
 
 export interface TurnTimerTickPayload {

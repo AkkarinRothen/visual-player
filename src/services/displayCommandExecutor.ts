@@ -3,6 +3,7 @@ import type {
   CommandResultPayload,
   DisplayViewportTelemetry,
   DisplayAssetsStatus,
+  DisplayAudioStatus,
   VersionedSyncMessage,
 } from '../domain/protocol/types';
 import {
@@ -18,6 +19,7 @@ export interface DisplayExecutorCallbacks {
   onSideEffect?: (effect: DisplayCommandSideEffect) => void;
   getViewportInfo?: () => DisplayViewportTelemetry;
   getAssetsStatus?: () => DisplayAssetsStatus;
+  getAudioStatus?: () => DisplayAudioStatus;
 }
 
 export class DisplayCommandExecutor {
@@ -131,6 +133,12 @@ export class DisplayCommandExecutor {
         callbacks.transportSend({ type: 'COMMAND_RESULT', payload: rejection });
       }
       return rejection;
+    } else if (
+      msg.connectionEpoch !== undefined &&
+      (this.activeConnectionEpoch === undefined || msg.connectionEpoch > this.activeConnectionEpoch)
+    ) {
+      // Advance epoch authority to latest epoch (e.g. from resync)
+      this.activeConnectionEpoch = msg.connectionEpoch;
     }
 
     // 3. Pure Reducer evaluation
@@ -171,6 +179,7 @@ export class DisplayCommandExecutor {
 
     const viewport = callbacks.getViewportInfo?.();
     const assetsStatus = callbacks.getAssetsStatus?.();
+    const audioStatus = callbacks.getAudioStatus?.();
 
     const appliedPayload: CommandResultPayload = {
       commandId: commandId || 'unknown',
@@ -182,6 +191,7 @@ export class DisplayCommandExecutor {
       connectionEpoch: this.activeConnectionEpoch,
       viewport,
       assetsStatus,
+      audioStatus,
     };
 
     // Cache result for idempotency
@@ -201,8 +211,12 @@ export class DisplayCommandExecutor {
 
     // 7. Execute side-effects safely after commit
     if (reduction.sideEffects && reduction.sideEffects.length > 0 && callbacks.onSideEffect) {
+      const isResync = !!(msg as any).isResync;
       reduction.sideEffects.forEach((eff) => {
         try {
+          if (isResync && (eff.type === 'play_synth' || eff.type === 'storm_lightning')) {
+            return; // Skip explosive audio/effects during resynchronization
+          }
           callbacks.onSideEffect!(eff);
         } catch (effErr) {
           console.error('[DisplayCommandExecutor] Side effect error:', effErr);
@@ -211,6 +225,15 @@ export class DisplayCommandExecutor {
     }
 
     return appliedPayload;
+  }
+
+  public getCurrentRevision(): number {
+    return this.currentRevision;
+  }
+
+  public getLastChecksum(): string {
+    const last = Array.from(this.appliedCommands.values()).pop();
+    return last?.checksum || '';
   }
 }
 

@@ -116,4 +116,54 @@ describe('Zero-Leak Display Sanitizer Suite', () => {
     expect(sanitized.avatarUrl).toBe(regularNpc.avatarUrl);
     expect(sanitized.name).toBe(regularNpc.name);
   });
+
+  it('6. Purga personajes en reserva o con isHidden: true de la proyección pública de la Mesa', () => {
+    const visibleChar: CharacterOnScreen = {
+      id: 'char-visible',
+      name: 'Aldeano',
+      avatarUrl: 'https://example.com/aldeano.png',
+      position: 'left',
+      isSpeaking: false,
+    };
+    const hiddenChar: CharacterOnScreen = {
+      id: 'char-stealth',
+      name: 'Pícaro Emboscador',
+      avatarUrl: 'https://example.com/picaro.png',
+      position: 'center-left',
+      isSpeaking: false,
+      isHidden: true, // Oculto en escena
+    };
+    const reserveChar: CharacterOnScreen = {
+      id: 'char-reinforcement',
+      name: 'Refuerzo Troll',
+      avatarUrl: 'https://example.com/troll.png',
+      position: 'right',
+      isSpeaking: false,
+      presence: 'in_reserve', // En reserva
+    };
+
+    const state: any = {
+      characters: [visibleChar, hiddenChar, reserveChar],
+    };
+
+    const sanitized = sanitizeDisplayStateForDisplay(state);
+    expect(sanitized.characters).toHaveLength(1);
+    expect(sanitized.characters[0].id).toBe('char-visible');
+  });
+
+  it('7. Suprime privateLabel del DM antes de enviar a la Mesa', () => {
+    const guardInstance: CharacterOnScreen = {
+      id: 'guard-instance-1',
+      name: 'Guardia Real',
+      privateLabel: 'Guardia Puerta Derecha (Tiene llave)',
+      avatarUrl: 'https://example.com/guard.png',
+      position: 'right',
+      isSpeaking: false,
+    };
+
+    const sanitized = sanitizeCharacterForDisplay(guardInstance);
+    expect(sanitized.name).toBe('Guardia Real');
+    expect(sanitized.privateLabel).toBeUndefined();
+    expect((sanitized as any).privateLabel).toBeUndefined();
+  });
 });

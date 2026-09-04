@@ -40,7 +40,10 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
     }
   }, []);
 
+  const [pendingCommandsCount, setPendingCommandsCount] = useState<number>(0);
+
   const broadcastFullState = useCallback((state: DisplayState) => {
+    sessionCommandBus.recordConfirmedState(state);
     peerService.send({
       type: 'FULL_STATE',
       payload: state,
@@ -75,9 +78,15 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
 
     const unsubTelemetry = sessionCommandBus.onMesaTelemetry((telem) => {
       setMesaTelemetry(telem ? { ...telem } : null);
+      setPendingCommandsCount(sessionCommandBus.getPendingCommandsCount());
     });
 
+    const pendingInterval = setInterval(() => {
+      setPendingCommandsCount(sessionCommandBus.getPendingCommandsCount());
+    }, 300);
+
     return () => {
+      clearInterval(pendingInterval);
       stopWatcher();
       unsubStatus();
       unsubMsg();
@@ -91,6 +100,7 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
     connectionStatus,
     latencyMs,
     mesaTelemetry,
+    pendingCommandsCount,
     connectToRoom,
     broadcastFullState,
     broadcastMessage,

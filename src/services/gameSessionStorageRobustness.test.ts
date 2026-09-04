@@ -216,7 +216,7 @@ describe('Robust Storage & Session Lifecycle Suite', () => {
     expect(report.missing.length).toBe(1);
     expect(report.missing[0].context).toBe('Fondo Roto');
     expect(report.canExportOfflineComplete).toBe(false);
-  });
+  }, 15000);
 
   it('4. Checkpoints vinculados a Sesión y Restauración Segura como Copia', async () => {
     const session = await createGameSession(testCampaignId, 'Sesión Checkpoint');

@@ -651,6 +651,10 @@ class PeerService {
     this.latencyMs = 0;
     this.unavailableIdRetries = 0;
   }
+
+  public getMyId(): string {
+    return this.peer?.id || this.currentRoomId || 'mesa-display';
+  }
 }
 
 export const peerService = new PeerService();

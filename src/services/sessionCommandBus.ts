@@ -1,9 +1,11 @@
 import type {
   AckPayload,
-  CommandResultPayload,
+  SyncMessageType,
   DisplayViewportTelemetry,
   DisplayAssetsStatus,
-  SyncMessageType,
+  DisplayAudioStatus,
+  AuditMesaReport,
+  CommandResultPayload,
   VersionedSyncMessage,
 } from '../domain/protocol/types';
 import type { CombatState, DisplayState, SessionCheckpoint, CinematicDialogue, CameraTransform, SceneLight, SceneZoneEmitter, SceneInteraction, HandoutState, CampaignRecap, WeatherStormEvent } from '../types';
@@ -24,8 +26,16 @@ export interface ISessionTransport {
 export interface MesaTelemetryInfo {
   viewport?: DisplayViewportTelemetry;
   assetsStatus?: DisplayAssetsStatus;
+  audioStatus?: DisplayAudioStatus;
+  commandStatus?: 'no_ack' | 'pending' | 'applied' | 'error' | 'timed_out';
   lastAppliedRevision?: number;
   lastConfirmedAt?: number;
+  lastConfirmedStateSnapshot?: DisplayState;
+  sessionId?: string;
+  targetDeviceId?: string;
+  hasReceivedInitialMesaAck?: boolean;
+  lastAuditReport?: AuditMesaReport;
+  lastErrorMessage?: string;
 }
 
 export interface CommandBusOptions {
@@ -43,6 +53,7 @@ export class SessionCommandBus {
   private transport: ISessionTransport;
   private unsubMessage: (() => void) | null = null;
   private pendingTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private stateSnapshotsByCommandId: Map<string, DisplayState> = new Map();
   private lastMesaTelemetry: MesaTelemetryInfo | null = null;
   private telemetryListeners: Array<(telemetry: MesaTelemetryInfo | null) => void> = [];
 
@@ -79,6 +90,52 @@ export class SessionCommandBus {
         return;
       }
 
+      // Handle real-time viewport changes from Mesa (orientation, fullscreen, resize, asset loading, audio unlock)
+      if (vMsg.type === 'MESA_VIEWPORT_CHANGED') {
+        const p = vMsg.payload as {
+          viewport: DisplayViewportTelemetry;
+          assetsStatus?: DisplayAssetsStatus;
+          audioStatus?: DisplayAudioStatus;
+        };
+        if (p && p.viewport) {
+          this.lastMesaTelemetry = {
+            viewport: p.viewport,
+            assetsStatus: p.assetsStatus || this.lastMesaTelemetry?.assetsStatus,
+            audioStatus: p.audioStatus || this.lastMesaTelemetry?.audioStatus,
+            commandStatus: this.lastMesaTelemetry?.commandStatus,
+            lastAppliedRevision: this.lastMesaTelemetry?.lastAppliedRevision,
+            lastConfirmedAt: Date.now(),
+            lastConfirmedStateSnapshot: this.lastMesaTelemetry?.lastConfirmedStateSnapshot,
+            sessionId: this.sessionId,
+            hasReceivedInitialMesaAck: this.lastMesaTelemetry?.hasReceivedInitialMesaAck ?? false,
+          };
+          this.emitTelemetry();
+        }
+        return;
+      }
+
+      // Handle non-destructive AUDIT_MESA_RESPONSE
+      if (vMsg.type === 'AUDIT_MESA_RESPONSE') {
+        const report = vMsg.payload as AuditMesaReport;
+        if (report) {
+          this.lastMesaTelemetry = {
+            ...(this.lastMesaTelemetry || {}),
+            viewport: report.viewport,
+            assetsStatus: report.assetsStatus,
+            audioStatus: report.audioStatus,
+            lastAppliedRevision: report.revision,
+            lastConfirmedAt: report.timestamp || Date.now(),
+            sessionId: report.sessionId || this.sessionId,
+            targetDeviceId: report.deviceId,
+            hasReceivedInitialMesaAck: true,
+            lastAuditReport: report,
+            commandStatus: this.pendingTimeouts.size > 0 ? 'pending' : 'applied',
+          };
+          this.emitTelemetry();
+        }
+        return;
+      }
+
       // Handle domain-level COMMAND_RESULT
       if (vMsg.type === 'COMMAND_RESULT') {
         const payload = vMsg.payload as CommandResultPayload;
@@ -92,6 +149,16 @@ export class SessionCommandBus {
           }
           this.handleCommandResult(payload);
         }
+      }
+    });
+  }
+
+  private emitTelemetry(): void {
+    this.telemetryListeners.forEach((listener) => {
+      try {
+        listener(this.lastMesaTelemetry);
+      } catch (e) {
+        console.error('[SessionCommandBus] Error in telemetry listener:', e);
       }
     });
   }
@@ -110,28 +177,132 @@ export class SessionCommandBus {
         appliedAt: result.appliedAt,
       });
 
+      const confirmedSnapshot = this.stateSnapshotsByCommandId.get(result.commandId);
+      this.stateSnapshotsByCommandId.delete(result.commandId);
+
       // Update confirmed telemetry from Mesa
-      if (result.viewport || result.assetsStatus || result.revision) {
-        this.lastMesaTelemetry = {
-          viewport: result.viewport || this.lastMesaTelemetry?.viewport,
-          assetsStatus: result.assetsStatus || this.lastMesaTelemetry?.assetsStatus,
-          lastAppliedRevision: result.revision || this.lastMesaTelemetry?.lastAppliedRevision,
-          lastConfirmedAt: result.appliedAt || Date.now(),
-        };
-        this.telemetryListeners.forEach((listener) => {
-          try {
-            listener(this.lastMesaTelemetry);
-          } catch (e) {
-            console.error('[SessionCommandBus] Error in telemetry listener:', e);
-          }
-        });
-      }
+      this.lastMesaTelemetry = {
+        viewport: result.viewport || this.lastMesaTelemetry?.viewport,
+        assetsStatus: result.assetsStatus || this.lastMesaTelemetry?.assetsStatus,
+        audioStatus: result.audioStatus || this.lastMesaTelemetry?.audioStatus || 'unknown',
+        commandStatus: this.pendingTimeouts.size > 0 ? 'pending' : 'applied',
+        lastAppliedRevision: result.revision || this.lastMesaTelemetry?.lastAppliedRevision,
+        lastConfirmedAt: result.appliedAt || Date.now(),
+        lastConfirmedStateSnapshot: confirmedSnapshot || this.lastMesaTelemetry?.lastConfirmedStateSnapshot,
+        sessionId: result.sessionId || this.sessionId,
+        targetDeviceId: result.targetDeviceId,
+        hasReceivedInitialMesaAck: true,
+      };
+      this.emitTelemetry();
     } else {
+      this.stateSnapshotsByCommandId.delete(result.commandId);
       this.store.markRejected(result.commandId, {
         code: result.errorCode,
         message: result.errorMessage,
       });
+      this.lastMesaTelemetry = {
+        ...(this.lastMesaTelemetry || {}),
+        commandStatus: 'error',
+        lastErrorMessage: result.errorMessage || result.errorCode || 'Error al aplicar comando en la Mesa',
+      };
+      this.emitTelemetry();
     }
+  }
+
+  public recordConfirmedState(state: DisplayState, revision?: number): void {
+    this.lastMesaTelemetry = {
+      ...(this.lastMesaTelemetry || {}),
+      lastConfirmedStateSnapshot: state,
+      lastAppliedRevision: revision ?? this.lastMesaTelemetry?.lastAppliedRevision,
+      lastConfirmedAt: Date.now(),
+      sessionId: this.sessionId,
+      hasReceivedInitialMesaAck: true,
+      commandStatus: this.pendingTimeouts.size > 0 ? 'pending' : 'applied',
+    };
+    this.emitTelemetry();
+  }
+
+  public requestMesaAudit(): void {
+    if (this.transport.getStatus() !== 'connected') {
+      console.warn('[SessionCommandBus] Cannot audit Mesa: transport disconnected');
+      return;
+    }
+    const message = {
+      type: 'AUDIT_MESA_REQUEST',
+      payload: { timestamp: Date.now() },
+      sessionId: this.sessionId,
+      connectionEpoch: this.connectionEpoch,
+    };
+    this.transport.send(message as any);
+  }
+
+  public resyncMesa(publicState: DisplayState): void {
+    if (this.transport.getStatus() !== 'connected') {
+      console.warn('[SessionCommandBus] Cannot resync Mesa: transport disconnected');
+      return;
+    }
+    // Cancel in-flight pending commands to avoid old commands overwriting the resynced state (Pregunta 8)
+    this.pendingTimeouts.forEach((timer) => clearTimeout(timer));
+    this.pendingTimeouts.clear();
+    this.stateSnapshotsByCommandId.clear();
+    // Advance connectionEpoch so Mesa strictly rejects any delayed command sent before this resync (Pregunta 4)
+    this.connectionEpoch++;
+
+    // Mark previous in-flight commands in store as superseded
+    this.store.getAllReceipts().forEach((receipt) => {
+      if (receipt.status === 'sent' || receipt.status === 'received') {
+        this.store.markRejected(receipt.commandId, {
+          code: 'SUPERSEDED_BY_RESYNC',
+          message: 'Comando anterior invalidado por resincronización de Mesa',
+        });
+      }
+    });
+
+    this.recordConfirmedState(publicState);
+    const message = {
+      type: 'FULL_STATE',
+      payload: sanitizeDisplayStateForDisplay(publicState),
+      isResync: true,
+      sessionId: this.sessionId,
+      connectionEpoch: this.connectionEpoch,
+    };
+    this.transport.send(message as any);
+  }
+
+  public getSanitizedDiagnosticReport(): Record<string, unknown> {
+    const receipts = this.store.getAllReceipts();
+    const applied = receipts.filter((r) => r.status === 'applied').length;
+    const pending = receipts.filter((r) => r.status === 'sent' || r.status === 'received').length;
+    const rejected = receipts.filter((r) => r.status === 'rejected' || r.status === 'timed_out').length;
+
+    return {
+      timestamp: new Date().toISOString(),
+      sessionId: this.sessionId,
+      connectionEpoch: this.connectionEpoch,
+      transportStatus: this.transport.getStatus(),
+      targetDeviceId: this.lastMesaTelemetry?.targetDeviceId || 'unknown',
+      hasReceivedInitialMesaAck: !!this.lastMesaTelemetry?.hasReceivedInitialMesaAck,
+      lastAppliedRevision: this.lastMesaTelemetry?.lastAppliedRevision ?? null,
+      lastConfirmedAt: this.lastMesaTelemetry?.lastConfirmedAt ? new Date(this.lastMesaTelemetry.lastConfirmedAt).toISOString() : null,
+      commandStatus: this.lastMesaTelemetry?.commandStatus || (this.lastMesaTelemetry?.hasReceivedInitialMesaAck ? 'applied' : 'no_ack'),
+      viewport: this.lastMesaTelemetry?.viewport ? {
+        width: this.lastMesaTelemetry.viewport.width,
+        height: this.lastMesaTelemetry.viewport.height,
+        aspectRatio: this.lastMesaTelemetry.viewport.aspectRatio,
+      } : null,
+      assetsStatus: this.lastMesaTelemetry?.assetsStatus ? {
+        isReady: this.lastMesaTelemetry.assetsStatus.isReady,
+        missingCount: this.lastMesaTelemetry.assetsStatus.missingCount,
+        failedCount: this.lastMesaTelemetry.assetsStatus.failedCount ?? 0,
+      } : null,
+      audioStatus: this.lastMesaTelemetry?.audioStatus || 'unknown',
+      commandsSummary: {
+        total: receipts.length,
+        applied,
+        pending,
+        rejected,
+      },
+    };
   }
 
   public getMesaTelemetry(): MesaTelemetryInfo | null {
@@ -174,6 +345,10 @@ export class SessionCommandBus {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
   }
 
+  public getPendingCommandsCount(): number {
+    return this.pendingTimeouts.size;
+  }
+
   /**
    * Internal generic dispatcher wrapping commandId lifecycle, timeouts, and transport send.
    */
@@ -184,10 +359,15 @@ export class SessionCommandBus {
       commandId?: string;
       timeoutMs?: number;
       params?: Record<string, unknown>;
+      stateSnapshot?: DisplayState;
     }
   ): string {
     const commandId = options?.commandId || this.generateCommandId(type.toLowerCase());
     const timeoutMs = options?.timeoutMs || this.defaultTimeoutMs;
+
+    if (options?.stateSnapshot) {
+      this.stateSnapshotsByCommandId.set(commandId, options.stateSnapshot);
+    }
 
     this.store.registerCommand(commandId, type, {
       sessionId: this.sessionId,
@@ -223,6 +403,13 @@ export class SessionCommandBus {
     const timer = setTimeout(() => {
       this.pendingTimeouts.delete(commandId);
       this.store.markTimedOut(commandId);
+      if (this.lastMesaTelemetry) {
+        this.lastMesaTelemetry = {
+          ...this.lastMesaTelemetry,
+          commandStatus: this.pendingTimeouts.size > 0 ? 'pending' : 'timed_out',
+        };
+        this.emitTelemetry();
+      }
     }, timeoutMs);
 
     this.pendingTimeouts.set(commandId, timer);

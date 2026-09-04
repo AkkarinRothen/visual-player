@@ -135,6 +135,7 @@ export interface Character {
   roleOrTitle: string;
   defaultAvatarUrl: string;
   expressions?: Record<string, string>;
+  expressionAnchors?: Record<string, number>; // Anchor calibration (0-50%) per expression key or avatar URL
   visualStates?: VisualStateVariant[];
   bio?: string;
   tags?: string[];
@@ -143,8 +144,10 @@ export interface Character {
 
 export interface CharacterOnScreen {
   id: string;
+  instanceId?: string; // Stable unique ID for screen instance
   characterId?: string;
   name: string;
+  privateLabel?: string; // DM-only private instance label (e.g. "Guardia puerta", sanitized from Mesa)
   avatarUrl: string;
   position: CharacterPosition;
   normalizedX?: number; // 0-100% (center-bottom anchor)
@@ -154,9 +157,14 @@ export interface CharacterOnScreen {
   zIndex?: number; // Stacking layer 1-50 (default 1)
   isLocked?: boolean; // Prevent accidental drag
   isSpeaking: boolean;
+  presence?: 'on_stage' | 'in_reserve'; // Presence dimension: on screen vs ready in reserve
+  isHidden?: boolean; // Visibility dimension: temporarily hidden from players without losing position
+  visualAnchorOffsetY?: number; // Visual ground anchor offset 0-50% (compensates bottom transparent padding)
+  instanceVariantAnchors?: Record<string, number>; // Per-instance calibration overrides per expression key
   activeExpression?: string;
   visualStateId?: string;
   statusBadge?: string;
+  nameplatePosition?: 'auto' | 'bottom' | 'top' | 'side'; // Adaptive or manual tag position
   revelation?: CharacterRevelationState;
 }
 
@@ -165,6 +173,25 @@ export interface CharacterRevelationState {
   isIdentityRevealed: boolean;   // False => projected with publicAlias (e.g. "Desconocido")
   silhouetteUrl?: string;        // Specific silhouette asset URL
   publicAlias?: string;          // Public placeholder name e.g. "Figura Encapuchada"
+}
+
+export interface SceneOcclusionRegion {
+  id: string;
+  name: string; // DM private label e.g. "Frente mostrador", "Columna"
+  x: number; // 0-100% (left)
+  y: number; // 0-100% (bottom)
+  width: number; // 0-100%
+  height: number; // 0-100%
+  zIndex: number; // Shared zIndex with characters and props (default 25)
+}
+
+export interface StageWaypoint {
+  id: string;
+  name: string; // DM private label e.g. "Detrás de la barra", "En la puerta"
+  normalizedX: number; // 0-100%
+  normalizedY: number; // 0-100%
+  targetZIndex?: number; // Optional target layer zIndex
+  description?: string;
 }
 
 export interface SceneVariant {
@@ -178,6 +205,10 @@ export interface SceneVariant {
   weather?: WeatherType;
   weatherIntensity?: number;
   ambientAudioUrl?: string;
+  groundLineY?: number; // Scene-specific visual ground line percentage (0-50%, default 0)
+  savedCameraPresets?: { id: string; name: string; camera: CameraTransform }[];
+  occlusionRegions?: SceneOcclusionRegion[];
+  waypoints?: StageWaypoint[];
 }
 
 export interface SceneProp {
@@ -234,6 +265,8 @@ export interface SceneCompositionPreset {
   backgroundUrl?: string;
   characters: PresetCharacterVisual[];
   props: SceneProp[];
+  occlusionRegions?: SceneOcclusionRegion[];
+  waypoints?: StageWaypoint[];
   lights?: SceneLight[];
   emitters?: SceneZoneEmitter[];
   interactions?: SceneInteraction[];
@@ -426,6 +459,9 @@ export interface Scene {
   biomeProfileId?: string;
   currentSituation?: SceneSituation;
   activeLightingPresetId?: string;
+  groundLineY?: number; // Visual ground line level (0-50%, default 0)
+  occlusionRegions?: SceneOcclusionRegion[];
+  waypoints?: StageWaypoint[];
 }
 
 export interface SFXTrack {
@@ -756,6 +792,12 @@ export interface DisplayState {
   lightningConfig?: LightningConfig;
   currentSituation?: SceneSituation;
   activeBiomeId?: string;
+  nameDisplayMode?: 'always' | 'speaker_only' | 'hidden';
+  groundLineY?: number; // Scene-specific ground line level (default 0)
+  manualCameraOverride?: boolean; // True when DM manually framed camera, suspending auto-focus
+  savedCameraPresets?: { id: string; name: string; camera: CameraTransform }[];
+  occlusionRegions?: SceneOcclusionRegion[];
+  waypoints?: StageWaypoint[];
 }
 
 // History & Checkpoint Interfaces
@@ -881,7 +923,7 @@ export type SyncMessage =
   | { type: 'ACCEPT_HANDOFF'; payload: { handoffToken: string; newMasterDeviceId: string } }
   | { type: 'COMMIT_HANDOFF'; payload: { handoffToken: string; newLease: MasterLease } }
   | { type: 'ROLLBACK_HANDOFF'; payload: { reason: string } }
-  | { type: 'FULL_STATE'; payload: DisplayState; leaseId?: string }
+  | { type: 'FULL_STATE'; payload: DisplayState; leaseId?: string; isResync?: boolean }
   | { type: 'REQUEST_FULL_STATE' }
   | { type: 'SET_SCENE'; payload: Scene; characters?: CharacterOnScreen[]; leaseId?: string }
   | { type: 'SET_BACKGROUND'; payload: string; leaseId?: string }
@@ -905,6 +947,9 @@ export type SyncMessage =
   | { type: 'END_COMBAT'; leaseId?: string }
   | { type: 'SYNC_TEST_PROBE'; payload: { probeId: string; timestamp: number; clientChecksum: string; sessionRevision: number } }
   | { type: 'SYNC_TEST_ACK'; payload: { probeId: string; displayChecksum: string; sessionRevision: number; matched: boolean; rttMs: number } }
+  | { type: 'MESA_VIEWPORT_CHANGED'; payload: { viewport: { width: number; height: number; aspectRatio: number }; assetsStatus?: { isReady: boolean; missingCount: number; failedCount?: number }; audioStatus?: import('../domain/protocol/types').DisplayAudioStatus } }
+  | { type: 'AUDIT_MESA_REQUEST'; payload: { timestamp: number } }
+  | { type: 'AUDIT_MESA_RESPONSE'; payload: import('../domain/protocol/types').AuditMesaReport }
   | { type: 'PING'; timestamp: number }
   | { type: 'PONG'; timestamp: number };
 

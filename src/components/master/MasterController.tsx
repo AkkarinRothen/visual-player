@@ -10,6 +10,8 @@ import type {
   LightingFilter,
   SavedEncounter,
   Scene,
+  SceneOcclusionRegion,
+  StageWaypoint,
   SessionCheckpoint,
   WeatherType,
   CombatState,
@@ -114,6 +116,7 @@ import { useFavoritesActions } from '../../hooks/useFavoritesActions';
 import { sessionCommandBus } from '../../services/sessionCommandBus';
 import { TransportStatusChip } from '../common/TransportStatusChip';
 import type { TransportStatusState } from '../common/TransportStatusChip';
+import { ConnectionDiagnosticModal } from '../common/ConnectionDiagnosticModal';
 import {
   Zap,
   Activity,
@@ -227,6 +230,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     connectionStatus,
     latencyMs,
     mesaTelemetry,
+    pendingCommandsCount,
     connectToRoom,
     broadcastFullState,
     broadcastMessage,
@@ -485,6 +489,10 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         characters: suggestedCharacters.length > 0 ? suggestedCharacters : prev.characters,
         ambientAudioUrl: scene.ambientAudioUrl || prev.ambientAudioUrl,
         ambientPlaying: scene.ambientAudioUrl ? true : prev.ambientPlaying,
+        props: scene.props || [],
+        occlusionRegions: scene.occlusionRegions || [],
+        waypoints: scene.waypoints || [],
+        groundLineY: scene.groundLineY ?? prev.groundLineY,
       }),
       `Cambio de Escena a "${scene.name}"`
     );
@@ -609,6 +617,12 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     const usedPositions = activeDisplay.characters.map((c) => c.position);
     const availablePos = positions.find((p) => !usedPositions.includes(p)) || 'center-left';
 
+    const initialAnchor =
+      char.expressionAnchors?.default ??
+      char.expressionAnchors?.neutral ??
+      (char.expressionAnchors ? Object.values(char.expressionAnchors)[0] : undefined) ??
+      0;
+
     const newOnScreen: CharacterOnScreen = {
       id: `active-${char.id}-${Date.now()}`,
       characterId: char.id,
@@ -616,6 +630,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({
       avatarUrl: char.defaultAvatarUrl,
       position: availablePos,
       isSpeaking: false,
+      visualAnchorOffsetY: initialAnchor,
+      instanceVariantAnchors: char.expressionAnchors ? { ...char.expressionAnchors } : undefined,
     };
 
     updateDisplay(
@@ -803,6 +819,10 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         characters: suggestedCharacters.length > 0 ? suggestedCharacters : prev.characters,
         ambientAudioUrl: scene.ambientAudioUrl || prev.ambientAudioUrl,
         ambientPlaying: scene.ambientAudioUrl ? true : prev.ambientPlaying,
+        props: scene.props || [],
+        occlusionRegions: scene.occlusionRegions || [],
+        waypoints: scene.waypoints || [],
+        groundLineY: scene.groundLineY ?? prev.groundLineY,
       }),
       `Preparada en Borrador: "${scene.name}"`
     );
@@ -1095,6 +1115,336 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         'Borrador de composición preparado'
       );
     }
+  };
+
+  const handleDirectorUpdateCharacter = async (
+    characterId: string,
+    updates: Partial<CharacterOnScreen>,
+    description: string
+  ) => {
+    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
+    updateDisplay(
+      (prev) => ({
+        ...prev,
+        characters: prev.characters.map((c) =>
+          c.id === characterId ? { ...c, ...updates } : c
+        ),
+      }),
+      description,
+      !isTargetStaged
+    );
+
+    if (!isTargetStaged) {
+      const nextCharacters = liveState.characters.map((c) =>
+        c.id === characterId ? { ...c, ...updates } : c
+      );
+      const cmdId = sessionCommandBus.dispatchFullState(
+        { ...liveState, characters: nextCharacters },
+        sessionRevision + 1
+      );
+      await sessionCommandBus.waitForResult(cmdId, 5000);
+    }
+  };
+
+  const handleDirectorUpdateMultiplePositions = async (
+    updates: { id: string; normalizedX: number; normalizedY: number }[],
+    description: string
+  ) => {
+    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
+    const updatesMap = new Map(updates.map((u) => [u.id, u]));
+
+    updateDisplay(
+      (prev) => ({
+        ...prev,
+        characters: prev.characters.map((c) => {
+          const u = updatesMap.get(c.id);
+          return u ? { ...c, normalizedX: u.normalizedX, normalizedY: u.normalizedY } : c;
+        }),
+      }),
+      description,
+      !isTargetStaged
+    );
+
+    if (!isTargetStaged) {
+      const nextCharacters = liveState.characters.map((c) => {
+        const u = updatesMap.get(c.id);
+        return u ? { ...c, normalizedX: u.normalizedX, normalizedY: u.normalizedY } : c;
+      });
+      const cmdId = sessionCommandBus.dispatchFullState(
+        { ...liveState, characters: nextCharacters },
+        sessionRevision + 1
+      );
+      await sessionCommandBus.waitForResult(cmdId, 5000);
+    }
+  };
+
+  const handleDirectorFocusCamera = async (focalX: number, focalY: number) => {
+    await handleSetCameraTransform({ focalPoint: { x: focalX, y: focalY }, zoom: 1.35 }, 600);
+  };
+
+  const handleSaveCameraPreset = async (name: string, camera: CameraTransform) => {
+    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
+    const newPreset = { id: `cam-${Date.now()}`, name, camera };
+    updateDisplay(
+      (prev) => ({
+        ...prev,
+        savedCameraPresets: [...(prev.savedCameraPresets || []), newPreset],
+        camera,
+        manualCameraOverride: true,
+      }),
+      `Guardar encuadre "${name}"`,
+      !isTargetStaged
+    );
+
+    if (!isTargetStaged) {
+      const nextPresets = [...(liveState.savedCameraPresets || []), newPreset];
+      const cmdId = sessionCommandBus.dispatchFullState(
+        { ...liveState, savedCameraPresets: nextPresets, camera, manualCameraOverride: true },
+        sessionRevision + 1
+      );
+      await sessionCommandBus.waitForResult(cmdId, 5000);
+    }
+  };
+
+  const handleDirectorReorderLayers = async (
+    items: { id: string; type: 'character' | 'prop' | 'occlusion'; zIndex: number }[],
+    description: string
+  ) => {
+    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
+    const charZMap = new Map(items.filter((i) => i.type === 'character').map((i) => [i.id, i.zIndex]));
+    const propZMap = new Map(items.filter((i) => i.type === 'prop').map((i) => [i.id, i.zIndex]));
+    const occZMap = new Map(items.filter((i) => i.type === 'occlusion').map((i) => [i.id, i.zIndex]));
+
+    updateDisplay(
+      (prev) => ({
+        ...prev,
+        characters: prev.characters.map((c) => {
+          const newZ = charZMap.get(c.id);
+          return newZ !== undefined ? { ...c, zIndex: newZ } : c;
+        }),
+        props: (prev.props || []).map((p) => {
+          const newZ = propZMap.get(p.id);
+          return newZ !== undefined ? { ...p, zIndex: newZ } : p;
+        }),
+        occlusionRegions: (prev.occlusionRegions || []).map((o) => {
+          const newZ = occZMap.get(o.id);
+          return newZ !== undefined ? { ...o, zIndex: newZ } : o;
+        }),
+      }),
+      description,
+      !isTargetStaged
+    );
+
+    if (!isTargetStaged) {
+      const nextCharacters = liveState.characters.map((c) => {
+        const newZ = charZMap.get(c.id);
+        return newZ !== undefined ? { ...c, zIndex: newZ } : c;
+      });
+      const nextProps = (liveState.props || []).map((p) => {
+        const newZ = propZMap.get(p.id);
+        return newZ !== undefined ? { ...p, zIndex: newZ } : p;
+      });
+      const nextOcc = (liveState.occlusionRegions || []).map((o) => {
+        const newZ = occZMap.get(o.id);
+        return newZ !== undefined ? { ...o, zIndex: newZ } : o;
+      });
+      const cmdId = sessionCommandBus.dispatchFullState(
+        { ...liveState, characters: nextCharacters, props: nextProps, occlusionRegions: nextOcc },
+        sessionRevision + 1
+      );
+      await sessionCommandBus.waitForResult(cmdId, 5000);
+    }
+  };
+
+  const handleDirectorUpdateProp = async (
+    propId: string,
+    updates: Partial<SceneProp>,
+    description: string
+  ) => {
+    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
+
+    updateDisplay(
+      (prev) => ({
+        ...prev,
+        props: (prev.props || []).map((p) => (p.id === propId ? { ...p, ...updates } : p)),
+      }),
+      description,
+      !isTargetStaged
+    );
+
+    if (!isTargetStaged) {
+      const nextProps = (liveState.props || []).map((p) => (p.id === propId ? { ...p, ...updates } : p));
+      const cmdId = sessionCommandBus.dispatchFullState(
+        { ...liveState, props: nextProps },
+        sessionRevision + 1
+      );
+      await sessionCommandBus.waitForResult(cmdId, 5000);
+    }
+  };
+
+  const handleDirectorSaveWaypoint = async (waypointData: Omit<StageWaypoint, 'id'>) => {
+    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
+    const newWaypoint: StageWaypoint = {
+      ...waypointData,
+      id: `wp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    };
+
+    updateDisplay(
+      (prev) => ({
+        ...prev,
+        waypoints: [...(prev.waypoints || []), newWaypoint],
+      }),
+      `Guardar punto narrativo "${newWaypoint.name}"`,
+      !isTargetStaged
+    );
+
+    if (currentScene && campaign) {
+      const updatedScenes = campaign.scenes.map((s) => {
+        if (s.id !== currentScene.id) return s;
+        return {
+          ...s,
+          waypoints: [...(s.waypoints || []), newWaypoint],
+        };
+      });
+      const updatedCampaign: Campaign = { ...campaign, scenes: updatedScenes, updatedAt: Date.now() };
+      await db.campaigns.put(updatedCampaign);
+      setCampaign(updatedCampaign);
+    }
+
+    if (!isTargetStaged) {
+      const nextWaypoints = [...(liveState.waypoints || []), newWaypoint];
+      const cmdId = sessionCommandBus.dispatchFullState(
+        { ...liveState, waypoints: nextWaypoints },
+        sessionRevision + 1
+      );
+      await sessionCommandBus.waitForResult(cmdId, 5000);
+    }
+  };
+
+  const handleDirectorDeleteWaypoint = async (waypointId: string) => {
+    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
+
+    updateDisplay(
+      (prev) => ({
+        ...prev,
+        waypoints: (prev.waypoints || []).filter((w) => w.id !== waypointId),
+      }),
+      `Eliminar punto narrativo`,
+      !isTargetStaged
+    );
+
+    if (currentScene && campaign) {
+      const updatedScenes = campaign.scenes.map((s) => {
+        if (s.id !== currentScene.id) return s;
+        return {
+          ...s,
+          waypoints: (s.waypoints || []).filter((w) => w.id !== waypointId),
+        };
+      });
+      const updatedCampaign: Campaign = { ...campaign, scenes: updatedScenes, updatedAt: Date.now() };
+      await db.campaigns.put(updatedCampaign);
+      setCampaign(updatedCampaign);
+    }
+
+    if (!isTargetStaged) {
+      const nextWaypoints = (liveState.waypoints || []).filter((w) => w.id !== waypointId);
+      const cmdId = sessionCommandBus.dispatchFullState(
+        { ...liveState, waypoints: nextWaypoints },
+        sessionRevision + 1
+      );
+      await sessionCommandBus.waitForResult(cmdId, 5000);
+    }
+  };
+
+  const handleDirectorSaveOcclusionRegion = async (regionData: Omit<SceneOcclusionRegion, 'id'>) => {
+    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
+    const newRegion: SceneOcclusionRegion = {
+      ...regionData,
+      id: `occ-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    };
+
+    updateDisplay(
+      (prev) => ({
+        ...prev,
+        occlusionRegions: [...(prev.occlusionRegions || []), newRegion],
+      }),
+      `Crear región de oclusión "${newRegion.name}"`,
+      !isTargetStaged
+    );
+
+    if (currentScene && campaign) {
+      const updatedScenes = campaign.scenes.map((s) => {
+        if (s.id !== currentScene.id) return s;
+        return {
+          ...s,
+          occlusionRegions: [...(s.occlusionRegions || []), newRegion],
+        };
+      });
+      const updatedCampaign: Campaign = { ...campaign, scenes: updatedScenes, updatedAt: Date.now() };
+      await db.campaigns.put(updatedCampaign);
+      setCampaign(updatedCampaign);
+    }
+
+    if (!isTargetStaged) {
+      const nextRegions = [...(liveState.occlusionRegions || []), newRegion];
+      const cmdId = sessionCommandBus.dispatchFullState(
+        { ...liveState, occlusionRegions: nextRegions },
+        sessionRevision + 1
+      );
+      await sessionCommandBus.waitForResult(cmdId, 5000);
+    }
+  };
+
+  const handleDirectorDeleteOcclusionRegion = async (regionId: string) => {
+    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
+
+    updateDisplay(
+      (prev) => ({
+        ...prev,
+        occlusionRegions: (prev.occlusionRegions || []).filter((r) => r.id !== regionId),
+      }),
+      `Eliminar región de oclusión`,
+      !isTargetStaged
+    );
+
+    if (currentScene && campaign) {
+      const updatedScenes = campaign.scenes.map((s) => {
+        if (s.id !== currentScene.id) return s;
+        return {
+          ...s,
+          occlusionRegions: (s.occlusionRegions || []).filter((r) => r.id !== regionId),
+        };
+      });
+      const updatedCampaign: Campaign = { ...campaign, scenes: updatedScenes, updatedAt: Date.now() };
+      await db.campaigns.put(updatedCampaign);
+      setCampaign(updatedCampaign);
+    }
+
+    if (!isTargetStaged) {
+      const nextRegions = (liveState.occlusionRegions || []).filter((r) => r.id !== regionId);
+      const cmdId = sessionCommandBus.dispatchFullState(
+        { ...liveState, occlusionRegions: nextRegions },
+        sessionRevision + 1
+      );
+      await sessionCommandBus.waitForResult(cmdId, 5000);
+    }
+  };
+
+  const handleUpdateCampaignCharacter = async (
+    characterId: string,
+    updates: Partial<Character>
+  ) => {
+    if (!campaign) return;
+    const updatedChars = campaign.characters.map((c) =>
+      c.id === characterId ? { ...c, ...updates } : c
+    );
+    const updatedCampaign: Campaign = {
+      ...campaign,
+      characters: updatedChars,
+      updatedAt: Date.now(),
+    };
+    await db.campaigns.put(updatedCampaign);
+    setCampaign(updatedCampaign);
   };
 
   const handleSaveCompositionPreset = async (preset: SceneCompositionPreset) => {
@@ -1519,6 +1869,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         weather: variant.weather || prev.weather,
         weatherIntensity: variant.weatherIntensity !== undefined ? variant.weatherIntensity : prev.weatherIntensity,
         ambientAudioUrl: variant.ambientAudioUrl || prev.ambientAudioUrl,
+        occlusionRegions: variant.occlusionRegions !== undefined ? variant.occlusionRegions : prev.occlusionRegions,
+        waypoints: variant.waypoints !== undefined ? variant.waypoints : prev.waypoints,
       }),
       `Variante: "${variant.name}"`,
       true
@@ -1536,6 +1888,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         weather: variant.weather || activeDisplay.weather,
         weatherIntensity: variant.weatherIntensity ?? activeDisplay.weatherIntensity,
         ambientAudioUrl: variant.ambientAudioUrl || activeDisplay.ambientAudioUrl,
+        occlusionRegions: variant.occlusionRegions !== undefined ? variant.occlusionRegions : activeDisplay.occlusionRegions,
+        waypoints: variant.waypoints !== undefined ? variant.waypoints : activeDisplay.waypoints,
       },
       sessionRevision + 1
     );
@@ -1946,6 +2300,27 @@ export const MasterController: React.FC<MasterControllerProps> = ({
           onOpenFullScreen={() => setShowFullScreenPreview(true)}
           mesaTelemetry={mesaTelemetry}
           isConnected={connectionStatus === 'connected'}
+          pendingCommandsCount={pendingCommandsCount}
+          campaignCharacters={campaign?.characters || []}
+          groundLineY={currentScene?.groundLineY ?? liveState.groundLineY}
+          savedCameraPresets={liveState.savedCameraPresets}
+          props={currentScene?.props || liveState.props}
+          occlusionRegions={currentScene?.occlusionRegions || liveState.occlusionRegions}
+          waypoints={currentScene?.waypoints || liveState.waypoints}
+          camera={liveState.camera}
+          onSaveCameraPreset={handleSaveCameraPreset}
+          onSaveWaypoint={handleDirectorSaveWaypoint}
+          onSaveOcclusionRegion={handleDirectorSaveOcclusionRegion}
+          onDeleteWaypoint={handleDirectorDeleteWaypoint}
+          onDeleteOcclusionRegion={handleDirectorDeleteOcclusionRegion}
+          onUpdateCharacter={handleDirectorUpdateCharacter}
+          onUpdateProp={handleDirectorUpdateProp}
+          onReorderLayers={handleDirectorReorderLayers}
+          onUpdateCampaignCharacter={handleUpdateCampaignCharacter}
+          onUpdateMultipleCharacterPositions={handleDirectorUpdateMultiplePositions}
+          onFocusCamera={handleDirectorFocusCamera}
+          onUndo={undo}
+          canUndo={pastEvents.length > 0}
         />
 
         {/* Floating / Sticky Staging Publish Bar when in Staging Mode with changes */}
@@ -2799,8 +3174,39 @@ export const MasterController: React.FC<MasterControllerProps> = ({
           }}
           onClose={() => setShowFullScreenPreview(false)}
           mesaTelemetry={mesaTelemetry}
+          pendingCommandsCount={pendingCommandsCount}
+          campaignCharacters={campaign?.characters || []}
+          groundLineY={currentScene?.groundLineY ?? liveState.groundLineY}
+          savedCameraPresets={liveState.savedCameraPresets}
+          props={currentScene?.props || liveState.props}
+          occlusionRegions={currentScene?.occlusionRegions || liveState.occlusionRegions}
+          waypoints={currentScene?.waypoints || liveState.waypoints}
+          camera={liveState.camera}
+          onSaveCameraPreset={handleSaveCameraPreset}
+          onSaveWaypoint={handleDirectorSaveWaypoint}
+          onSaveOcclusionRegion={handleDirectorSaveOcclusionRegion}
+          onDeleteWaypoint={handleDirectorDeleteWaypoint}
+          onDeleteOcclusionRegion={handleDirectorDeleteOcclusionRegion}
+          onUpdateCharacter={handleDirectorUpdateCharacter}
+          onUpdateProp={handleDirectorUpdateProp}
+          onReorderLayers={handleDirectorReorderLayers}
+          onUpdateCampaignCharacter={handleUpdateCampaignCharacter}
+          onUpdateMultipleCharacterPositions={handleDirectorUpdateMultiplePositions}
+          onFocusCamera={handleDirectorFocusCamera}
+          onUndo={undo}
+          canUndo={pastEvents.length > 0}
         />
       )}
+
+      {/* CONNECTION DIAGNOSTIC & MESA AUDIT/RESYNC MODAL */}
+      <ConnectionDiagnosticModal
+        isOpen={showDiagnosticsModal}
+        onClose={() => setShowDiagnosticsModal(false)}
+        liveState={liveState}
+        onResyncMesa={() => {
+          broadcastFullState(liveState);
+        }}
+      />
 
       {/* QUICK MOMENTS DROPDOWN */}
       {showQuickMoments && (

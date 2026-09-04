@@ -4,6 +4,8 @@ import { AtmosphereCanvas } from '../canvas/AtmosphereCanvas';
 import { DisplayCharactersLayer } from './DisplayCharactersLayer';
 import { SceneLightsLayer } from './SceneLightsLayer';
 import { ZoneEmittersLayer } from './ZoneEmittersLayer';
+import { CinematicDialogueLayer } from './CinematicDialogueLayer';
+import { InitiativeRibbon } from './InitiativeRibbon';
 
 export interface StageViewportProps {
   state: DisplayState;
@@ -61,9 +63,9 @@ export const StageViewport: React.FC<StageViewportProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scaleFactor, setScaleFactor] = useState(1);
 
-  // Virtual reference resolution for 100% faithful relative coordinates
-  const VIRTUAL_WIDTH = 1920;
-  const VIRTUAL_HEIGHT = Math.round(VIRTUAL_WIDTH / (aspectRatio || 16 / 9));
+  // Logical 16:9 reference resolution (uniform scaling, zero distortion, zero unintentional crop)
+  const LOGICAL_STAGE_WIDTH = 1920;
+  const LOGICAL_STAGE_HEIGHT = 1080;
 
   useEffect(() => {
     if (!isScaledPreview || !containerRef.current) return;
@@ -73,9 +75,9 @@ export const StageViewport: React.FC<StageViewportProps> = ({
       const { clientWidth, clientHeight } = containerRef.current;
       if (clientWidth === 0 || clientHeight === 0) return;
 
-      const scaleX = clientWidth / VIRTUAL_WIDTH;
-      const scaleY = clientHeight / VIRTUAL_HEIGHT;
-      // Fit contained inside the wrapper
+      const scaleX = clientWidth / LOGICAL_STAGE_WIDTH;
+      const scaleY = clientHeight / LOGICAL_STAGE_HEIGHT;
+      // Fit contained inside the wrapper with neutral bands
       setScaleFactor(Math.min(scaleX, scaleY));
     };
 
@@ -85,106 +87,110 @@ export const StageViewport: React.FC<StageViewportProps> = ({
       observer.observe(containerRef.current);
       return () => observer.disconnect();
     }
-  }, [isScaledPreview, VIRTUAL_WIDTH, VIRTUAL_HEIGHT]);
+  }, [isScaledPreview]);
+
+  const isPortrait = aspectRatio < 1;
 
   const viewportContent = (
     <div
-      className="stage-camera-viewport"
+      className="stage-camera-viewport w-full h-full relative"
       style={{
-        position: 'absolute',
-        inset: 0,
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
         transformOrigin: `${cameraFocal.x}% ${cameraFocal.y}%`,
-        transform: cameraZoom > 1.001 ? `scale(${cameraZoom})` : 'none',
-        transition:
-          cameraDurationMs > 0
-            ? `transform ${cameraDurationMs}ms cubic-bezier(0.16, 1, 0.3, 1), transform-origin ${cameraDurationMs}ms cubic-bezier(0.16, 1, 0.3, 1)`
-            : 'none',
+        transform: `scale(${cameraZoom})`,
+        transition: cameraDurationMs > 0 ? `transform ${cameraDurationMs}ms cubic-bezier(0.25, 1, 0.5, 1)` : 'none',
+        willChange: 'transform',
+        overflow: 'hidden',
       }}
     >
-      {/* Background Crossfade Layers */}
-      {prevBg && (
+      {/* Background Layers with crossfade */}
+      <div className="stage-background-subsystem absolute inset-0 pointer-events-none">
+        {prevBg && (
+          <div
+            className="display-bg prev-bg"
+            style={{ backgroundImage: `url(${prevBg})` }}
+          />
+        )}
         <div
-          className="display-bg prev-bg"
-          style={{
-            backgroundImage: `url(${prevBg})`,
-            backgroundPosition: '50% 50%',
-            backgroundSize: state.fitMode === 'contain' ? 'contain' : 'cover',
-            backgroundRepeat: 'no-repeat',
-          }}
+          className={`display-bg active-bg ${isCrossfading ? 'fade-in' : ''}`}
+          style={{ backgroundImage: `url(${activeBg})` }}
         />
-      )}
-      <div
-        className={`display-bg active-bg ${isCrossfading ? 'fade-in' : ''}`}
-        style={{
-          backgroundImage: `url(${activeBg})`,
-          backgroundPosition: '50% 50%',
-          backgroundSize: state.fitMode === 'contain' ? 'contain' : 'cover',
-          backgroundRepeat: 'no-repeat',
-        }}
-      />
+      </div>
 
-      {/* Atmospheric Effects Canvas (Weather, Lightning, Particles) */}
+      {/* Atmosphere / Weather Particles & Lighting */}
       <AtmosphereCanvas
         weather={state.weather}
         intensity={state.weatherIntensity}
         lighting={state.lighting}
-        shakeTrigger={state.shakeTrigger}
         lightningTrigger={state.lightningTrigger}
       />
 
-      {/* Active Characters & Props Projection Layer */}
+      {/* Dynamic Lighting System */}
+      {state.lights && state.lights.length > 0 && (
+        <SceneLightsLayer
+          lights={state.lights}
+          characters={state.characters}
+          props={state.props || []}
+        />
+      )}
+
+      {/* Zone Emitters System */}
+      {state.emitters && state.emitters.length > 0 && (
+        <ZoneEmittersLayer
+          emitters={state.emitters}
+          characters={state.characters}
+          props={state.props || []}
+        />
+      )}
+
+      {/* Characters & Props Layer */}
       <DisplayCharactersLayer
         characters={state.characters}
         props={state.props || []}
-        activeTransitions={state.activeTransitions}
+        occlusionRegions={state.occlusionRegions || []}
+        backgroundUrl={activeBg}
+        hasActiveDialogue={!!state.dialogue?.visible}
         combatState={state.combatState}
-      />
-
-      {/* Scene Dynamic Point Lights & Focal Spots */}
-      <SceneLightsLayer
-        lights={state.lights || []}
-        characters={state.characters}
-        props={state.props || []}
-      />
-
-      {/* Zone Atmospheric Particle Emitters */}
-      <ZoneEmittersLayer
-        emitters={state.emitters || []}
-        characters={state.characters}
-        props={state.props || []}
+        nameDisplayMode={state.nameDisplayMode}
+        groundLineY={state.groundLineY}
       />
     </div>
   );
 
-  // Scaled preview wrapper (fits inside small UI boxes like GM preview or modal cards)
+  // Scaled rendering for GM Mini Preview or Modal (reproduces Mesa physical aspect ratio + 16:9 canvas with bands)
   if (isScaledPreview) {
     return (
       <div
         ref={containerRef}
-        className={`stage-viewport-scale-wrapper relative flex items-center justify-center overflow-hidden select-none ${className}`}
-        style={{
-          width: '100%',
-          height: '100%',
-          aspectRatio: `${aspectRatio}`,
-          background: '#000',
-          ...style,
-        }}
+        className={`stage-viewport-root w-full h-full relative flex items-center justify-center overflow-hidden select-none bg-black ${className}`}
+        style={{ aspectRatio: `${aspectRatio}`, ...style }}
       >
         <div
           className="stage-viewport-virtual-canvas relative overflow-hidden"
-          style={{
-            width: `${VIRTUAL_WIDTH}px`,
-            height: `${VIRTUAL_HEIGHT}px`,
-            transform: `scale(${scaleFactor})`,
-            transformOrigin: 'center center',
-            flexShrink: 0,
-            pointerEvents: 'none',
-          }}
+          style={
+            {
+              width: `${LOGICAL_STAGE_WIDTH}px`,
+              height: `${LOGICAL_STAGE_HEIGHT}px`,
+              transform: `scale(${scaleFactor})`,
+              transformOrigin: 'center center',
+              flexShrink: 0,
+              pointerEvents: 'none',
+              '--stage-width': `${LOGICAL_STAGE_WIDTH}px`,
+              '--stage-height': `${LOGICAL_STAGE_HEIGHT}px`,
+              containerType: 'size',
+            } as React.CSSProperties
+          }
         >
           {viewportContent}
+
+          {/* Cinematic Dialogue & Narration Projection Layer */}
+          {state.dialogue && (
+            <CinematicDialogueLayer dialogue={state.dialogue} />
+          )}
+
+          {/* Combat Initiative Ribbon Overlay */}
+          {state.combatState?.isActive && (
+            <InitiativeRibbon combatState={state.combatState} />
+          )}
 
           {/* Centered Location / Scene Title Banner */}
           {showBanner && state.locationBanner?.visible && state.locationBanner.text && (
@@ -211,40 +217,85 @@ export const StageViewport: React.FC<StageViewportProps> = ({
             </div>
           )}
         </div>
+
+        {/* Suggest rotation when in portrait orientation */}
+        {isPortrait && (
+          <div className="absolute bottom-2 inset-x-0 flex justify-center pointer-events-none z-30">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-950/80 text-amber-300 border border-amber-500/30">
+              Gira la pantalla a horizontal (16:9)
+            </span>
+          </div>
+        )}
       </div>
     );
   }
 
-  // Full-size rendering for Mesa PlayerDisplay
+  // Full-size rendering for Mesa PlayerDisplay (contains 16:9 canvas centered with neutral bands)
   return (
     <div
-      className={`stage-viewport-root relative w-full h-full overflow-hidden select-none ${className}`}
+      className={`stage-viewport-root relative w-full h-full flex items-center justify-center overflow-hidden select-none bg-black ${className}`}
       style={style}
     >
-      {viewportContent}
+      <div
+        className="stage-viewport-canvas-box relative overflow-hidden"
+        style={
+          {
+            aspectRatio: '16 / 9',
+            maxWidth: '100%',
+            maxHeight: '100%',
+            width: 'min(100vw, calc(100vh * (16 / 9)))',
+            height: 'min(100vh, calc(100vw / (16 / 9)))',
+            position: 'relative',
+            '--stage-width': 'min(100vw, calc(100vh * (16 / 9)))',
+            '--stage-height': 'min(100vh, calc(100vw / (16 / 9)))',
+            containerType: 'size',
+          } as React.CSSProperties
+        }
+      >
+        {viewportContent}
 
-      {/* Centered Location / Scene Title Banner */}
-      {showBanner && state.locationBanner?.visible && state.locationBanner.text && (
-        <div className="cinematic-banner-container">
-          <div className="cinematic-banner">
-            <div className="banner-rune-left">✦</div>
-            <div className="banner-content">
-              <h1 className="banner-title">{state.locationBanner.text}</h1>
-              {state.locationBanner.subtitle && (
-                <p className="banner-subtitle">{state.locationBanner.subtitle}</p>
-              )}
+        {/* Cinematic Dialogue & Narration Projection Layer */}
+        {state.dialogue && (
+          <CinematicDialogueLayer dialogue={state.dialogue} />
+        )}
+
+        {/* Combat Initiative Ribbon Overlay */}
+        {state.combatState?.isActive && (
+          <InitiativeRibbon combatState={state.combatState} />
+        )}
+
+        {/* Centered Location / Scene Title Banner */}
+        {showBanner && state.locationBanner?.visible && state.locationBanner.text && (
+          <div className="cinematic-banner-container">
+            <div className="cinematic-banner">
+              <div className="banner-rune-left">✦</div>
+              <div className="banner-content">
+                <h1 className="banner-title">{state.locationBanner.text}</h1>
+                {state.locationBanner.subtitle && (
+                  <p className="banner-subtitle">{state.locationBanner.subtitle}</p>
+                )}
+              </div>
+              <div className="banner-rune-right">✦</div>
             </div>
-            <div className="banner-rune-right">✦</div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Blackout Curtain */}
-      {state.isBlackout && (
-        <div className="blackout-curtain active">
-          <div className="blackout-rune">
-            <span>Pantalla Apagada (Blackout)</span>
+        {/* Blackout Curtain */}
+        {state.isBlackout && (
+          <div className="blackout-curtain active">
+            <div className="blackout-rune">
+              <span>Pantalla Apagada (Blackout)</span>
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* Suggest rotation when in portrait orientation */}
+      {isPortrait && (
+        <div className="absolute bottom-4 inset-x-0 flex justify-center pointer-events-none z-30">
+          <span className="text-xs px-3 py-1 rounded-full bg-slate-950/90 text-amber-300 border border-amber-500/40 shadow-lg">
+            ✦ Girar pantalla a horizontal para ver el escenario completo (16:9) ✦
+          </span>
         </div>
       )}
     </div>

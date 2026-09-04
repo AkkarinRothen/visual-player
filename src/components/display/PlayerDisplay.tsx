@@ -1,18 +1,17 @@
 import React, { useEffect, useState, useRef } from 'react';
 import type { ConnectionStatus, DisplayState, WeatherStormEvent } from '../../types';
+import type { DisplayAssetsStatus } from '../../domain/protocol/types';
 import { peerService } from '../../services/peerService';
 import { soundEngine } from '../../services/soundEngine';
 import { startTurnRenewalWatcher } from '../../services/iceConfig';
 import { getPlatformBridge } from '../../platform';
 import { StageViewport } from './StageViewport';
-import { InitiativeRibbon } from './InitiativeRibbon';
 import { Volume2 } from 'lucide-react';
 import { ConnectionDiagnosticModal } from '../common/ConnectionDiagnosticModal';
 import { pairingEngine, type PairingPhaseInfo } from '../../services/pairingEngine';
 import { displayCommandExecutor } from '../../services/displayCommandExecutor';
 import { DisplayPairingOverlay } from './DisplayPairingOverlay';
 import { DisplayHUD } from './DisplayHUD';
-import { CinematicDialogueLayer } from './CinematicDialogueLayer';
 import { HandoutDisplayLayer } from './HandoutDisplayLayer';
 import { RecapDisplayLayer } from './RecapDisplayLayer';
 
@@ -97,6 +96,15 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
   const [isCrossfading, setIsCrossfading] = useState<boolean>(false);
   const hideControlsTimeout = useRef<number | null>(null);
 
+  // Real assets loading tracker (Preguntas 4 y 5)
+  const [assetsStatus, setAssetsStatus] = useState<DisplayAssetsStatus>({
+    isReady: true,
+    missingCount: 0,
+    failedCount: 0,
+  });
+  const assetsStatusRef = useRef<DisplayAssetsStatus>(assetsStatus);
+  assetsStatusRef.current = assetsStatus;
+
   // 1. Platform Bridge: Keep Awake, Landscape Lock, Immersive Mode for Players Display
   useEffect(() => {
     const bridge = getPlatformBridge();
@@ -139,7 +147,31 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
       }
     });
 
-    const unsubMsg = peerService.onMessage((msg) => {
+    const unsubMsg = peerService.onMessage((msg: any) => {
+      if (msg && msg.type === 'AUDIT_MESA_REQUEST') {
+        const w = typeof window !== 'undefined' ? window.innerWidth : 1920;
+        const h = typeof window !== 'undefined' ? window.innerHeight : 1080;
+        const isAudioUnlocked = typeof (soundEngine as any).isUnlocked === 'function' ? (soundEngine as any).isUnlocked() : true;
+        peerService.send({
+          type: 'AUDIT_MESA_RESPONSE',
+          payload: {
+            deviceId: peerService.getMyId() || 'mesa-display',
+            appVersion: '1.0.0',
+            sessionId: initialRoomCode || 'mesa-session',
+            revision: displayCommandExecutor.getCurrentRevision(),
+            checksum: displayCommandExecutor.getLastChecksum(),
+            viewport: {
+              width: w,
+              height: h,
+              aspectRatio: h > 0 ? Number((w / h).toFixed(3)) : 1.778,
+            },
+            assetsStatus: assetsStatusRef.current,
+            audioStatus: isAudioUnlocked ? 'enabled' : 'interaction_required',
+            timestamp: Date.now(),
+          },
+        });
+        return;
+      }
       handleIncomingMessage(msg as any);
     });
 
@@ -169,6 +201,99 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
     }, 1000);
   };
 
+  const loadGenerationRef = useRef<number>(0);
+
+  // Track image downloads and broken resources reactively (Preguntas 4, 5 y 9)
+  useEffect(() => {
+    loadGenerationRef.current++;
+    const currentGeneration = loadGenerationRef.current;
+
+    const urls: string[] = [];
+    if (state.backgroundUrl) urls.push(state.backgroundUrl);
+    state.characters.forEach((c) => {
+      if (c.avatarUrl) urls.push(c.avatarUrl);
+      if ((c as any).expressionUrl) urls.push((c as any).expressionUrl);
+    });
+    state.props?.forEach((p) => {
+      if (p.assetUrl) urls.push(p.assetUrl);
+    });
+    if (state.activeHandout?.imageUrl) {
+      urls.push(state.activeHandout.imageUrl);
+    }
+    if (state.dialogue?.avatarUrl) {
+      urls.push(state.dialogue.avatarUrl);
+    }
+
+    if (urls.length === 0) {
+      const readyStatus: DisplayAssetsStatus = { isReady: true, missingCount: 0, failedCount: 0 };
+      setAssetsStatus(readyStatus);
+      return;
+    }
+
+    let isCancelled = false;
+    let pending = 0;
+    let failed = 0;
+
+    const checkAndBroadcast = () => {
+      // Isolation guarantee (Pregunta 5): discard completions from older scenes/epochs
+      if (isCancelled || currentGeneration !== loadGenerationRef.current) return;
+      const updated: DisplayAssetsStatus = {
+        isReady: pending === 0 && failed === 0,
+        missingCount: pending,
+        failedCount: failed,
+      };
+      setAssetsStatus(updated);
+
+      // Immediately notify Master so that GM indicators update WITHOUT needing another command!
+      const w = typeof window !== 'undefined' ? window.innerWidth : 1920;
+      const h = typeof window !== 'undefined' ? window.innerHeight : 1080;
+      const isAudioUnlocked = typeof (soundEngine as any).isUnlocked === 'function' ? (soundEngine as any).isUnlocked() : true;
+      peerService.send({
+        type: 'MESA_VIEWPORT_CHANGED',
+        payload: {
+          viewport: {
+            width: w,
+            height: h,
+            aspectRatio: h > 0 ? Number((w / h).toFixed(3)) : 16 / 9,
+          },
+          assetsStatus: updated,
+          audioStatus: isAudioUnlocked ? 'enabled' : 'interaction_required',
+        },
+      });
+    };
+
+    urls.forEach((url) => {
+      if (typeof window === 'undefined' || typeof window.Image === 'undefined') return;
+      const img = new window.Image();
+      img.src = url;
+      if (!img.complete) {
+        pending++;
+        img.onload = () => {
+          pending = Math.max(0, pending - 1);
+          checkAndBroadcast();
+        };
+        img.onerror = () => {
+          pending = Math.max(0, pending - 1);
+          failed++;
+          checkAndBroadcast();
+        };
+      } else if (img.naturalWidth === 0) {
+        failed++;
+      }
+    });
+
+    const initialStatus = {
+      isReady: pending === 0 && failed === 0,
+      missingCount: pending,
+      failedCount: failed,
+    };
+    setAssetsStatus(initialStatus);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [state.backgroundUrl, state.characters, state.props]);
+
   // Handle incoming messages from Master Remote via sequential transactional executor
   const handleIncomingMessage = (msg: any) => {
     displayCommandExecutor.enqueueCommand(msg, {
@@ -189,10 +314,11 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
           aspectRatio: h > 0 ? Number((w / h).toFixed(3)) : 16 / 9,
         };
       },
-      getAssetsStatus: () => ({
-        isReady: true,
-        missingCount: 0,
-      }),
+      getAssetsStatus: () => assetsStatusRef.current,
+      getAudioStatus: () => {
+        const isUnlocked = typeof (soundEngine as any).isUnlocked === 'function' ? (soundEngine as any).isUnlocked() : true;
+        return isUnlocked ? 'enabled' : 'interaction_required';
+      },
       onSideEffect: (eff) => {
         if (eff.type === 'trigger_bg_transition') {
           triggerBgTransition(eff.payload.backgroundUrl);
@@ -221,6 +347,45 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
     });
   };
 
+  // Real-time viewport telemetry on orientation or window resize (even without new scene commands)
+  useEffect(() => {
+    let resizeTimer: number;
+    const handleResizeOrOrientation = () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        if (typeof window === 'undefined') return;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const isAudioUnlocked = typeof (soundEngine as any).isUnlocked === 'function' ? (soundEngine as any).isUnlocked() : true;
+        peerService.send({
+          type: 'MESA_VIEWPORT_CHANGED',
+          payload: {
+            viewport: {
+              width: w,
+              height: h,
+              aspectRatio: h > 0 ? Number((w / h).toFixed(3)) : 16 / 9,
+            },
+            assetsStatus: assetsStatusRef.current,
+            audioStatus: isAudioUnlocked ? 'enabled' : 'interaction_required',
+          },
+        });
+      }, 150);
+    };
+
+    window.addEventListener('resize', handleResizeOrOrientation);
+    window.addEventListener('orientationchange', handleResizeOrOrientation);
+    document.addEventListener('fullscreenchange', handleResizeOrOrientation);
+    document.addEventListener('visibilitychange', handleResizeOrOrientation);
+
+    return () => {
+      window.clearTimeout(resizeTimer);
+      window.removeEventListener('resize', handleResizeOrOrientation);
+      window.removeEventListener('orientationchange', handleResizeOrOrientation);
+      document.removeEventListener('fullscreenchange', handleResizeOrOrientation);
+      document.removeEventListener('visibilitychange', handleResizeOrOrientation);
+    };
+  }, []);
+
   // Fullscreen toggle handler
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -229,37 +394,57 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
       });
       setIsFullscreen(true);
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-        setIsFullscreen(false);
-      }
+      document.exitFullscreen().catch((err) => {
+        console.warn('Error attempting exit fullscreen:', err);
+      });
+      setIsFullscreen(false);
     }
   };
 
-  // Activity detection for auto-hiding controls
+  // Handle user activity to show HUD
   const handleMouseMove = () => {
     setShowControls(true);
     if (hideControlsTimeout.current) {
-      clearTimeout(hideControlsTimeout.current);
+      window.clearTimeout(hideControlsTimeout.current);
     }
     hideControlsTimeout.current = window.setTimeout(() => {
       setShowControls(false);
     }, 3500);
   };
 
-  // Audio unlock banner
-  const unlockAudio = () => {
-    soundEngine.unlockAudio();
-    setAudioUnlocked(true);
+  // Audio unlock banner and physical interaction handler (Pregunta 7: intento frente a resultado confirmado)
+  const unlockAudio = async () => {
+    const isRunning = await soundEngine.unlockAudio();
+    if (isRunning) {
+      setAudioUnlocked(true);
+      // Broadcast confirmed enabled state to Master
+      const w = typeof window !== 'undefined' ? window.innerWidth : 1920;
+      const h = typeof window !== 'undefined' ? window.innerHeight : 1080;
+      peerService.send({
+        type: 'MESA_VIEWPORT_CHANGED',
+        payload: {
+          viewport: {
+            width: w,
+            height: h,
+            aspectRatio: h > 0 ? Number((w / h).toFixed(3)) : 16 / 9,
+          },
+          assetsStatus: assetsStatusRef.current,
+          audioStatus: 'enabled',
+        },
+      });
+    } else {
+      console.warn('[PlayerDisplay] Audio touch gesture did not transition AudioContext to running');
+    }
   };
 
   return (
     <div
       className={`player-display-root ${state.isBlackout ? 'blackout' : ''}`}
       onMouseMove={handleMouseMove}
+      onClick={unlockAudio}
       style={{ cursor: showControls ? 'default' : 'none' }}
     >
-      {/* ─── UNIFIED STAGE VIEWPORT (WORLD SPACE: BACKGROUND, CAMERA, CHARACTERS, ATMOSPHERE, BANNER) ─── */}
+      {/* ─── UNIFIED STAGE VIEWPORT (BACKGROUND, CAMERA, CHARACTERS, ATMOSPHERE, BANNER, DIALOGUE, COMBAT) ─── */}
       <StageViewport
         state={state}
         prevBg={prevBg}
@@ -272,14 +457,6 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
 
       {/* Opening Cinematic Recap Layer ("Anteriormente en la campaña...") */}
       <RecapDisplayLayer recap={state.activeRecap} />
-
-      {/* Cinematic Dialogue & Narration Projection Layer */}
-      <CinematicDialogueLayer dialogue={state.dialogue} />
-
-      {/* Combat Initiative Ribbon Overlay */}
-      {state.combatState?.isActive && (
-        <InitiativeRibbon combatState={state.combatState} />
-      )}
 
       {/* Audio Unlock Dialog */}
       {!audioUnlocked && (

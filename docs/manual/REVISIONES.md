@@ -346,6 +346,253 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
   - *Pendiente de comprobación física en mesa conectada:* comprobación visual en proyector o pantalla secundaria conectada por WebRTC para validar la legibilidad de títulos en pantallas de diferente densidad de píxeles.
 - **Resultado:** manual de usuario y registro de revisiones actualizados con MAN-013.
 
+## 2026-09-03 — MAN-014: Validación Rigurosa de Fidelidad Visual, Desacoplamiento de vh/vw, Correspondencia de Estado y Telemetría Dinámica (Series 1, 2 y 3)
+
+- **Versión:** árbol de trabajo local con escala relativa al escenario virtual (`cqh`/`cqw`), pipeline público completo (`StageViewport`) y telemetría de orientación en tiempo real.
+- **Entorno:** Vitest 55 suites, 292 pruebas aprobadas (100%). Compilación de producción con Vite y TypeScript (`tsc -b`) aprobada con 0 errores (dist/ en 4.89s).
+- **Alcance y Verificación Técnica de las Correcciones:**
+  1. **Desacoplamiento de Medidas de Pantalla (Serie 1, Pregunta 1):**
+     - *Diagnóstico:* `.standee-proportional-frame` y `.avatar-frame` utilizaban `52vh` y `24vw`. En el teléfono del director, dentro de `LiveMiniPreview` (caja de 140px), esas unidades se evaluaban respecto a la pantalla del móvil en lugar del lienzo virtual del escenario, produciendo escalas variables según la altura de la pantalla del teléfono.
+     - *Solución:* Se definieron variables `--stage-height` y `--stage-width` en `.stage-viewport-virtual-canvas` (1080px / 1920px) y reglas de consulta de contenedor `@supports (container-type: size)` con `52cqh` y `24cqw`. La escala y proporciones de los personajes ahora son **100% idénticas y matemáticamente independientes de la resolución del dispositivo del director**.
+  2. **Correspondencia Estricta de Estado Confirmado vs En Tránsito (Serie 2, Pregunta 5):**
+     - Conforme a la directiva de diseño, la pestaña "En Pantalla" renderiza exclusivamente la última revisión confirmada por la Mesa física (`lastConfirmedStateSnapshot`).
+     - Si hay comandos en vuelo, la imagen confirmada se conserva intacta y se muestra la insignia `⚠️ Enviando revisión X... (Y pendientes) [Ver pendientes]`, permitiendo inspeccionar los cambios en vuelo rotulados explícitamente como "Pendiente de confirmar" sin reemplazar silenciosamente la vista real.
+     - Al confirmarse el comando en la Mesa, la vista se promueve automáticamente a "En Pantalla".
+     - Si la Mesa se desconecta, el semáforo cambia a `○ ÚLTIMA CONFIRMACIÓN HACE X MINUTOS (Mesa desconectada)`, eliminando la indicación equívoca de "En vivo".
+  3. **Completitud de Capas Públicas (Serie 1, Preguntas 3 y 4):**
+     - `CinematicDialogueLayer` e `InitiativeRibbon` fueron integrados dentro de `StageViewport.tsx`. Tanto la Mesa física como la previsualización del director ahora muestran los subtítulos cinematográficos, diálogos activos y cinta de iniciativa en combate de forma compartida.
+  4. **Telemetría Dinámica de Orientación y Pantalla Completa (Serie 3, Pregunta 8):**
+     - `PlayerDisplay.tsx` implementa un listener reactivo con debounce para `resize`, `orientationchange` y `fullscreenchange` que despacha inmediatamente el mensaje `MESA_VIEWPORT_CHANGED` a través de WebRTC. La previsualización del director adapta su relación de aspecto al instante cuando el jugador rota la tablet o entra a pantalla completa, incluso si la escena está en reposo.
+  5. **Zonas Seguras contra Superposición Visual (Serie 3, Pregunta 9):**
+     - En `src/index.css`, se estableció en `.cinematic-banner` un `max-width: min(720px, calc(100% - 480px));` y en pantallas angostas (`@media (max-width: 900px)`) un ajuste vertical a `top: 64px` con `max-width: 90%`, garantizando que títulos largos nunca invadan el espacio de los controles superiores del HUD.
+  6. **Aislamiento de Efectos Secundarios (Serie 3, Pregunta 10):**
+     - Se verificó que `StageViewport` es un componente visual puro: no instancia `soundEngine`, no reproduce SFX ni muta la base de datos Dexie al abrirse en el móvil o en modales.
+  7. **Ampliación de Pruebas Automatizadas de Fidelidad:**
+     - `src/domain/display/stageViewportFidelity.test.tsx` ampliado a 8 pruebas automatizadas cubriendo la escena estática de Ruinas, desacoplamiento `vh`/`vw`, capas públicas y telemetría de orientación.
+- **Diferenciación de Evidencia:**
+  - *Comprobado mediante pruebas de código e integración local:* 292/292 pruebas aprobadas en 55 suites (100%), compilación de producción Vite aprobada en 4.89s, fidelidad de container queries y cálculo de escala verificados en Vitest.
+  - *Pendiente de comprobación física en mesa conectada:* comprobación simultánea con tablet física conectada por WebRTC para contrastar capturas de pantalla lado a lado en un entorno real de juego.
+- **Resultado:** manual de usuario y registro de revisiones actualizados con MAN-014.
+
+## 2026-09-03 — MAN-015: Escenario Lógico 16:9 con Bandas Neutras, Desglose de Tres Estados y Auditoría/Resincronización de Mesa
+
+- **Versión:** árbol de trabajo local con escenario fijo 1920×1080 centrado con `object-fit: contain` y bandas neutras, sustitución de `@media` por `@container` queries, protocolo extendido con `AUDIT_MESA_REQUEST`/`RESPONSE`, telemetría de audio (`DisplayAudioStatus`) y resincronización limpia (`isResync`).
+- **Entorno:** Vitest 55 suites con 296 pruebas aprobadas (100%), compilación de producción con Vite y TypeScript (`tsc -b`) aprobada en 4.42s con 0 errores de tipado.
+- **Alcance y Verificación Técnica:**
+  1. **Escenario Lógico 16:9 con Bandas Neutras (Serie 1, Preguntas 1 y 2):**
+     - Se estableció la resolución de referencia lógica en `1920 × 1080` píxeles tanto para la pantalla de jugadores como para la previsualización del director en `StageViewport.tsx`.
+     - En pantallas de cualquier proporción física (pantallas 16:9, tablets 16:10 de 1920×1200 o 2560×1600, pantallas 4:3 o móviles): el escenario se escala uniformemente sin deformación ni recortes de figuras o textos, centrándose sobre bandas negras neutras.
+     - En orientación vertical (`aspectRatio < 1`), se conserva la escena completa contenida y se muestra una sugerencia sutil de girar el dispositivo para mayor comodidad de lectura, sin saltos de zoom automáticos.
+  2. **Eliminación Total de Dependencias `@media` de Ventana (Serie 1, Pregunta 3):**
+     - Se eliminó `@media (max-width: 900px)` en `.cinematic-banner-container` en `src/index.css`, reemplazándolo por `@container (max-width: 900px)`. Los contenedores `.stage-viewport-canvas-box` y `.stage-viewport-virtual-canvas` tienen `container-type: size`, garantizando que las reglas de distribución dependan del tamaño asignado al escenario y no de la ventana del navegador del director.
+  3. **Desglose en Tres Indicadores Independientes (Serie 2, Preguntas 5 y 6):**
+     - La previsualización (`LiveMiniPreview` y `FullScreenPreviewModal`) desglosa la telemetría en tres estados claros e independientes:
+       - **Estado:** `Sin confirmación de la Mesa` (con botón *«Ver vista prevista»* si aún no hubo confirmación inicial), `Enviando (X pend.)`, `Rev. X (Aplicado)` o `Error en Mesa`.
+       - **Imágenes:** `Img listas` (100% descargadas), `Cargando (X pend.)` o advertencia de `Imagen pendiente de descarga en la Mesa` si el director tiene un avatar local no disponible aún en la Mesa física.
+       - **Audio:** `Requiere tocar Mesa` (interacción táctil requerida por la política autoplay del navegador), `Audio OK` (desbloqueado) o `Audio error`. La confirmación visual no se bloquea si el audio requiere interacción.
+  4. **Herramienta de Auditoría «Comprobar Mesa» (Serie 3, Pregunta 9):**
+     - Protocolo extendido con `AUDIT_MESA_REQUEST` y `AUDIT_MESA_RESPONSE`. Permite al director consultar de forma no destructiva el identificador de dispositivo, versión de app, sesión, revisión, checksum del estado público, dimensiones reales y estado de recursos y audio sin modificar la escena activa.
+  5. **Herramienta de Recuperación «Resincronizar Mesa» (Serie 3, Pregunta 10):**
+     - Implementado reenvío de instantánea pública limpia con indicador `isResync: true`.
+     - `PlayerDisplay` y `displayCommandExecutor` aplican el estado público completo de forma idempotente, suprimiendo efectos sonoros repetidos (`play_sfx`, `play_synth`, `storm_lightning`) y conservando los cronómetros de combate en curso sin reiniciarlos a cero.
+  6. **«Copiar Diagnóstico» Sanitizado (Serie 3, Pregunta 11):**
+     - La ventana de diagnóstico unifica las métricas WebRTC y la telemetría del `SessionCommandBus`, produciendo un volcado de diagnóstico técnico excluyendo expresamente contraseñas, tokens de acceso, notas privadas del director y textos narrativos confidenciales.
+- **Diferenciación de Evidencia:**
+  - *Comprobado mediante pruebas de código e integración local:* 296/296 pruebas aprobadas en 55 suites (100%), compilación Vite de producción (`npm run build`) aprobada en 4.42s, y 12 pruebas de fidelidad visual automatizadas en `src/domain/display/stageViewportFidelity.test.tsx`.
+  - *Comprobado documentalmente:* Manual de usuario (`docs/manual/README.md`) actualizado con la previsualización fiel 16:9, los tres indicadores independientes y las herramientas de auditoría y resincronización.
+  - *Pendiente de comprobación física en mesa conectada:* Prueba de visualización simultánea con una tablet Samsung/iPad física conectada por WebRTC a la sala real para inspeccionar el renderizado final del canvas y auditar el retardo de audio tras tocar la pantalla.
+- **Resultado:** manual de usuario y registro de revisiones actualizados con MAN-015.
+
+## 2026-09-03 — MAN-016: Reactividad de Recursos, Desbloqueo Táctil de Audio y Protección de Partida en Resincronización
+
+- **Versión:** árbol de trabajo local.
+- **Entorno:** Vitest 55 suites con 298 pruebas aprobadas (100%), compilación de producción con Vite y TypeScript (`tsc -b`) aprobada en 2.74s con 0 errores de tipado.
+- **Alcance y Verificación Técnica:**
+  1. **Telemetría Reactiva de Recursos y Fallos Deliberados (Serie 2, Preguntas 4 y 5):**
+     - `PlayerDisplay.tsx` rastrea reactivamente la descarga de fondos, miniaturas y props. Si un recurso falla (`onerror` o 404), `failedCount` se incrementa e inhibe «Img listas», mostrando el indicador en rojo con la cantidad de fallos.
+     - Cuando los recursos terminan de descargar o se detecta un fallo, `PlayerDisplay` despacha inmediatamente `MESA_VIEWPORT_CHANGED` sin necesidad de enviar otro comando de escena desde el panel del director.
+  2. **Desbloqueo Táctil Inmediato de Audio (Serie 2, Pregunta 5):**
+     - Al tocar o hacer clic en la pantalla de la Mesa, se ejecuta `soundEngine.unlockAudio()` y se notifica inmediatamente al director con `audioStatus: 'enabled'`, actualizando la pastilla de audio sin retardo.
+  3. **Protección de Partida en Resincronización (Serie 3, Preguntas 7, 8 y 9):**
+     - `sessionCommandBus.resyncMesa()` cancela todos los temporizadores en vuelo y marca los comandos pendientes anteriores como superados (`SUPERSEDED_BY_RESYNC`), impidiendo que confirmaciones tardías sobrescriban el estado recuperado.
+     - La ventana de diagnóstico muestra explícitamente el nombre de la escena pública activa que se restaurará y advierte que no se enviará ningún borrador de preparación en curso.
+     - Si la pantalla está en Blackout, la resincronización preserva `isBlackout: true`, garantizando que la pantalla de los jugadores permanezca protegida en negro.
+     - En caso de imágenes fallidas, el reporte de auditoría habilita el botón «Reintentar Descarga».
+- **Diferenciación de Evidencia:**
+  - *Comprobado mediante pruebas de código e integración local:* 298/298 pruebas aprobadas (100%), compilación Vite exitosa en 2.74s, y 14 pruebas automatizadas en `src/domain/display/stageViewportFidelity.test.tsx`.
+## 2026-09-03 — MAN-022: Oclusión Híbrida de Escena, Puntos Narrativos (Waypoints), Legibilidad Adaptativa y Hermeticidad de Sesión
+
+- **Versión:** árbol de trabajo local.
+- **Entorno:** Vitest 57 suites con 326 pruebas aprobadas (100%), compilación de producción con Vite y TypeScript (`tsc -b`) aprobada en 4.14s con 0 errores de tipado.
+- **Alcance y Verificación Técnica:**
+  1. **Oclusión Híbrida Detrás del Decorado (Serie 1, Pregunta 1):**
+     - Se incorporó la interfaz `SceneOcclusionRegion` y el campo `occlusionRegions` en escenas, variantes y estado de visualización.
+     - En `DisplayCharactersLayer`, renderizado de regiones de oclusión con recorte matemático subpíxel (`backgroundSize: 'cover'`) sobre el fondo actual y `zIndex` compartido sin requerir modificación destructiva de la imagen de fondo ni edición externa.
+     - Modal «Nueva región de oclusión frontal» en `CharacterDirectorOverlay` con vista previa de capas y distinción de insignias púrpuras `[Oclusión]`.
+  2. **Puntos Narrativos de Escena Guardados (Serie 2, Preguntas 4 y 5):**
+     - Definición de `StageWaypoint` (`id, name, normalizedX, normalizedY, suggestedZIndex`).
+     - Acciones en el panel del director «Guardar posición como punto…» y «Mover a punto…».
+     - Conmutador entre movimiento Instantáneo (teletransporte) y Suave (desplazamiento cinematográfico fluido de 0.4s sin repetir animaciones al reconectar).
+     - Detección de colisión por proximidad física (< 6% de distancia): advierte visualmente al director con un aviso ámbar si el punto de destino ya está ocupado por otra figura en escena.
+  3. **Legibilidad Adaptativa de Etiquetas y Evasión de Diálogo (Serie 3, Pregunta 8):**
+     - Selector `nameplatePosition`: `'auto' | 'bottom' | 'top' | 'side'` en el panel del personaje.
+     - En modo automático, si el personaje se sitúa en la franja baja del escenario (`posY < 18%`) y hay subtítulos de diálogo activos, la etiqueta se eleva automáticamente por encima de la cabeza (`top`) para evitar quedar tapada por el banner inferior.
+     - Agrupación compacta de condiciones de combate: máximo dos insignias individuales e indicador condensado `+N` si acumula tres o más estados.
+  4. **Hermeticidad de Sesiones Preparadas (Serie 4, Pregunta 11):**
+     - En `summonCharacter`, clonación profunda de los anclajes de expresiones (`char.expressionAnchors`) hacia `instanceVariantAnchors` de la instancia en pantalla.
+     - Verificado en prueba unitaria que editar la biblioteca de campaña o alterar retratos posteriormente no corrompe ni desplaza las figuras de sesiones preparadas anteriormente.
+- **Diferenciación de Evidencia:**
+  - *Comprobado mediante pruebas de código e integración local:* 326/326 pruebas aprobadas (100%), 5 pruebas específicas en `src/domain/display/sceneDepthAndWaypoints.test.tsx`, compilación Vite exitosa en 4.14s, y manual de usuario actualizado en `docs/manual/README.md`.
+  - *Pendiente de comprobación física en mesa conectada:* Recorrido con mostrador de taberna y tablet conectada comprobando la oclusión física y desplazamiento suave entre waypoints con hardware real.
+- **Resultado:** manual de usuario y registro de revisiones actualizados con MAN-022.
+
+## 2026-09-03 — MAN-021: Profundidad Contextual de Escena, Estabilidad de Apoyo por Expresión y Arrastre Grupal Rígido
+
+- **Versión:** árbol de trabajo local.
+- **Entorno:** Vitest 56 suites con 321 pruebas aprobadas (100%), compilación de producción con Vite y TypeScript (`tsc -b`) aprobada en 4.93s con 0 errores de tipado.
+- **Alcance y Verificación Técnica:**
+  1. **Profundidad Contextual y Capas Relativas de Escena (Serie 1, Pregunta 1):**
+     - Integración unificada de personajes (`CharacterOnScreen`) y objetos de decorado (`SceneProp`) en una escala compartida de `zIndex` sin silos ni colisiones.
+     - En `CharacterDirectorOverlay`, acciones «Delante de…» y «Detrás de…» con modal interactivo que lista todos los elementos de la escena (con avatar, nombre, etiqueta privada y etiqueta de tipo).
+     - Algoritmo `reorderRelativeTo`: inserta el elemento respecto al objetivo y normaliza limpiamente las capas en múltiplos de 10 (`10, 20, 30...`), eliminando empates numéricos de superposición.
+     - Modal «Capas de la Escena (Orden de Profundidad)» con vista completa de frente a fondo y flechas `▲` y `▼` para reordenar en vivo.
+     - Soporte en `MasterController` mediante `handleDirectorReorderLayers` que actualiza transaccionalmente tanto personajes como props en vivo o en borrador.
+  2. **Estabilidad de Apoyo por Imagen y Variante de Expresión (Serie 2, Preguntas 4 y 5):**
+     - Campos `expressionAnchors?: Record<string, number>` en `Character` (ficha de campaña) e `instanceVariantAnchors?: Record<string, number>` en `CharacterOnScreen` (instancia en escena).
+     - Modal de calibración con doble opción de guardado: «Guardar en esta figura» (instancia) y «Guardar apoyo» (ficha de campaña).
+     - Resolución en cascada sin saltos verticales al cambiar de gesto: `instanceVariantAnchors[exp] ?? campaignChar.expressionAnchors[exp] ?? char.visualAnchorOffsetY ?? 0`.
+  3. **Arrastre Grupal Rígido con Freno en Borde y Cancelación Segura (Serie 3, Preguntas 7 y 9):**
+     - Cálculo de un bounding box unificado para el conjunto de figuras no bloqueadas en `handlePointerMove`: acota `deltaX` y `deltaY` de modo que ninguna figura supere los márgenes del escenario (`[0, 100%]`), conservando distancias relativas exactas sin aplastar la formación.
+     - Figuras con `isLocked: true` son excluidas del cálculo y permanecen inmóviles.
+     - Detección de interrupciones: listener ante cambios de cámara (`camera !== prevCameraRef.current`), `pointerleave` (con botones levantados) y `pointercancel` cancela silenciosamente el arrastre sin generar saltos ni publicar órdenes accidentales a la Mesa.
+- **Diferenciación de Evidencia:**
+  - *Comprobado mediante pruebas de código e integración local:* 321/321 pruebas aprobadas (100%), 16 pruebas específicas en `src/domain/display/characterDirector.test.tsx`, compilación Vite exitosa en 4.93s, y manual de usuario actualizado en `docs/manual/README.md`.
+  - *Pendiente de comprobación física en mesa conectada:* Recorrido de calibración lado a lado y arrastre con dedos en tablet táctil conectada con mostrador, tarima y figuras superpuestas.
+- **Resultado:** manual de usuario y registro de revisiones actualizados con MAN-021.
+
+## 2026-09-03 — MAN-020: Calidad de Composición, Apoyo Visual en Suelo, Ergonomía Táctil Móvil y Entradas Preparadas
+
+- **Versión:** árbol de trabajo local.
+- **Entorno:** Vitest 56 suites con 317 pruebas aprobadas (100%), compilación de producción con Vite y TypeScript (`tsc -b`) aprobada en 2.71s con 0 errores de tipado.
+- **Alcance y Verificación Técnica:**
+  1. **Calibración de Punto de Apoyo Visual (Serie 1, Pregunta 1):**
+     - Campo `visualAnchorOffsetY?: number` (offset vertical porcentual) incorporado en `CharacterOnScreen`, `DisplayCharactersLayer` y `CharacterDirectorOverlay`.
+     - Modal de calibración sobre tablero cuadriculado con línea roja de suelo, ajuste fino de deslizador (0% a 40%), vista previa en vivo sin alterar `normalizedY`, botón «Restablecer» y botón «Guardar apoyo».
+     - Compensación exacta y matemáticamente idéntica en Previsualización del DM y en la Mesa física mediante `transform: translate(-50%, ${visualAnchorOffsetY}%)`.
+  2. **Línea de Suelo Personalizada por Escena (Serie 1, Pregunta 2):**
+     - Campo `groundLineY?: number` en `SceneVariant`, `Scene`, `DisplayState`, `StageViewport` y `DisplayCharactersLayer`.
+     - Permite que escenas con escaleras, puentes o tarimas adapten la altura base de apoyo. El botón «Al suelo» alinea las figuras a `groundLineY` descontando el apoyo calibrado.
+  3. **Ergonomía Táctil Móvil y Panel «Más…» (Serie 2, Pregunta 5):**
+     - Barra rápida compacta en la zona inferior de la previsualización al alcance del pulgar con chip de personaje, 4 acciones primarias (🎙️ Voz, 🎭 Expresión, 👁️ Visibilidad inequívoca «Ocultar»/«Mostrar», y 🚪 «A reserva»/«Entrar») más botón «Más…».
+     - Durante el arrastre con el dedo (`dragRef.current?.isDragging`), la barra se oculta temporalmente para que el GM tenga 100% de visibilidad despejada.
+     - Botón **«Más…»** abre un panel inferior (bottom drawer) con 4 secciones temáticas:
+       - *Presencia:* Retirar a reserva, Entrar a escena, Preparar entrada.
+       - *Encuadre:* Centrar cámara en el personaje.
+       - *Transformación:* Volteo espejo horizontal, Escala visual (+/-), Traer al frente en capas, Calibrar apoyo visual.
+       - *Organización:* Bloquear posición, Asignar etiqueta privada del DM.
+  4. **Preparación de Entradas desde Reserva con Precarga Segura (Serie 3, Pregunta 9):**
+     - Configuración de entrada antes de mostrar la figura (animaciones `fade`, `slide-bottom`, `slide-left`, `slide-right` con duración suave).
+     - Telemetría de precarga que verifica que el recurso público esté descargado en la Mesa antes de autorizar la entrada.
+     - Botón destacado «Hacer entrar a escena» que ejecuta la aparición en una única orden transaccional.
+  5. **Encuadres de Cámara Personalizados con Nombre (Serie 3, Pregunta 10):**
+     - Propiedad `savedCameraPresets` en `SceneVariant` y `DisplayState`.
+     - Selector de cámara en la barra superior que lista los encuadres nombrados de la escena (ej. *«Mostrador»*, *«Puerta sótano»*) y permite añadir nuevos encuadres con el botón «Guardar encuadre actual...».
+     - Al seleccionar un encuadre manual, se activa `manualCameraOverride: true` para suspender el auto-enfoque de hablante hasta que el DM lo reactive.
+- **Diferenciación de Evidencia:**
+  - *Comprobado mediante pruebas de código e integración local:* 317/317 pruebas aprobadas (100%), 12 pruebas específicas en `src/domain/display/characterDirector.test.tsx`, compilación Vite exitosa en 2.71s, y manual de usuario actualizado en `docs/manual/README.md`.
+  - *Pendiente de comprobación física en mesa conectada:* Recorrido de calibración y arrastre con dedos en tablet táctil conectada.
+- **Resultado:** manual de usuario y registro de revisiones actualizados con MAN-020.
+
+## 2026-09-03 — MAN-019: Modo Dirección Táctil, Acciones Rápidas, Guías de Escena y Manejo de Dimensiones de Personaje
+
+- **Versión:** árbol de trabajo local.
+- **Entorno:** Vitest 56 suites con 313 pruebas aprobadas (100%), compilación de producción con Vite y TypeScript (`tsc -b`) aprobada en 3.91s con 0 errores de tipado.
+- **Alcance y Verificación Técnica:**
+  1. **Modo Dirección Táctil en Previsualización (Serie 1, Pregunta 1 y Serie 4, Pregunta 12):**
+     - Se incorporó el botón conmutador «Modo Dirección» en `LiveMiniPreview.tsx` y `FullScreenPreviewModal.tsx`.
+     - Por defecto, la vista permanece en modo observación para evitar toques accidentales.
+     - En Modo Dirección, tocar un personaje lo selecciona directamente en el canvas 16:9; arrastrarlo muestra una silueta fantasma en tiempo real con coordenadas (`X%`, `Y%`) sin mutar el snapshot confirmado ni emitir tráfico continuo.
+     - Al soltar el dedo (`pointerup`), se emite una única operación transaccional (`MOVE_CHARACTER`) con opción de deshacer atómico. En Preparación (Staging) edita únicamente el borrador. Tocar el fondo deselecciona sin mover la cámara.
+  2. **Barra de Acciones Rápidas de Personaje (Serie 1, Preguntas 1 y 4; Serie 2, Pregunta 5):**
+     - Al seleccionar un personaje, se despliega una barra flotante anclada con accesos de un toque:
+       - 🎙️ **Voz (Hablar):** conmuta `isSpeaking` y destaca al hablante.
+       - 🎭 **Expresión:** menú emergente para seleccionar entre las expresiones faciales definidas del NPC o volver a la neutral.
+       - 👁️ **Visibilidad:** conmuta entre Visible y Oculto en escena (`isHidden: true`), conservando coordenadas y anclaje.
+       - 🚪 **Presencia:** conmuta entre «En escena» y «A reserva» (`presence: 'in_reserve'`), retirándolo del escenario pero conservando posición, expresión y daño para su reincorporación.
+       - 🎬 **Encuadre:** centra el zoom de la cámara en el personaje (`focalPoint`).
+       - 🔒 **Bloquear posición:** fija la figura para impedir arrastres involuntarios (`isLocked: true`).
+       - ↔️ **Voltear horizontalmente:** conmuta `isFlipped` (efecto espejo).
+       - 🔍 **Escala rápida (+ / -):** botones de ajuste por pasos de 0.1 (de 0.5x a 2.5x) para nivelar retratos, figuras de cuerpo entero y criaturas gigantes.
+       - ⬆️ **Capas (Al frente):** eleva el `zIndex` de la figura seleccionada por encima de los demás standees.
+       - 🏷️ **Etiqueta privada:** asigna una etiqueta privada exclusiva del DM (ej. *"Guardia puerta"*).
+  3. **Guías Visuales, Márgenes Seguros y Alineación de Grupo (Serie 1, Pregunta 2 y Serie 2, Pregunta 8):**
+     - Botón **«Guías»**: dibuja la línea de suelo (`Y = 0%`), la línea central (`X = 50%`) y el margen seguro inferior de 64px reservado para subtítulos y diálogos cinematográficos sin tapar los rostros.
+     - Con 2 o más personajes seleccionados («Seleccionar varios»):
+       - Botón **«Al suelo»**: nivela todos los personajes seleccionados en `normalizedY = 0%`.
+       - Botón **«Distribuir»**: espacia uniformemente las figuras seleccionadas entre el extremo izquierdo y derecho.
+  4. **Presets Rápidos de Cámara en la Barra Superior (Serie 3, Pregunta 10):**
+     - Menú desplegable **«Cámara»** en la barra de dirección con accesos directos a «Plano General (1.0x)», «Enfocar selección (1.35x)» y «Hablante (Auto)» sin alterar la posición de los personajes en escena.
+  5. **Manejo de Etiquetas de Nombres en Escenario (Serie 3, Pregunta 9):**
+     - Campo `nameDisplayMode?: 'always' | 'speaker_only' | 'hidden'` en `DisplayState`.
+     - `DisplayCharactersLayer.tsx` oculta las etiquetas cuando está en `'hidden'` o `'speaker_only'` (solo muestra el nombre del que habla), manteniendo legibles las insignias de estado y condiciones de combate sin saturar la pantalla con texto.
+  6. **Separación Estricta de 3 Dimensiones (Serie 2, Pregunta 6):**
+     - Se independizaron Presencia (`presence`), Visibilidad (`isHidden`) y Revelación (`revelation`).
+     - En `displaySanitizer.ts`, los personajes con `isHidden: true` o `presence: 'in_reserve'` se purgan por completo del payload público de la Mesa (seguridad Zero-Leak: no se transmiten por red ni se ocultan con simple CSS en el DOM público).
+     - Las etiquetas privadas `privateLabel` son suprimidas antes de viajar a la pantalla de los jugadores.
+     - Ocultar o retirar a un personaje nunca reinicia su estado de revelación conocido por el grupo.
+  7. **Instancias Múltiples y Selección Agrupada (Serie 2, Preguntas 7 y 8):**
+     - Cada copia colocada cuenta con un `instanceId` independiente. Modificar un guardia no altera a los demás.
+     - Modo «Seleccionar varios» permite seleccionar múltiples figuras y desplazarlas en bloque conservando sus distancias relativas en una única orden transaccional.
+     - Tira de chips para seleccionar fácilmente personajes superpuestos, bloqueados u ocultos.
+- **Diferenciación de Evidencia:**
+  - *Comprobado mediante pruebas de código e integración local:* 313/313 pruebas aprobadas (100%), 8 pruebas específicas en `src/domain/display/characterDirector.test.tsx`, 7 pruebas en `src/domain/display/displaySanitizer.test.ts`, y compilación Vite exitosa en 3.91s.
+  - *Pendiente de comprobación física en mesa conectada:* Recorrido de manipulación táctil con dedos en tablet física conectada.
+- **Resultado:** manual de usuario y registro de revisiones actualizados con MAN-019.
+
+## 2026-09-03 — MAN-018: Distinción de Timeout vs Error, Privacidad en Standees y Aislamiento Generacional de Descargas
+
+- **Versión:** árbol de trabajo local.
+- **Entorno:** Vitest 55 suites con 303 pruebas aprobadas (100%), compilación de producción con Vite y TypeScript (`tsc -b`) aprobada en 4.67s con 0 errores de tipado.
+- **Alcance y Verificación Técnica:**
+  1. **Distinción entre «Sin respuesta (Incierto)» y «Error en Mesa» (Pregunta 2):**
+     - En `SessionCommandBus.ts`, cuando un comando alcanza el tiempo límite sin acuse de recibo de la Mesa, la telemetría asigna `commandStatus: 'timed_out'`, diferenciándolo de un rechazo con código devuelto por la Mesa (`commandStatus: 'error'`).
+     - En `LiveMiniPreview.tsx` y `FullScreenPreviewModal.tsx`, se muestra la pastilla ámbar *«Sin respuesta (Incierto)»* con sugerencia de pulsar *«Comprobar Mesa»*, evitando asumir falsamente un fallo si la orden fue procesada pero la confirmación se perdió en la red.
+  2. **Privacidad Estricta en Standee Fallback (Pregunta 4):**
+     - En `DisplayCharactersLayer.tsx`, cuando una imagen falla, el token temático utiliza exclusivamente `publicAlias` (o `'?'` si la identidad/apariencia no está revelada). Se comprobó en pruebas automáticas que un NPC secreto jamás revela la inicial de su nombre real en la pantalla de los jugadores.
+  3. **Aislamiento Generacional de Descargas Rezagadas (Pregunta 5):**
+     - En `PlayerDisplay.tsx`, cada cambio de escena avanza `loadGenerationRef.current++`. Los eventos de carga que concluyan tarde para una escena anterior son descartados de inmediato y no alteran la telemetría de recursos de la escena activa.
+  4. **Re-verificación de Audio al Desbloquear la Pantalla (Pregunta 6):**
+     - Se añadió un listener para `visibilitychange`. Si el sistema operativo suspende el `AudioContext` tras bloquear la tablet, la Mesa actualiza automáticamente su telemetría a `audioStatus: 'interaction_required'`, advirtiendo al director de que se requiere un nuevo toque.
+- **Diferenciación de Evidencia:**
+  - *Comprobado mediante pruebas de código e integración local:* 303/303 pruebas aprobadas (100%), compilación Vite exitosa en 4.67s, y 19 pruebas automatizadas en `src/domain/display/stageViewportFidelity.test.tsx`.
+  - *Pendiente de comprobación física en mesa conectada:* Recorrido de aceptación manual con capturas reales en tablet Samsung/iPad física conectada.
+- **Resultado:** manual de usuario y registro de revisiones actualizados con MAN-018.
+
+
+## 2026-09-03 — MAN-017: Rechazo Estricto de Órdenes Rezagadas en la Mesa, Desbloqueo Verificado de Audio y Standee Token Fallback
+
+- **Versión:** árbol de trabajo local.
+- **Entorno:** Vitest 55 suites con 301 pruebas aprobadas (100%), compilación de producción con Vite y TypeScript (`tsc -b`) aprobada en 4.61s con 0 errores de tipado.
+- **Alcance y Verificación Técnica:**
+  1. **Rechazo Estricto en la Mesa de Comandos Previos a la Resincronización (Serie 2, Preguntas 4 y 6):**
+     - `sessionCommandBus.resyncMesa()` avanza `this.connectionEpoch++`.
+     - `displayCommandExecutor` en la Mesa actualiza `this.activeConnectionEpoch = msg.connectionEpoch` al recibir la resincronización y rechaza de forma estricta cualquier orden rezagada enviada antes de la resincronización (`msg.connectionEpoch < this.activeConnectionEpoch`) devolviendo `status: 'rejected'` con código `STALE_EPOCH` antes de evaluar el reducer. Esto garantiza que órdenes viejas (como levantar un Blackout) no puedan ejecutarse en la pantalla física.
+  2. **Diferenciación entre Intento y Resultado de Audio (Serie 3, Pregunta 7):**
+     - `soundEngine.unlockAudio()` realiza `await ctx.resume()` sobre el `AudioContext` y verifica si `ctx.state === 'running'`. Solo si el contexto transicionó efectivamente a ejecución devuelve `true`.
+     - `PlayerDisplay.tsx` espera este resultado y solo emite `audioStatus: 'enabled'` si el desbloqueo fue exitoso, previniendo falsos positivos por simples toques que el navegador no haya autorizado.
+  3. **Reemplazo Visual Seguro ante Fallos de Imagen (Serie 1, Pregunta 3):**
+     - En `DisplayCharactersLayer.tsx`, si una imagen de avatar falla (`onError`), se sustituye inmediatamente por un token temático estilizado con marco pergamino, la inicial del personaje en tipografía serif y la leyenda *«Avatar no disponible»*, impidiendo que la Mesa exhiba recuadros rotos o distorsione la escena.
+  4. **Alcance Exhaustivo del Indicador de Recursos (Serie 3, Pregunta 9):**
+     - `PlayerDisplay.tsx` supervisa no solo fondos, avatares y props, sino también expresiones faciales (`expressionUrl`), documentos en pantalla (`activeHandout.imageUrl`) y retratos de diálogo cinematográfico (`dialogue.avatarUrl`).
+- **Diferenciación de Evidencia:**
+  - *Comprobado mediante pruebas de código e integración local:* 301/301 pruebas aprobadas (100%), compilación Vite exitosa en 4.61s, y 17 pruebas automatizadas en `src/domain/display/stageViewportFidelity.test.tsx`.
+  - *Pendiente de comprobación física en mesa conectada:* Recorrido corto de partida de prueba con resultados esperados y observados preparado para su ejecución en tablet Samsung/iPad física conectada.
+- **Resultado:** manual de usuario y registro de revisiones actualizados con MAN-017.
+
+
+
+
+
 
 
 

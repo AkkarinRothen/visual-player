@@ -66,20 +66,56 @@ class SoundEngine {
     }
   }
 
-  private getAudioContext(): AudioContext {
-    if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioCtx();
+  private getAudioContext(): AudioContext | null {
+    try {
+      if (!this.ctx) {
+        const AudioCtx = typeof window !== 'undefined'
+          ? (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)
+          : null;
+        if (!AudioCtx) {
+          return null;
+        }
+        this.ctx = new AudioCtx();
+      }
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      return this.ctx;
+    } catch (e) {
+      return null;
     }
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+  }
+
+  /**
+   * Verified AudioContext unlock for mobile autoplay policies (Pregunta 7).
+   * Attempts to resume the context and returns true ONLY if state entered 'running'.
+   */
+  public async unlockAudio(): Promise<boolean> {
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return false;
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+      return ctx.state === 'running';
+    } catch (err) {
+      console.warn('[SoundEngine] unlockAudio failed to resume AudioContext:', err);
+      return false;
     }
-    return this.ctx;
+  }
+
+  /**
+   * Check if AudioContext is genuinely in running state.
+   */
+  public isUnlocked(): boolean {
+    if (!this.ctx) return false;
+    return this.ctx.state === 'running';
   }
 
   public playSynth(preset: string) {
     try {
       const ctx = this.getAudioContext();
+      if (!ctx) return;
       const now = ctx.currentTime;
 
       switch (preset) {
@@ -315,16 +351,7 @@ class SoundEngine {
     }
   }
 
-  public unlockAudio() {
-    try {
-      const ctx = this.getAudioContext();
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(console.warn);
-      }
-    } catch (e) {
-      console.warn('Audio unlock error:', e);
-    }
-  }
+
 
   public playTrack(track: { soundType?: string; synthPreset?: string; audioUrl?: string }) {
     if (!track) return;

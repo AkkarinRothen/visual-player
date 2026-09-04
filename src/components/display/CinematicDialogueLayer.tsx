@@ -23,7 +23,7 @@ export const CinematicDialogueLayer: React.FC<CinematicDialogueLayerProps> = ({ 
     }
 
     // Check prefers-reduced-motion
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setRevealedChars(dialogue.text.length);
       return;
     }
