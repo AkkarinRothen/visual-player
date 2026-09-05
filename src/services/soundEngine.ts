@@ -1,6 +1,7 @@
 // Web Audio API Sound Synthesizer & Player with Ambient Crossfade & Audio Focus
 import { getPlatformBridge } from '../platform';
 import type { DuckingPreset, DuckingProfile } from '../types';
+import { Howl } from 'howler';
 
 export const DUCKING_PRESETS: Record<DuckingPreset, DuckingProfile> = {
   gentle: {
@@ -39,7 +40,7 @@ class SoundEngine {
   private currentDuckingProfile: DuckingProfile = DUCKING_PRESETS.narration;
   private currentGainMultiplier: number = 1.0;
   private duckingInterval: number | null = null;
-  private activeSfxAudios: Set<HTMLAudioElement> = new Set();
+  private activeSfxAudios: Set<Howl> = new Set();
 
   constructor() {
     this.initLifecycleListeners();
@@ -364,19 +365,15 @@ class SoundEngine {
 
   public playAudioUrl(url: string, volume: number = 0.8) {
     try {
-      const audio = new Audio(url);
-      audio.volume = Math.max(0, Math.min(1, volume));
-      this.activeSfxAudios.add(audio);
-      audio.onended = () => this.activeSfxAudios.delete(audio);
-      audio.onerror = () => this.activeSfxAudios.delete(audio);
-
-      const playPromise = audio.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch((err) => {
-          this.activeSfxAudios.delete(audio);
-          console.warn('Audio play error:', err);
-        });
-      }
+      const sound = new Howl({
+        src: [url],
+        volume: Math.max(0, Math.min(1, volume)),
+        onend: () => { this.activeSfxAudios.delete(sound); sound.unload(); },
+        onloaderror: (_id, error) => { this.activeSfxAudios.delete(sound); sound.unload(); console.warn('Audio load error:', error); },
+        onplayerror: (_id, error) => { this.activeSfxAudios.delete(sound); sound.unload(); console.warn('Audio play error:', error); },
+      });
+      this.activeSfxAudios.add(sound);
+      sound.play();
     } catch (e) {
       console.error('Audio play error:', e);
     }
@@ -385,8 +382,8 @@ class SoundEngine {
   public stopAllSfx(): void {
     this.activeSfxAudios.forEach((audio) => {
       try {
-        audio.pause();
-        audio.currentTime = 0;
+        audio.stop();
+        audio.unload();
       } catch (err) {
         console.warn('Error pausing SFX:', err);
       }

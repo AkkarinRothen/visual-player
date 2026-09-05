@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { VolumeX, MessageSquare, AlertCircle } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import type { CinematicDialogue } from '../../types';
 
 interface CinematicDialogueLayerProps {
@@ -59,7 +60,9 @@ export const CinematicDialogueLayer: React.FC<CinematicDialogueLayerProps> = ({ 
   }[dialogue.style || 'speech'];
 
   return (
-    <div
+    <AnimatePresence mode="wait">
+    <motion.div
+      key={dialogue.id}
       className="cinematic-dialogue-overlay pointer-events-auto select-none"
       onClick={handleSkipTypewriter}
       role="region"
@@ -73,6 +76,10 @@ export const CinematicDialogueLayer: React.FC<CinematicDialogueLayerProps> = ({ 
         maxWidth: '860px',
         zIndex: 42,
       }}
+      initial={{ opacity: 0, y: 20, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 12, scale: 0.98 }}
+      transition={{ duration: 0.22, ease: 'easeOut' }}
     >
       {/* Hidden container for full text screen readers */}
       <div className="sr-only" aria-live="polite">
@@ -160,6 +167,7 @@ export const CinematicDialogueLayer: React.FC<CinematicDialogueLayerProps> = ({ 
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
+    </AnimatePresence>
   );
 };

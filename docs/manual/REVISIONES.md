@@ -2,6 +2,14 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-05 — Compositor táctil: jerarquía y layout móvil
+
+- **Alcance:** rediseño responsive de `SceneCompositorModal`, su escenario, barra de herramientas, capas, controles de selección y pie de acciones. No se cambiaron funciones, nombres de controles ni la forma de guardar o publicar.
+- **Comprobación visual:** recorrido local en navegador con viewport de 360 × 780 px. Se abrió el compositor desde **En Vivo**, se comprobó el escenario 16:9 sin deformación, el desplazamiento horizontal de herramientas, la lista de capas, la selección y edición de un NPC, el scroll interno y el pie fijo con **Publicar a Mesa (ACK)**.
+- **Evidencia técnica:** build de producción completado y 11/11 pruebas dirigidas aprobadas (`sceneCanvasComposer.test.ts` y `sceneLayoutTemplates.test.ts`).
+- **Manual:** sin cambios de uso; `README.md` revisado y sus instrucciones actuales siguen siendo válidas.
+- **Límites:** no se publicó la composición ni se completó una prueba en dispositivo Android físico o con una Mesa física conectada.
+
 ## 2026-09-04 — MAN-047: Soporte de Fondos de Video con Optimización y Sincronización Resiliente
 
 - **Problema y requerimiento:** necesidad de admitir fondos animados de video (ej. cascadas, lluvia, fuego, ambientaciones cinemáticas en bucle) en el Escenario de Visual Player, asegurando que se adapten a la pantalla 16:9 sin pérdida de calidad y sin congelar ni mostrar pantallas negras en la Mesa de los jugadores.
@@ -23,8 +31,8 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
 - **Walkthrough y entorno:** revisión de código del compositor y pruebas unitarias locales; no se realizó recorrido visual ni una prueba con Mesa conectada.
 - **Funciones afectadas:** el Compositor Táctil incorpora **JRPG**, **Diálogo** y **Mapa** debajo de la vista previa. Reorganizan las figuras existentes como punto de partida: bandos laterales, dos interlocutores destacados o miniaturas compactas para un mapa elegido como fondo. Cada figura puede tener equipo **Aliados**, **Enemigos** o **Neutral**; JRPG respeta esa asignación. Mapa habilita una cuadrícula proyectable, cuadrada o hexagonal.
 - **Manual:** se agregó la sección «Plantillas de composición: JRPG, diálogo y mapa táctico» a `README.md`.
-- **Evidencia:** `sceneLayoutTemplates.test.ts` pasó 2/2 pruebas. La compilación completa quedó bloqueada por un error TypeScript preexistente: variable `container` sin uso en `src/domain/display/stageViewportVideo.test.tsx:87`.
-- **Límites y próxima comprobación:** pendiente abrir el compositor en móvil y escritorio, comprobar publicación hacia una Mesa conectada y validar la legibilidad de tokens sobre mapas reales. Resultado: revisión parcial por bloqueo.
+- **Evidencia:** `sceneLayoutTemplates.test.ts` pasó 3/3 pruebas y `npm run build` completó correctamente. El lienzo de mapa incorpora `react-konva`/`konva` para el arrastre y el encaje táctico.
+- **Límites y próxima comprobación:** pendiente abrir el compositor en móvil y escritorio, comprobar publicación hacia una Mesa conectada y validar la legibilidad de tokens sobre mapas reales. Resultado: revisado en código; falta comprobación visual y mesa conectada.
 
 ## 2026-09-04 — MAN-046: Modularización de MasterController en hooks y subcomponentes (`controller/`)
 

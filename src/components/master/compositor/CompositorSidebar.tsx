@@ -80,8 +80,8 @@ export const CompositorSidebar: React.FC<CompositorSidebarProps> = ({
   return (
     <div className="compositor-controls w-full md:w-80 flex flex-col gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-800">
       {/* FILTER & LAYER LIST */}
-      <div>
-        <div className="flex items-center justify-between mb-1">
+      <div className="compositor-layers-section">
+        <div className="compositor-layers-heading flex items-center justify-between mb-1">
           <label className="text-xs text-slate-400 font-semibold uppercase block">
             Capas ({characters.length + propsList.length})
           </label>

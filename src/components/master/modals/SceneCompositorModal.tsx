@@ -496,11 +496,14 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
       <div className="compositor-modal bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
         {/* HEADER */}
         <header className="compositor-header px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
-          <div className="flex items-center gap-2">
+          <div className="compositor-heading flex items-center gap-2">
             <Sliders size={20} className="text-amber-400" />
-            <h2 className="font-bold text-lg text-white">Compositor Táctil de Escena</h2>
+            <h2 className="font-bold text-lg text-white">
+              <span className="compositor-title-full">Compositor Táctil de Escena</span>
+              <span className="compositor-title-mobile">Compositor</span>
+            </h2>
             <span
-              className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+              className={`compositor-mode-badge text-xs px-2 py-0.5 rounded-full font-semibold ${
                 operationMode === 'live'
                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                   : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
@@ -510,7 +513,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="compositor-header-actions flex items-center gap-3">
             {/* ASPECT GUIDE TOGGLE */}
             <div className="aspect-selector flex items-center bg-slate-800 rounded-lg p-0.5 text-xs">
               <button
@@ -605,7 +608,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
         <footer className="compositor-footer px-4 py-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 bg-slate-950/80">
           <div className="flex items-center gap-2">
             <button
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
+              className="compositor-undo-button px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
               onClick={handleUndo}
               disabled={history.length === 0}
             >
@@ -616,13 +619,13 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
 
           <div className="flex items-center gap-2">
             <button
-              className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
+              className="compositor-cancel-button px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
               onClick={onClose}
             >
               Cancelar
             </button>
             <button
-              className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center gap-1.5 shadow-lg disabled:opacity-50"
+              className="compositor-publish-button px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center gap-1.5 shadow-lg disabled:opacity-50"
               onClick={() => handleSave(operationMode === 'live')}
               disabled={isSaving}
             >

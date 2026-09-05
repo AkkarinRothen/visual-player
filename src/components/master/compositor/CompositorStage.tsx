@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { SceneLayoutTemplate } from '../../../domain/display/sceneLayoutTemplates';
 import type { TacticalGridConfig } from '../../../types';
+import { TacticalMapCanvas } from './TacticalMapCanvas';
 
 export interface CompositorStageProps {
   stageRef: React.RefObject<HTMLDivElement | null>;
@@ -76,6 +77,10 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
   tacticalGrid,
   onChangeTacticalGrid,
 }) => {
+  const isTacticalMode = tacticalGrid.enabled;
+  const moveTacticalCharacter = (id: string, normalizedX: number, normalizedY: number) => {
+    setCharacters((current) => current.map((character) => character.id === id ? { ...character, normalizedX, normalizedY } : character));
+  };
   return (
     <div className="compositor-stage-panel flex-1 flex flex-col items-center">
       <div
@@ -93,10 +98,19 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
         onPointerUp={handlePointerUp}
       >
         {/* STAGE GROUND LINE HELPER */}
-        <div className="absolute inset-x-0 bottom-0 h-1 bg-amber-500/30 border-t border-dashed border-amber-400/40 pointer-events-none" />
+        {!isTacticalMode && <div className="absolute inset-x-0 bottom-0 h-1 bg-amber-500/30 border-t border-dashed border-amber-400/40 pointer-events-none" />}
+
+        {isTacticalMode && <TacticalMapCanvas
+          characters={characters}
+          grid={tacticalGrid}
+          selectedCharacterId={selectedEntity?.type === 'character' ? selectedEntity.id : undefined}
+          onSelectCharacter={(id) => setSelectedEntity({ type: 'character', id })}
+          onDragStart={pushHistory}
+          onMoveCharacter={moveTacticalCharacter}
+        />}
 
         {/* UNIFIED RENDERING: CHARACTERS AND PROPS SORTED BY Z-INDEX */}
-        {[
+        {!isTacticalMode && [
           ...characters.map((c) => ({
             type: 'character' as const,
             id: c.id,
@@ -244,24 +258,24 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
       </div>
 
       {/* QUICK PRESETS & TOOLBAR UNDER STAGE */}
-      <div className="w-full flex items-center justify-between mt-2 px-1">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded bg-slate-950/70 p-1 border border-slate-800" aria-label="Plantillas de composición">
+      <div className="compositor-stage-toolbar w-full flex items-center justify-between mt-2 px-1">
+        <div className="compositor-stage-tools flex items-center gap-2">
+          <div className="compositor-template-tools flex items-center gap-1 rounded bg-slate-950/70 p-1 border border-slate-800" aria-label="Plantillas de composición">
             <button type="button" className="px-1.5 py-1 text-amber-300 hover:bg-slate-800 rounded text-[10px] flex items-center gap-1" onClick={() => onApplyLayoutTemplate('jrpg-battle')} title="Batalla JRPG: primeras figuras a la izquierda y el resto a la derecha"><Swords size={14} />JRPG</button>
             <button type="button" className="px-1.5 py-1 text-sky-300 hover:bg-slate-800 rounded text-[10px] flex items-center gap-1" onClick={() => onApplyLayoutTemplate('visual-novel')} title="Novela visual: protagonistas en primer plano"><MessageCircle size={14} />Diálogo</button>
             <button type="button" className="px-1.5 py-1 text-emerald-300 hover:bg-slate-800 rounded text-[10px] flex items-center gap-1" onClick={() => onApplyLayoutTemplate('tactical-map')} title="Mapa táctico: miniaturas compactas en cuadrícula"><Map size={14} />Mapa</button>
           </div>
-          <label className="flex items-center gap-1 text-[10px] text-emerald-200 cursor-pointer" title="Muestra una cuadrícula sobre el mapa en la Mesa al publicar">
+          <label className="compositor-grid-toggle flex items-center gap-1 text-[10px] text-emerald-200 cursor-pointer" title="Muestra una cuadrícula sobre el mapa en la Mesa al publicar">
             <input type="checkbox" checked={tacticalGrid.enabled} onChange={(event) => onChangeTacticalGrid({ ...tacticalGrid, enabled: event.target.checked })} />
             Cuadrícula
           </label>
           {tacticalGrid.enabled && (
-            <select value={tacticalGrid.type} onChange={(event) => onChangeTacticalGrid({ ...tacticalGrid, type: event.target.value as TacticalGridConfig['type'] })} className="bg-slate-800 text-emerald-100 text-[10px] rounded p-1 border border-slate-700" aria-label="Tipo de cuadrícula">
+            <select value={tacticalGrid.type} onChange={(event) => onChangeTacticalGrid({ ...tacticalGrid, type: event.target.value as TacticalGridConfig['type'] })} className="compositor-grid-type bg-slate-800 text-emerald-100 text-[10px] rounded p-1 border border-slate-700" aria-label="Tipo de cuadrícula">
               <option value="square">Cuadrada</option><option value="hex">Hexagonal</option>
             </select>
           )}
           <button
-            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded text-slate-200 flex items-center gap-1.5"
+            className="compositor-tool-button px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded text-slate-200 flex items-center gap-1.5"
             onClick={() => setShowAddPropModal(true)}
           >
             <Plus size={14} className="text-purple-400" />
@@ -271,7 +285,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
           {onOpenBackgroundPicker && (
             <button
               type="button"
-              className="compositor-background-button"
+              className="compositor-tool-button compositor-background-button"
               onClick={onOpenBackgroundPicker}
             >
               <span>🌄</span>
@@ -281,7 +295,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
 
           {canSavePreset && (
             <button
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded text-slate-200 flex items-center gap-1.5"
+              className="compositor-tool-button px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded text-slate-200 flex items-center gap-1.5"
               onClick={() => setShowSavePresetModal(true)}
             >
               <Bookmark size={14} className="text-amber-400" />
@@ -291,7 +305,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
 
           {campaign?.savedCompositions && campaign.savedCompositions.length > 0 && (
             <button
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded text-slate-200 flex items-center gap-1.5"
+              className="compositor-tool-button px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded text-slate-200 flex items-center gap-1.5"
               onClick={() => setShowLoadPresetModal(true)}
             >
               <FolderOpen size={14} className="text-sky-400" />
@@ -300,7 +314,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="compositor-reset-tools flex items-center gap-1">
           <button
             className="p-1 bg-slate-800 hover:bg-slate-700 text-xs rounded text-slate-300"
             onClick={() => {

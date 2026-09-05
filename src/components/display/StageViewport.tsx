@@ -210,21 +210,32 @@ export const StageViewport: React.FC<StageViewportProps> = ({
         )}
       </div>
 
-      {state.tacticalGrid?.enabled && (
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 pointer-events-none"
-          style={state.tacticalGrid.type === 'hex' ? {
-            opacity: state.tacticalGrid.opacity,
-            backgroundImage: 'radial-gradient(circle at 50% 0, transparent 69%, rgba(167, 243, 208, .95) 70%, transparent 72%), radial-gradient(circle at 0 50%, transparent 69%, rgba(167, 243, 208, .95) 70%, transparent 72%)',
-            backgroundSize: `${100 / Math.max(1, state.tacticalGrid.columns)}% ${100 / Math.max(1, state.tacticalGrid.columns)}%`,
-          } : {
-            opacity: state.tacticalGrid.opacity,
-            backgroundImage: 'linear-gradient(rgba(167, 243, 208, .85) 1px, transparent 1px), linear-gradient(90deg, rgba(167, 243, 208, .85) 1px, transparent 1px)',
-            backgroundSize: `${100 / Math.max(1, state.tacticalGrid.columns)}% ${100 / Math.max(1, state.tacticalGrid.columns)}%`,
-          }}
-        />
-      )}
+      {state.tacticalGrid?.enabled && (() => {
+        const columns = Math.max(2, state.tacticalGrid.columns);
+        const rows = Math.max(2, Math.round(columns * 9 / 16));
+        const isHex = state.tacticalGrid.type === 'hex';
+        const hexRadius = 100 / columns / Math.sqrt(3);
+        const hexRows = Math.ceil(100 / (hexRadius * 1.5)) + 1;
+        const hexes = isHex
+          ? Array.from({ length: hexRows }, (_, row) => Array.from({ length: columns + 2 }, (_, column) => {
+              const centerX = column * hexRadius * Math.sqrt(3) + (row % 2 ? hexRadius * Math.sqrt(3) / 2 : 0);
+              const centerY = row * hexRadius * 1.5;
+              const points = Array.from({ length: 6 }, (_, point) => {
+                const angle = Math.PI / 180 * (60 * point);
+                return `${centerX + hexRadius * Math.cos(angle)},${centerY + hexRadius * Math.sin(angle)}`;
+              }).join(' ');
+              return <polygon key={`${row}-${column}`} points={points} fill="none" stroke="currentColor" strokeWidth="0.16" />;
+            }))
+          : [];
+        return (
+          <svg aria-hidden="true" className="absolute inset-0 w-full h-full pointer-events-none text-emerald-200" style={{ opacity: state.tacticalGrid.opacity }} viewBox="0 0 100 100" preserveAspectRatio="none">
+            {isHex ? hexes : <>
+              {Array.from({ length: columns + 1 }, (_, index) => <line key={`v-${index}`} x1={index * 100 / columns} y1="0" x2={index * 100 / columns} y2="100" stroke="currentColor" strokeWidth="0.16" />)}
+              {Array.from({ length: rows + 1 }, (_, index) => <line key={`h-${index}`} x1="0" y1={index * 100 / rows} x2="100" y2={index * 100 / rows} stroke="currentColor" strokeWidth="0.16" />)}
+            </>}
+          </svg>
+        );
+      })()}
 
       {/* Atmosphere / Weather Particles & Lighting */}
       <AtmosphereCanvas

@@ -1461,9 +1461,94 @@
   overflow: auto;
 }
 
+.compositor-controls .char-list > button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  text-align: left;
+}
+
+.compositor-controls .char-list > button > img {
+  width: 28px !important;
+  height: 28px !important;
+  max-width: 28px;
+  flex: 0 0 28px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.compositor-controls .char-list > button > span:not(:last-child) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .compositor-controls input[type="range"] {
   width: 100%;
   accent-color: #f59e0b;
+}
+
+.compositor-controls .selected-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding-top: 11px;
+  border-top: 1px solid #334155;
+}
+
+.compositor-controls .selected-controls .flex {
+  display: flex;
+}
+
+.compositor-controls .selected-controls .items-center {
+  align-items: center;
+}
+
+.compositor-controls .selected-controls .justify-between {
+  justify-content: space-between;
+}
+
+.compositor-controls .selected-controls .grid {
+  display: grid;
+  gap: 7px;
+}
+
+.compositor-controls .selected-controls .grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.compositor-controls .selected-controls .grid-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.compositor-controls .selected-controls .grid-cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.compositor-controls .selected-controls button {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.compositor-controls .selected-controls select {
+  min-height: 36px;
+  padding: 5px 28px 5px 9px;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  color: #e2e8f0;
+  background: #1e293b;
+  color-scheme: dark;
+}
+
+.compositor-controls .selected-controls input[type="range"] {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .compositor-add-character-strip {
@@ -1546,6 +1631,147 @@
   gap: 7px;
 }
 
+/* Polished compositor layout: keeps the stage dominant and every touch target reachable. */
+.compositor-title-mobile {
+  display: none;
+}
+
+.compositor-modal {
+  border-color: rgba(71, 85, 105, 0.8) !important;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(37, 99, 235, 0.08), transparent 34%),
+    #08101f !important;
+}
+
+.compositor-header {
+  min-height: 64px;
+  padding: 11px 16px !important;
+  border-bottom-color: rgba(71, 85, 105, 0.58) !important;
+  background: rgba(7, 13, 25, 0.96) !important;
+}
+
+.compositor-heading > svg {
+  flex: 0 0 auto;
+  color: #fbbf24;
+}
+
+.compositor-mode-badge {
+  flex: 0 0 auto;
+  line-height: 1.15;
+}
+
+.compositor-header button[aria-label="Cerrar compositor"] {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0 !important;
+  place-items: center;
+}
+
+.compositor-body {
+  gap: 14px !important;
+  padding: 14px !important;
+}
+
+.compositor-stage-panel {
+  align-items: stretch;
+}
+
+.compositor-stage-panel .stage-viewport {
+  aspect-ratio: 16 / 9;
+  height: auto;
+  min-height: 0;
+  max-height: min(620px, calc(95dvh - 190px));
+  margin-inline: auto;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
+}
+
+.compositor-stage-toolbar {
+  min-height: 50px;
+  margin-top: 10px !important;
+  padding: 5px !important;
+  border: 1px solid rgba(51, 65, 85, 0.7);
+  border-radius: 12px;
+  background: rgba(10, 18, 33, 0.88);
+}
+
+.compositor-stage-tools {
+  min-width: 0;
+}
+
+.compositor-template-tools {
+  flex: 0 0 auto;
+}
+
+.compositor-grid-toggle {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 9px;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  border-radius: 9px;
+  background: rgba(6, 78, 59, 0.13);
+}
+
+.compositor-grid-toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: #34d399;
+}
+
+.compositor-grid-type {
+  min-height: 36px;
+  min-width: 104px;
+  padding: 0 30px 0 10px;
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+  border-radius: 9px;
+  color: #d1fae5 !important;
+  background-color: #172235 !important;
+  color-scheme: dark;
+  font: inherit;
+}
+
+.compositor-reset-tools {
+  flex: 0 0 auto;
+}
+
+.compositor-controls {
+  border-color: rgba(51, 65, 85, 0.8) !important;
+  background: rgba(7, 13, 25, 0.72) !important;
+}
+
+.compositor-layers-heading {
+  min-height: 38px;
+}
+
+.compositor-layers-heading > label {
+  margin: 0;
+  color: #f1f5f9;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+
+.compositor-add-character-strip {
+  border-color: rgba(71, 85, 105, 0.65);
+  background: rgba(15, 23, 42, 0.82);
+}
+
+.compositor-footer {
+  min-height: 64px;
+  border-top-color: rgba(71, 85, 105, 0.58) !important;
+  background: rgba(7, 13, 25, 0.97) !important;
+}
+
+.compositor-publish-button {
+  border-color: #f59e0b !important;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+  color: #111827 !important;
+}
+
+.compositor-publish-button:hover {
+  background: linear-gradient(135deg, #fcd34d, #fbbf24) !important;
+}
+
 @media (max-width: 767px) {
   .modal-backdrop:has(.compositor-modal) {
     background: #020617 !important;
@@ -1553,7 +1779,7 @@
 
   .compositor-header {
     min-height: calc(58px + var(--sat));
-    padding: calc(8px + var(--sat)) 10px 8px;
+    padding: calc(7px + var(--sat)) 12px 7px !important;
   }
 
   .compositor-header > div:first-child {
@@ -1561,80 +1787,273 @@
   }
 
   .compositor-header h2 {
-    max-width: 45vw;
-    font-size: 0.92rem;
+    max-width: none;
+    font-size: 1rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
+  .compositor-title-full {
+    display: none;
+  }
+
+  .compositor-title-mobile {
+    display: inline;
+  }
+
   .compositor-header > div:first-child > span {
-    max-width: 35vw;
+    max-width: none;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .compositor-mode-badge {
+    padding: 5px 8px !important;
+    font-size: 0.7rem !important;
+  }
+
+  .compositor-header button[aria-label="Cerrar compositor"] {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
   }
 
   .compositor-body {
     display: flex !important;
     flex-direction: column;
-    height: calc(100dvh - 140px);
+    height: auto;
+    overscroll-behavior: contain;
     overflow-y: auto !important;
-    padding: 8px;
+    padding: 10px !important;
+    gap: 12px !important;
+    scrollbar-width: thin;
   }
 
   .compositor-stage-panel {
     flex: 0 0 auto;
     width: 100%;
-    height: min(42dvh, 350px);
-    min-height: 220px;
+    height: auto !important;
+    min-height: 0 !important;
   }
 
-  .stage-viewport {
-    height: 100% !important;
-    aspect-ratio: auto !important;
+  .compositor-stage-panel .stage-viewport {
+    width: 100%;
+    height: auto !important;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: 16 / 9 !important;
+    border-radius: 11px;
   }
 
-  .compositor-stage-panel > div:last-child {
-    flex-wrap: nowrap;
+  .compositor-stage-panel .stage-viewport img {
+    max-height: 32vh;
   }
 
-  .compositor-stage-panel > div:last-child > div {
-    flex-wrap: nowrap;
+  .compositor-stage-toolbar {
+    display: flex;
+    width: 100%;
+    min-height: 50px;
+    margin-top: 8px !important;
+    padding: 5px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .compositor-stage-toolbar::-webkit-scrollbar,
+  .compositor-add-character-list::-webkit-scrollbar,
+  .compositor-controls .char-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .compositor-stage-tools {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+  }
+
+  .compositor-stage-tools > * {
+    scroll-snap-align: start;
+  }
+
+  .compositor-template-tools {
+    display: flex;
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+  }
+
+  .compositor-stage-panel .compositor-stage-toolbar button,
+  .compositor-grid-toggle,
+  .compositor-grid-type {
+    min-height: 40px;
+    padding: 7px 10px;
+    font-size: 0.75rem;
+  }
+
+  .compositor-grid-type {
+    min-width: 108px;
+    padding-right: 28px;
+  }
+
+  .compositor-reset-tools {
+    margin-left: 2px;
+    padding-left: 7px;
+    border-left: 1px solid #334155;
   }
 
   .compositor-controls {
     flex: 0 0 auto;
     width: 100%;
     max-height: none;
-    padding: 8px;
+    padding: 10px !important;
+    gap: 10px !important;
+    overflow: visible;
+    border-radius: 13px;
+  }
+
+  .compositor-layers-heading {
+    gap: 10px;
+    margin-bottom: 7px !important;
+  }
+
+  .compositor-layers-heading > div {
+    flex: 0 0 auto;
+  }
+
+  .compositor-layers-heading button {
+    min-width: 54px;
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 0.72rem;
+  }
+
+  .compositor-add-character-strip {
+    margin: 0 0 9px;
+    padding: 9px;
+  }
+
+  .compositor-control-label {
+    margin-bottom: 7px;
+    font-size: 0.7rem;
+  }
+
+  .compositor-add-character-list {
+    gap: 8px;
+    scrollbar-width: none;
+  }
+
+  .compositor-add-character-button {
+    max-width: 160px;
+    min-height: 44px !important;
+    padding: 6px 9px !important;
+    font-size: 0.76rem;
+  }
+
+  .compositor-add-character-button img {
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
   }
 
   .compositor-controls .char-list {
     flex-direction: row;
-    max-height: 92px;
+    max-height: none;
+    gap: 8px;
     overflow-x: auto;
+    scrollbar-width: none;
   }
 
   .compositor-controls .char-list > button {
     flex: 0 0 auto;
+    min-width: 148px;
+    min-height: 44px;
+    padding: 7px 9px;
+  }
+
+  .compositor-controls .selected-controls {
+    padding-top: 10px;
+  }
+
+  .compositor-controls .selected-controls button {
+    min-height: 44px;
+  }
+
+  .compositor-controls .selected-controls input[type="range"] {
+    min-height: 32px;
   }
 
   .compositor-footer {
-    padding: 8px 10px max(8px, var(--sab));
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr);
+    min-height: calc(68px + var(--sab));
+    padding: 8px 10px max(8px, var(--sab)) !important;
+    box-shadow: 0 -10px 30px rgba(2, 6, 23, 0.32);
   }
 
   .compositor-footer > div:last-child {
-    margin-left: auto;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    margin-left: 0;
   }
 
   .compositor-footer button {
     min-height: 44px;
-    padding: 7px 9px;
-    font-size: 0.72rem;
+    padding: 7px 11px !important;
+    font-size: 0.76rem;
+  }
+
+  .compositor-publish-button {
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .compositor-publish-button span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .compositor-undo-button span {
+    display: none;
+  }
+
+  .compositor-undo-button {
+    width: 44px;
+    padding: 0 !important;
+    justify-content: center;
+  }
+
+  .compositor-cancel-button {
+    padding-inline: 13px !important;
   }
 }
 
+@media (max-width: 390px) {
+  .compositor-heading > svg {
+    display: none;
+  }
+
+  .compositor-mode-badge {
+    max-width: 34vw !important;
+  }
+
+  .compositor-cancel-button {
+    width: 44px;
+    overflow: hidden;
+    padding: 0 !important;
+    font-size: 0 !important;
+  }
+
+  .compositor-cancel-button::after {
+    content: "×";
+    font-size: 1.25rem;
+  }
+}
 /* Classic live editor is the primary Android control surface. */
 .live-panel {
   min-width: 0;
