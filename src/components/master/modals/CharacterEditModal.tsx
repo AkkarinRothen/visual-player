@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Image as ImageIcon } from 'lucide-react';
+import { X, Image as ImageIcon, Sparkles } from 'lucide-react';
 import type { Character } from '../../../types';
 import { AssetPickerModal } from '../../common/AssetPickerModal';
+import { TokenCreatorModal } from '../../common/TokenCreatorModal';
 
 interface CharacterEditModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
   onClose,
 }) => {
   const [showAssetPicker, setShowAssetPicker] = useState(false);
+  const [showTokenCreator, setShowTokenCreator] = useState(false);
   const [form, setForm] = useState({
     name: '',
     roleOrTitle: '',
@@ -142,6 +144,30 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
               <ImageIcon size={16} />
               <span>{form.defaultAvatarUrl ? 'Cambiar Retrato' : 'Elegir Retrato (Fotos / Biblioteca)'}</span>
             </button>
+
+            {form.defaultAvatarUrl && (
+              <button
+                type="button"
+                onClick={() => setShowTokenCreator(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                  border: '1px solid #38bdf8',
+                  color: '#fff',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  fontWeight: 600,
+                  fontSize: '0.88rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                }}
+                title="Ajustar y recortar como ficha o token circular"
+              >
+                <Sparkles size={16} />
+                <span>Crear Token</span>
+              </button>
+            )}
           </div>
 
           <label>Biografía o Notas</label>
@@ -171,6 +197,16 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
             setShowAssetPicker(false);
           }}
           onClose={() => setShowAssetPicker(false)}
+        />
+
+        <TokenCreatorModal
+          isOpen={showTokenCreator}
+          initialImageUrl={form.defaultAvatarUrl}
+          onSaveToken={(tokenUrl) => {
+            setForm((prev) => ({ ...prev, defaultAvatarUrl: tokenUrl }));
+            setShowTokenCreator(false);
+          }}
+          onClose={() => setShowTokenCreator(false)}
         />
       </div>
     </div>

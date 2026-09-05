@@ -12,6 +12,7 @@ import {
   Trash2,
   ArrowLeft,
   Sparkles,
+  Edit3,
 } from 'lucide-react';
 import type { Character, CharacterOnScreen } from '../../../types';
 
@@ -21,10 +22,12 @@ export interface ContextualCharacterInspectorProps {
   onClose: () => void;
   onToggleVisibility: (id: string, currentlyHidden: boolean) => void;
   onScaleChange: (id: string, delta: number) => void;
+  onSetExactScale?: (id: string, scale: number) => void;
   onLayerChange: (id: string, direction: 'up' | 'down') => void;
   onToggleMirror: (id: string) => void;
   onOpenQuickDialogue?: () => void;
   onDismissCharacter?: (id: string) => void;
+  onEditCharacterSheet?: (characterId: string) => void;
 }
 
 export const ContextualCharacterInspector: React.FC<ContextualCharacterInspectorProps> = ({
@@ -33,10 +36,12 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
   onClose,
   onToggleVisibility,
   onScaleChange,
+  onSetExactScale,
   onLayerChange,
   onToggleMirror,
   onOpenQuickDialogue,
   onDismissCharacter,
+  onEditCharacterSheet,
 }) => {
   const meta = campaignCharacters.find(
     (c) => c.id === character.characterId || c.name === character.name
@@ -109,12 +114,18 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
 
         {/* 2. Tamaño y Capa en cuadrícula */}
         <div className="modular-inspector-controls-grid">
-          {/* Stepper Tamaño */}
-          <div className="modular-inspector-stepper-box">
-            <span className="modular-inspector-stepper-label">
-              <Sparkles size={13} style={{ color: '#38bdf8' }} />
-              <span>Tamaño</span>
-            </span>
+          {/* Stepper Tamaño Híbrido */}
+          <div className="modular-inspector-stepper-box" style={{ padding: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span className="modular-inspector-stepper-label">
+                <Sparkles size={13} style={{ color: '#38bdf8' }} />
+                <span>Tamaño</span>
+              </span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#38bdf8' }}>
+                {Math.round(currentScale * 100)}% ({getScaleLabel(currentScale)})
+              </span>
+            </div>
+
             <div className="modular-inspector-stepper-controls">
               <button
                 type="button"
@@ -125,9 +136,23 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
               >
                 <Minus size={15} />
               </button>
-              <span className="modular-stepper-val" title={`${Math.round(currentScale * 100)}%`}>
-                {getScaleLabel(currentScale)}
-              </span>
+              <input
+                type="range"
+                min="0.4"
+                max="2.5"
+                step="0.05"
+                value={currentScale}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  if (onSetExactScale) {
+                    onSetExactScale(character.id, val);
+                  } else {
+                    onScaleChange(character.id, val - currentScale);
+                  }
+                }}
+                style={{ flex: 1, margin: '0 6px' }}
+                aria-label="Deslizador de tamaño"
+              />
               <button
                 type="button"
                 className="modular-stepper-btn"
@@ -137,6 +162,44 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
               >
                 <Plus size={15} />
               </button>
+            </div>
+
+            {/* Presets de tamaño D&D */}
+            <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
+              {[
+                { label: 'Peq', scale: 0.7 },
+                { label: 'Med', scale: 1.0 },
+                { label: 'Gra', scale: 1.4 },
+                { label: 'Enor', scale: 1.9 },
+              ].map((p) => {
+                const isActive = Math.abs(currentScale - p.scale) < 0.08;
+                return (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => {
+                      if (onSetExactScale) {
+                        onSetExactScale(character.id, p.scale);
+                      } else {
+                        onScaleChange(character.id, p.scale - currentScale);
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '4px 0',
+                      borderRadius: '6px',
+                      fontSize: '0.68rem',
+                      fontWeight: isActive ? 800 : 500,
+                      backgroundColor: isActive ? 'rgba(56, 189, 248, 0.25)' : 'rgba(15, 23, 42, 0.6)',
+                      border: isActive ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
+                      color: isActive ? '#38bdf8' : '#94a3b8',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -182,6 +245,19 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
             >
               <MessageSquare size={15} />
               <span>Hablar…</span>
+            </button>
+          )}
+
+          {onEditCharacterSheet && (
+            <button
+              type="button"
+              className="modular-inspector-btn"
+              data-testid="modular-inspector-edit-sheet-btn"
+              onClick={() => onEditCharacterSheet(character.characterId || character.id)}
+              title="Editar ficha completa de este personaje (nombre, HP, avatar, bio)"
+            >
+              <Edit3 size={15} style={{ color: '#38bdf8' }} />
+              <span>Editar Ficha</span>
             </button>
           )}
 

@@ -408,10 +408,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: 280px;
+  max-width: calc(var(--stage-height, 100vh) * 0.42);
   width: 100%;
   animation: charPopUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
   transition: transform 0.4s ease, filter 0.4s ease;
+}
+
+@supports (container-type: size) {
+  .character-card {
+    max-width: 42cqh;
+  }
 }
 
 @keyframes charPopUp {
@@ -542,10 +548,10 @@
 
 .avatar-frame {
   position: relative;
-  width: 200px;
-  height: 280px;
+  width: calc(var(--stage-height, 100vh) * 0.35);
+  height: calc(var(--stage-height, 100vh) * 0.48);
   max-height: calc(var(--stage-height, 100vh) * 0.48);
-  max-width: calc(var(--stage-width, 100vw) * 0.22);
+  max-width: calc(var(--stage-width, 100vw) * 0.24);
   border-radius: var(--radius-lg);
   overflow: hidden;
   border: 3px solid rgba(255, 255, 255, 0.15);
@@ -555,8 +561,10 @@
 
 @supports (container-type: size) {
   .avatar-frame {
+    width: 35cqh;
+    height: 48cqh;
     max-height: 48cqh;
-    max-width: 22cqw;
+    max-width: 24cqw;
   }
 }
 

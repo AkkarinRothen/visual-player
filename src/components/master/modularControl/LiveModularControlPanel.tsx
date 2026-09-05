@@ -2,16 +2,23 @@ import React, { useState, useMemo } from 'react';
 import { Maximize2, Grid } from 'lucide-react';
 import type {
   Campaign,
+  Character,
   DisplayState,
   Scene,
   CharacterOnScreen,
   WeatherType,
   LightingFilter,
+  DMFavoriteItem,
 } from '../../../types';
 import { StageViewport } from '../../display/StageViewport';
 import { StageTouchOverlay } from './StageTouchOverlay';
 import { ModularCardsView } from './ModularCardsView';
 import { ContextualCharacterInspector } from './ContextualCharacterInspector';
+import { CharacterEditModal } from '../modals/CharacterEditModal';
+import { AssetPickerModal, type SelectedAssetResult } from '../../common/AssetPickerModal';
+import { MobileEdgePullTabs } from './drawers/MobileEdgePullTabs';
+import { MobileFxEdgeDrawer } from './drawers/MobileFxEdgeDrawer';
+import { MobileResourcesEdgeDrawer } from './drawers/MobileResourcesEdgeDrawer';
 
 export interface LiveModularControlPanelProps {
   campaign: Campaign | null;
@@ -30,7 +37,11 @@ export interface LiveModularControlPanelProps {
   onSelectScene?: (scene: Scene) => void;
   onOpenScenePicker?: () => void;
   onTriggerTransition?: () => void;
+  onUploadBackground?: () => void;
   onOpenCharacterLibrary?: () => void;
+  onCreateCharacter?: () => void;
+  onEditCharacterSheet?: (character: Character) => void;
+  onSetExactScale?: (id: string, scale: number) => void;
   onOpenQuickDialogue?: (characterId: string) => void;
   onDismissCharacter?: (characterId: string) => void;
   onUndo?: () => void;
@@ -51,6 +62,17 @@ export interface LiveModularControlPanelProps {
   combatTimerRemaining?: number;
   isTimerRunning?: boolean;
   onToggleTimer?: () => void;
+  // Edge Drawer actions
+  onTriggerLightning?: () => void;
+  onTriggerShake?: () => void;
+  onToggleBlackout?: () => void;
+  onToggleBanner?: () => void;
+  favorites?: DMFavoriteItem[];
+  onExecuteFavorite?: (item: DMFavoriteItem) => Promise<boolean> | boolean;
+  onOpenNotes?: () => void;
+  onOpenRevelationJournal?: () => void;
+  onOpenManageFavorites?: () => void;
+  onTriggerSfx?: (preset: string) => void;
 }
 
 export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = ({
@@ -59,9 +81,14 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
   isConnected = true,
   onUpdateCharacter,
   onUpdateDisplayField,
+  onSelectScene,
   onOpenScenePicker,
   onTriggerTransition,
+  onUploadBackground,
   onOpenCharacterLibrary,
+  onCreateCharacter,
+  onEditCharacterSheet,
+  onSetExactScale,
   onOpenQuickDialogue,
   onDismissCharacter,
   onUndo,
@@ -82,9 +109,24 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
   combatTimerRemaining,
   isTimerRunning,
   onToggleTimer,
+  onTriggerLightning,
+  onTriggerShake,
+  onToggleBlackout,
+  onToggleBanner,
+  favorites = [],
+  onExecuteFavorite,
+  onOpenNotes,
+  onOpenRevelationJournal,
+  onOpenManageFavorites,
+  onTriggerSfx,
 }) => {
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
   const [isTacticalModeActive, setIsTacticalModeActive] = useState(false);
+  const [isCreatingCharacter, setIsCreatingCharacter] = useState(false);
+  const [charToEditInModal, setCharToEditInModal] = useState<Character | null>(null);
+  const [isBgPickerOpen, setIsBgPickerOpen] = useState(false);
+  const [isLeftDrawerOpen, setIsLeftDrawerOpen] = useState(false);
+  const [isRightDrawerOpen, setIsRightDrawerOpen] = useState(false);
 
   // Find active scene object if available in campaign
   const currentScene = useMemo(() => {
@@ -97,6 +139,76 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
     if (!selectedCharId) return null;
     return liveState.characters.find((c) => c.id === selectedCharId) || null;
   }, [selectedCharId, liveState.characters]);
+
+  // Handlers for FX Actions in drawer
+  const handleTriggerLightning = () => {
+    if (onTriggerLightning) {
+      onTriggerLightning();
+    } else {
+      onUpdateDisplayField?.('lightningTrigger', Date.now(), 'Relámpago en vivo');
+    }
+  };
+
+  const handleTriggerShake = () => {
+    if (onTriggerShake) {
+      onTriggerShake();
+    } else {
+      onUpdateDisplayField?.('shakeTrigger', Date.now(), 'Sacudir escenario');
+    }
+  };
+
+  const handleToggleBlackout = () => {
+    if (onToggleBlackout) {
+      onToggleBlackout();
+    } else {
+      const nextBlackout = !liveState.isBlackout;
+      onUpdateDisplayField?.('isBlackout', nextBlackout, `Apagón de mesa: ${nextBlackout ? 'Activo' : 'Inactivo'}`);
+    }
+  };
+
+  const handleToggleBanner = () => {
+    if (onToggleBanner) {
+      onToggleBanner();
+    } else {
+      const nextVisible = !liveState.locationBanner?.visible;
+      onUpdateDisplayField?.(
+        'locationBanner',
+        {
+          text: liveState.locationBanner?.text || liveState.sceneName || 'Ubicación',
+          visible: nextVisible,
+        },
+        `Cartel de ubicación: ${nextVisible ? 'Visible' : 'Oculto'}`
+      );
+    }
+  };
+
+  const handleInvokeCharacterFromDrawer = (char: Character) => {
+    const existing = liveState.characters.find((c) => c.id === char.id || c.characterId === char.id);
+    if (existing) {
+      onUpdateCharacter?.(existing.id, { isHidden: false }, `Hacer visible a ${char.name}`);
+      setSelectedCharId(existing.id);
+    } else {
+      const onScreenChar: CharacterOnScreen = {
+        id: char.id,
+        characterId: char.id,
+        name: char.name,
+        avatarUrl: char.defaultAvatarUrl,
+        position: 'center-right',
+        scale: 1.0,
+        zIndex: (liveState.characters.length + 1) * 2,
+        normalizedX: 50,
+        normalizedY: 15,
+        isHidden: false,
+        isSpeaking: false,
+      };
+      onUpdateDisplayField?.(
+        'characters',
+        [...liveState.characters, onScreenChar],
+        `Invocado ${char.name} a la mesa`
+      );
+      setSelectedCharId(char.id);
+    }
+  };
 
   // Handlers for instant character updates
   const handleToggleCharacterVisibility = (id: string, currentlyHidden: boolean) => {
@@ -112,8 +224,97 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
     const char = liveState.characters.find((c) => c.id === id);
     if (!char) return;
     const currentScale = char.scale || 1.0;
-    const newScale = Math.max(0.4, Math.min(2.2, Math.round((currentScale + delta) * 10) / 10));
+    const newScale = Math.max(0.4, Math.min(2.5, Math.round((currentScale + delta) * 10) / 10));
     onUpdateCharacter?.(id, { scale: newScale }, `Escala de ${char.name}: ${Math.round(newScale * 100)}%`);
+  };
+
+  const handleSetExactScale = (id: string, scale: number) => {
+    if (onSetExactScale) {
+      onSetExactScale(id, scale);
+      return;
+    }
+    const char = liveState.characters.find((c) => c.id === id);
+    if (!char) return;
+    const clampedScale = Math.max(0.4, Math.min(2.5, Math.round(scale * 100) / 100));
+    onUpdateCharacter?.(id, { scale: clampedScale }, `Escala de ${char.name}: ${Math.round(clampedScale * 100)}%`);
+  };
+
+  const handleOpenCreateCharacter = () => {
+    if (onCreateCharacter) {
+      onCreateCharacter();
+    } else {
+      setIsCreatingCharacter(true);
+    }
+  };
+
+  const handleOpenUploadBackground = () => {
+    if (onUploadBackground) {
+      onUploadBackground();
+    } else {
+      setIsBgPickerOpen(true);
+    }
+  };
+
+  const handleOpenEditCharacterSheet = (charIdOrChar: string | Character) => {
+    let targetChar: Character;
+    if (typeof charIdOrChar === 'string') {
+      const found = campaign?.characters.find((c) => c.id === charIdOrChar);
+      targetChar = found || {
+        id: charIdOrChar,
+        name: selectedChar?.name || 'Personaje',
+        roleOrTitle: '',
+        defaultAvatarUrl: selectedChar?.avatarUrl || '',
+      };
+    } else {
+      targetChar = charIdOrChar;
+    }
+    if (onEditCharacterSheet) {
+      onEditCharacterSheet(targetChar);
+    } else {
+      setCharToEditInModal(targetChar);
+    }
+  };
+
+  const handleSaveCharacterFromModal = (charData: Partial<Character>) => {
+    if (charToEditInModal) {
+      onUpdateCharacter?.(
+        charToEditInModal.id,
+        {
+          name: charData.name,
+          avatarUrl: charData.defaultAvatarUrl,
+        },
+        `Ficha de ${charData.name || 'personaje'} actualizada`
+      );
+      setCharToEditInModal(null);
+    } else {
+      const newId = `char_${Date.now()}`;
+      const newName = charData.name?.trim() || 'Nuevo Personaje';
+      const newAvatar = charData.defaultAvatarUrl || '';
+      const onScreenChar: CharacterOnScreen = {
+        id: newId,
+        name: newName,
+        avatarUrl: newAvatar,
+        position: 'center-right',
+        scale: 1.0,
+        zIndex: (liveState.characters.length + 1) * 2,
+        normalizedX: 0.5,
+        normalizedY: 0.5,
+        isHidden: false,
+        isSpeaking: false,
+      };
+      onUpdateDisplayField?.(
+        'characters',
+        [...liveState.characters, onScreenChar],
+        `Añadido ${newName} al escenario`
+      );
+      setSelectedCharId(newId);
+      setIsCreatingCharacter(false);
+    }
+  };
+
+  const handleBackgroundSelected = (asset: SelectedAssetResult) => {
+    onUpdateDisplayField?.('backgroundUrl', asset.url, `Fondo actualizado: ${asset.name}`);
+    setIsBgPickerOpen(false);
   };
 
   const handleLayerChange = (id: string, direction: 'up' | 'down') => {
@@ -218,6 +419,8 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
           onClose={() => setSelectedCharId(null)}
           onToggleVisibility={handleToggleCharacterVisibility}
           onScaleChange={handleScaleChange}
+          onSetExactScale={handleSetExactScale}
+          onEditCharacterSheet={(char) => handleOpenEditCharacterSheet(char)}
           onLayerChange={handleLayerChange}
           onToggleMirror={handleToggleMirror}
           onOpenQuickDialogue={
@@ -237,12 +440,14 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
           backgroundUrl={liveState.backgroundUrl}
           onOpenScenePicker={onOpenScenePicker}
           onTriggerTransition={onTriggerTransition}
+          onUploadBackground={handleOpenUploadBackground}
           characters={liveState.characters}
           campaignCharacters={campaign?.characters}
           selectedCharId={selectedCharId}
           onSelectCharacter={(id) => setSelectedCharId(id)}
           onToggleCharacterVisibility={handleToggleCharacterVisibility}
           onOpenCharacterLibrary={onOpenCharacterLibrary}
+          onCreateCharacter={handleOpenCreateCharacter}
           combatState={liveState.combatState}
           onNextCombatTurn={onNextCombatTurn}
           onPrevCombatTurn={onPrevCombatTurn}
@@ -273,6 +478,74 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
           onSavePreset={onSavePreset}
         />
       )}
+
+      {/* 3. Modal para Crear o Editar Ficha de Personaje / Token */}
+      {(isCreatingCharacter || !!charToEditInModal) && (
+        <CharacterEditModal
+          isOpen={isCreatingCharacter || !!charToEditInModal}
+          charToEdit={charToEditInModal}
+          onSave={handleSaveCharacterFromModal}
+          onClose={() => {
+            setIsCreatingCharacter(false);
+            setCharToEditInModal(null);
+          }}
+        />
+      )}
+
+      {/* 4. Modal para Subir o Seleccionar Fondo de Escenario */}
+      {isBgPickerOpen && (
+        <AssetPickerModal
+          isOpen={isBgPickerOpen}
+          mode="background"
+          currentUrl={liveState.backgroundUrl}
+          title="Subir o cambiar fondo de escenario"
+          onSelectAsset={handleBackgroundSelected}
+          onClose={() => setIsBgPickerOpen(false)}
+        />
+      )}
+
+      {/* 5. Solapas táctiles en los bordes para el pulgar (Edge Pull Tabs) */}
+      <MobileEdgePullTabs
+        isLeftOpen={isLeftDrawerOpen}
+        isRightOpen={isRightDrawerOpen}
+        onToggleLeft={() => {
+          setIsRightDrawerOpen(false);
+          setIsLeftDrawerOpen((prev) => !prev);
+        }}
+        onToggleRight={() => {
+          setIsLeftDrawerOpen(false);
+          setIsRightDrawerOpen((prev) => !prev);
+        }}
+        hasActiveFxAlert={Boolean(liveState.isBlackout || liveState.lightningTrigger > 0)}
+      />
+
+      {/* 6. Drawer Lateral Izquierdo: Efectos en Vivo & Cinemáticos */}
+      <MobileFxEdgeDrawer
+        isOpen={isLeftDrawerOpen}
+        onClose={() => setIsLeftDrawerOpen(false)}
+        onTriggerLightning={handleTriggerLightning}
+        onTriggerShake={handleTriggerShake}
+        onToggleBlackout={handleToggleBlackout}
+        isBlackout={liveState.isBlackout}
+        onToggleBanner={handleToggleBanner}
+        isBannerVisible={Boolean(liveState.locationBanner?.visible)}
+        onTriggerSfx={onTriggerSfx}
+      />
+
+      {/* 7. Drawer Lateral Derecho: Recursos & Gestión de Mesa */}
+      <MobileResourcesEdgeDrawer
+        isOpen={isRightDrawerOpen}
+        onClose={() => setIsRightDrawerOpen(false)}
+        campaign={campaign}
+        favorites={favorites}
+        onExecuteFavorite={onExecuteFavorite}
+        onSelectScene={onSelectScene}
+        onInvokeCharacter={handleInvokeCharacterFromDrawer}
+        onOpenNotes={onOpenNotes}
+        onOpenRevelationJournal={onOpenRevelationJournal}
+        onOpenManageFavorites={onOpenManageFavorites}
+        activeSceneId={liveState.currentSceneId || undefined}
+      />
     </div>
   );
 };

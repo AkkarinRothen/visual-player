@@ -50,15 +50,18 @@ Necesitás tener acceso a la app en el dispositivo que usará quien dirige y en 
 - **Panel de Control Modular e Inspector (Celular y Tablet):** En dispositivos móviles, la vista **Sesión** activa de forma predeterminada el nuevo **Panel Modular**, diseñado para una operación ágil con el pulgar:
   1. **Escenario 16:9 persistente:** Ubicado en la parte superior sin recortes ni deformaciones, muestra fielmente lo que ve la Mesa. Podés tocar directamente cualquier figura para seleccionarla o arrastrarla suavemente para reubicarla en directo. Arriba a la derecha contás con el botón conmutador de **Cuadrícula táctica** y el botón para **Maximizar / Pantalla completa**.
   2. **Módulos simultáneos:**
-     - **Escena actual:** Muestra la carátula, nombre y estado; incluye los botones **Cambiar** (para elegir otra escena) y **Transición** (para efectos cinemáticos de cambio).
-     - **Personajes en mesa:** Carrusel horizontal de figuras con retrato, nombre y subtítulo. Cada figura tiene un botón con forma de ojo para alternar al instante entre **Visible** y **Oculto**. Al tocar la tarjeta de cualquier figura, la zona inferior pasa fluidamente al **Inspector de personaje**.
+     - **Escena actual:** Muestra la carátula, nombre y estado; incluye los botones **Cambiar** (para elegir otra escena), **Transición** (para efectos cinemáticos de cambio) y **Subir Fondo** (para importar o cambiar el fondo de pantalla directamente desde el celular sin salir de la partida).
+     - **Personajes en mesa:** Carrusel horizontal de figuras con retrato, nombre y subtítulo, más el botón **+ Nuevo NPC** al final del carrusel para crear y colocar una nueva figura al instante. Cada figura tiene un botón con forma de ojo para alternar al instante entre **Visible** y **Oculto**. Al tocar la tarjeta de cualquier figura, la zona inferior pasa fluidamente al **Inspector de personaje**.
      - **Ambiente:** Conmutador para encender o apagar el clima, barra de **Intensidad** (0-100%) y paleta de círculos de color para aplicar tintes lumínicos (*Natural*, *Noche*, *Místico*, *Luna de sangre*, *Antorchas* o *Atardecer*).
      - **Audio:** Mini-reproductor con título de pista, botones de anterior, reproducir/pausar y siguiente, junto con el deslizador de volumen en vivo (0-100%).
      - **Combate en curso:** Cuando el combate está activo, la tarjeta modular se expande con el avatar del combatiente en turno, su iniciativa, barra de salud interactiva con estado **Malherido** (<50% HP), botones de impacto rápido para el pulgar (`-1`, `-5`, `-10`, `+5`), carrusel de condiciones elementales, temporizador de turno, botón para **Enfocar en mesa** y botón **Siguiente turno**. Si el combate está inactivo, ofrece el botón directo **Iniciar Combate**.
-  3. **Inspector contextual de personaje:** Al tocar una figura, los módulos se reemplazan por su ficha de edición rápida: muestra su avatar con anillo luminoso, nombre, interruptor **Visible en mesa**, controles de **Tamaño** (`-`/`+`), **Capa / Orden** (`▲`/`▼`), botón **Hablar…** para abrir de inmediato la ventana de globos de diálogo (JRPG / cinemáticos), botón **Espejo** para reflejar la figura y botón **Volver al panel modular** para regresar.
+  3. **Inspector contextual de personaje:** Al tocar una figura, los módulos se reemplazan por su ficha de edición rápida: muestra su avatar con anillo luminoso, nombre, interruptor **Visible en mesa**, controles de **Tamaño** (`-`/`+`), presets de tamaño D&D (**Peq** 0.7x, **Med** 1.0x, **Gra** 1.4x, **Enor** 1.9x) y deslizador continuo porcentual (40% a 250%), **Capa / Orden** (`▲`/`▼`), botón **Hablar…** para abrir de inmediato la ventana de globos de diálogo (JRPG / cinemáticos), botón **Editar Ficha** para modificar datos completos o crear un token circular recortado, botón **Espejo** para reflejar la figura y botón **Volver al panel modular** para regresar. El escalado se calcula en unidades proporcionales a la altura del escenario, de modo que una figura al 100% ocupa la misma proporción visual tanto en un teléfono pequeño como en una pantalla 4K.
   4. **Lienzo táctico móvil y medición de distancias:** Al tocar el botón conmutador de **Cuadrícula táctica** en el visor 16:9, las figuras se muestran como fichas circulares tácticas (tokens) con código de bando (verde para aliados, rojo para enemigos, amarillo para neutrales) y se proyecta la cuadrícula de la escena (cuadrada o hexagonal). Al arrastrar un token con el pulgar, una línea elástica punteada y un badge flotante superior muestran la distancia exacta en celdas y pies (`1 celda = 5 ft`) hacia el oponente más cercano; al soltar el dedo, la posición se ajusta automáticamente (*snap*) al centro de la celda. Esta medición es 100% privada para el director.
-  5. **Cambios en directo e instantáneos:** Todos los controles aplican sus cambios en tiempo real a la Mesa conectada mediante WebRTC, sin necesidad de pulsar un botón de publicar.
-  6. **Alternancia de vista:** Mediante las pestañas **Panel Modular** y **Consola Clásica** situadas en la parte superior de la sesión, podés alternar en cualquier momento entre el panel modular táctil y la consola detallada de preparación y borradores.
+  5. **Solapas y Cajones Laterales Rápidos (Edge Drawers táctiles con el pulgar):** Dos pestañas semi-translúcidas en los bordes de la pantalla a media altura (al alcance del pulgar) permiten desplegar paneles emergentes instantáneos sin tapar la partida ni requerir menús engorrosos:
+     - **Solapa izquierda (⚡ FX):** Abre el cajón de efectos en vivo y dados de mesa. Incluye impactos dramáticos de un toque (**Relámpago**, **Sacudir pantalla**, **Apagón / Luz** con runa de emergencia y **Cartel de escena** narrativo), botonera de **Sonidos Rápidos (SFX)** procedimentales con latencia cero (Espada, Fuego, Hechizo, Trueno, Campana, Rugido, Puerta) y un **Tirador de Dados Rápidos** (**d4**, **d6**, **d8**, **d10**, **d12**, **d20**, **d100**) que reproduce un sonido de dado y muestra el resultado en un badge flotante al instante. Permite encadenar múltiples efectos sin cerrarse y se oculta tocando fuera o en la solapa.
+     - **Solapa derecha (📂 Mesa / Recursos):** Abre el cajón de gestión rápida de la sesión. Brinda acceso directo con un toque a los **Favoritos del DM**, carrusel de **Escenas de campaña** con miniaturas y distintivo de la escena activa en Mesa, lista de **Personajes de biblioteca** para invocarlos al escenario mediante el botón `+`, y accesos a **Notas de sesión** y **Diario de revelaciones**. Al invocar un personaje, cambiar de escena o disparar un favorito, el cajón se repliega automáticamente para devolver al director de inmediato a la acción.
+  6. **Cambios en directo e instantáneos:** Todos los controles aplican sus cambios en tiempo real a la Mesa conectada mediante WebRTC, sin necesidad de pulsar un botón de publicar.
+  7. **Alternancia de vista:** Mediante las pestañas **Panel Modular** y **Consola Clásica** situadas en la parte superior de la sesión, podés alternar en cualquier momento entre el panel modular táctil y la consola detallada de preparación y borradores.
 - **Últimas acciones:** El **Centro de Partida** muestra las cuatro acciones más recientes, indicando si fueron **En Vivo** o **Borrador**, la escena relacionada y la hora. Tocá **Ver historial completo** para revisar o restaurar un punto anterior.
 
 Para este primer recorrido, usá conexión a Internet. El funcionamiento sin Internet y la conexión local de Android quedan pendientes de una guía comprobada en dispositivos reales. Si vas a usar imágenes o sonidos mediante enlaces, esos enlaces también deben poder abrirse desde los dispositivos.
@@ -133,6 +136,26 @@ Ya no necesitás escribir direcciones de Internet ni copiar enlaces largos. Al t
    - **Mi Biblioteca:** Muestra todas las fotos que ya importaste en partidas o escenas anteriores con miniaturas cuadradas grandes y barra de búsqueda por nombre. Tocar una imagen la selecciona al instante sin volver a subirla ni duplicar espacio.
    - **Por Enlace:** Para cuando quieras pegar una dirección web tradicional si así lo preferís.
 2. Al elegir una imagen, la app te muestra su previsualización en el encuadre 16:9 (para fondos) o en círculo/cuadrado (para retratos). Podés darle un nombre personalizado antes de confirmar.
+
+### Creador de Tokens Integrado (Token Creator)
+
+Al crear o editar cualquier personaje (tanto en el **Taller de Preparación** como en el **Control Modular** mediante el botón **Editar Ficha**), el director dispone del botón **Crear Token** junto al avatar del personaje:
+
+1. **Lienzo circular interactivo:** Podés cargar cualquier foto o ilustración desde tu teléfono o computadora. La imagen se proyecta dentro de una máscara circular transparente de alta precisión.
+2. **Ajuste de encuadre y zoom:** Con el deslizador de aumento (`-` / `+` de 0.5x a 3.0x) y arrastrando directamente sobre el círculo, podés centrar la cara o el detalle de la criatura fácilmente con el dedo o el mouse.
+3. **Colores de bando y auras:** Elegí el color del borde perimetral entre 6 tonos para rol:
+   - **Oro:** Tradicional / PJs protagonistas.
+   - **Plata:** Neutral / PNJs importantes.
+   - **Aliado (Verde esmeralda):** Compañeros o invocaciones aliadas.
+   - **Enemigo (Rojo carmesí):** Rivales o monstruos hostiles.
+   - **Arcano (Cian etéreo):** Magos, espíritus o elementos místicos.
+   - **Sombra (Púrpura abisal):** Demonios, nigromantes o criaturas corruptas.
+4. **Estilos de marco RPG:**
+   - **Clásico:** Borde limpio y elegante con doble línea refinada.
+   - **Rúnico:** Borde con marcas arcanas y glifos antiguos en relieve.
+   - **Heavy Metal:** Borde grueso reforzado con remaches y acabado de hierro forjado.
+   - **Neón:** Anillo resplandeciente con destello de energía y luz difusa.
+5. **Exportación transparente inmediata:** Al tocar **Usar este Token**, la app genera un PNG circular limpio con canal alfa (fondo transparente) y lo asigna automáticamente al personaje, reflejándose al instante en la mesa.
 
 ### Componer cómodamente con el dedo (Compositor Táctil de Pantalla Completa)
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Eye, EyeOff, UserPlus, ChevronRight } from 'lucide-react';
+import { Users, Eye, EyeOff, UserPlus, ChevronRight, Plus } from 'lucide-react';
 import type { Character, CharacterOnScreen } from '../../../types';
 
 export interface ModularCharactersCardProps {
@@ -9,6 +9,7 @@ export interface ModularCharactersCardProps {
   onSelectCharacter: (id: string) => void;
   onToggleCharacterVisibility: (id: string, currentlyHidden: boolean) => void;
   onOpenCharacterLibrary?: () => void;
+  onCreateCharacter?: () => void;
 }
 
 export const ModularCharactersCard: React.FC<ModularCharactersCardProps> = ({
@@ -18,6 +19,7 @@ export const ModularCharactersCard: React.FC<ModularCharactersCardProps> = ({
   onSelectCharacter,
   onToggleCharacterVisibility,
   onOpenCharacterLibrary,
+  onCreateCharacter,
 }) => {
   const getCharacterSubtitle = (char: CharacterOnScreen): string => {
     const meta = campaignCharacters.find((c) => c.id === char.characterId || c.name === char.name);
@@ -111,6 +113,29 @@ export const ModularCharactersCard: React.FC<ModularCharactersCardProps> = ({
               </div>
             );
           })
+        )}
+
+        {onCreateCharacter && (
+          <button
+            type="button"
+            className="modular-char-chip"
+            data-testid="modular-create-char-btn"
+            style={{
+              justifyContent: 'center',
+              minWidth: '108px',
+              maxWidth: '124px',
+              borderStyle: 'dashed',
+              background: 'rgba(56, 189, 248, 0.08)',
+              borderColor: 'rgba(56, 189, 248, 0.4)',
+            }}
+            onClick={onCreateCharacter}
+            title="Crear un nuevo personaje o NPC"
+          >
+            <Plus size={16} style={{ color: '#38bdf8' }} />
+            <span style={{ fontSize: '0.78rem', color: '#38bdf8', fontWeight: 600 }}>
+              + Nuevo NPC
+            </span>
+          </button>
         )}
 
         {characters.length > 0 && onOpenCharacterLibrary && (

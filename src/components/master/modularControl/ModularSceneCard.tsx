@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image as ImageIcon, ChevronRight, Shuffle, Wand2 } from 'lucide-react';
+import { Image as ImageIcon, ChevronRight, Shuffle, Wand2, Upload } from 'lucide-react';
 import type { Scene } from '../../../types';
 
 export interface ModularSceneCardProps {
@@ -8,6 +8,7 @@ export interface ModularSceneCardProps {
   backgroundUrl: string;
   onOpenScenePicker?: () => void;
   onTriggerTransition?: () => void;
+  onUploadBackground?: () => void;
 }
 
 export const ModularSceneCard: React.FC<ModularSceneCardProps> = ({
@@ -16,6 +17,7 @@ export const ModularSceneCard: React.FC<ModularSceneCardProps> = ({
   backgroundUrl,
   onOpenScenePicker,
   onTriggerTransition,
+  onUploadBackground,
 }) => {
   return (
     <section className="modular-card" aria-label="Escena actual">
@@ -63,6 +65,19 @@ export const ModularSceneCard: React.FC<ModularSceneCardProps> = ({
           <Shuffle size={14} />
           <span>Cambiar</span>
         </button>
+
+        {onUploadBackground && (
+          <button
+            type="button"
+            className="modular-btn-action"
+            onClick={onUploadBackground}
+            title="Subir foto o fondo desde este dispositivo"
+            data-testid="modular-upload-bg-btn"
+          >
+            <Upload size={14} />
+            <span>Subir Fondo</span>
+          </button>
+        )}
 
         <button
           type="button"

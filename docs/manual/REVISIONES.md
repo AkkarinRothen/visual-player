@@ -2,6 +2,52 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-05 — MAN-053: Drawers Laterales Duales Táctiles (Edge Drawers) para Herramientas Rápidas en Móvil
+
+- **Walkthrough y entorno:** revisión y ejecución completa de pruebas unitarias y de integración en Vitest (442/442 pruebas aprobadas en 76 suites, incluyendo 5 pruebas en `MobileFxEdgeDrawer.test.tsx`, 5 pruebas en `MobileResourcesEdgeDrawer.test.tsx` y 13 pruebas completas en `LiveModularControlPanel.test.tsx`), verificación estricta de tipos de TypeScript con `npx tsc -b` (0 errores) y compilación de producción con Vite (`npm run build` en 1.45s). Comprobación de interacción visual y gestual en navegador emulando pantallas móviles (360 × 780 px a 640 px); pendiente prueba con dispositivos físicos Android y mesa de proyección conectada.
+- **Funciones y componentes afectados:**
+  1. **Solapas y Drawers Laterales Duales (`MobileEdgePullTabs.tsx`, `MobileFxEdgeDrawer.tsx`, `MobileResourcesEdgeDrawer.tsx`, `modularControl.css`):**
+     - Dos solapas fijas semi-translúcidas (`⚡ FX` en el borde izquierdo y `📂 Mesa` en el borde derecho) calibradas ergonómicamente a media altura (50-55% de la pantalla) para operación natural con cualquiera de los dos pulgares sin invadir el escenario 16:9 ni la barra de navegación inferior.
+     - Indicador lumínico pulsante en la solapa izquierda cuando hay un apagón de emergencia (Blackout) activo.
+  2. **Cajón Lateral Izquierdo de Efectos en Vivo y Dados Rápidos (`MobileFxEdgeDrawer.tsx`):**
+     - Botonera táctil de impactos dramáticos instantáneos: **⚡ Relámpago**, **💥 Sacudir**, **🌑 Apagón / Luz** (Blackout con runa de emergencia) y **📜 Cartel** de escena.
+     - Botonera de **Sonidos Rápidos (SFX)** procedurales de latencia cero: Espada (`sword_clash`), Fuego (`torch`), Hechizo (`spell_whoosh`), Trueno (`thunder`), Campana (`bell_omen`), Rugido (`monster_roar`) y Puerta (`dungeon_gate`).
+     - **Tirador de Dados Rápidos de Mesa:** botones táctiles para **d4**, **d6**, **d8**, **d10**, **d12**, **d20** y **d100** con sonido acústico sintético al rodar y visor flotante con badge luminoso del resultado numérico al instante.
+     - Permite encadenar múltiples efectos dramáticos y tiradas sin cerrarse; se oculta con toque en el telón de fondo (*backdrop*) o en la solapa/cruz.
+  3. **Cajón Lateral Derecho de Recursos y Gestión Rápida (`MobileResourcesEdgeDrawer.tsx`):**
+     - Acceso directo a los **⭐ Favoritos del DM** para disparar macros y escenas favoritas con un solo toque.
+     - Carrusel táctil vertical de **🖼️ Escenas de Campaña** con miniaturas y distintivo visual *«En Mesa»* en la escena activa.
+     - Galería rápida de **👥 Personajes de Biblioteca** para invocar figuras al escenario mediante el botón `+` sin abrir el creador ni la consola clásica.
+     - Enlaces de acceso directo a **📝 Notas de Sesión** y **📜 Diario de Revelaciones**.
+     - Cierre automático inteligente al seleccionar una escena, invocar un personaje o ejecutar un favorito, devolviendo al director de inmediato al visor 16:9.
+  4. **Integración en el Panel de Control Modular (`LiveModularControlPanel.tsx`, `SessionPanel.tsx`):**
+     - Despacho de eventos táctiles, conexión con el sintetizador procedural de audio (`soundEngine.playSynth`), enlace con las acciones de emergencia de `SessionPanel` y cobertura de pruebas automatizadas al 100%.
+- **Manual:** actualizada la sección de «Panel de Control Modular e Inspector (Celular y Tablet)» en `docs/manual/README.md`.
+- **Evidencia técnica:** 76/76 suites pasando (442/442 pruebas en Vitest), `npx tsc -b` con 0 errores y compilación `npm run build` en 1.45s.
+- **Límites:** comprobado en pruebas automatizadas y en entorno web local; pendiente validación en pantalla táctil capacitiva de teléfono Android físico en partida real.
+
+## 2026-09-05 — MAN-052: Creador de Tokens Integrado, Autoría Móvil en Vivo y Escalado Responsivo Multi-Resolución
+
+- **Walkthrough y entorno:** revisión y ejecución completa de pruebas unitarias y de integración en Vitest (430/430 pruebas aprobadas en 74 suites, incluyendo 5 pruebas específicas en `TokenCreatorModal.test.tsx` y 11 pruebas completas en `LiveModularControlPanel.test.tsx`), verificación estricta de tipos de TypeScript con `npx tsc -b` (0 errores) y compilación de producción con Vite (`npm run build` en 1.41s). Comprobación de renderizado en navegador simulando resoluciones de pantalla diversas (móvil de 360 × 780 px hasta televisor 4K de 3840 × 2160 px); pendiente prueba con dispositivos físicos Android y pantalla de proyección externa conectada.
+- **Funciones y componentes afectados:**
+  1. **Creador de Tokens Circular Integrado (`TokenCreatorModal.tsx`, `CharacterEditModal.tsx`):**
+     - Nuevo modal interactivo accesible mediante el botón **Crear Token** durante la creación o edición de cualquier ficha de personaje.
+     - Lienzo HTML5 interactivo con máscara circular de precisión y recorte alfa transparente.
+     - Controles táctiles de arrastre libre (*pan*) y deslizador de zoom suave (0.5x a 3.0x) para encuadrar con precisión retratos de cualquier proporción.
+     - Selector de colores de bando (Oro, Plata, Aliado verde, Enemigo rojo, Arcano cian y Sombra púrpura) y 4 estilos de marco RPG temáticos (*Clásico*, *Rúnico*, *Heavy Metal* y *Neón*).
+     - Botón **Usar este Token** que exporta y asigna de inmediato el PNG circular al personaje.
+  2. **Autoría y Modificación Rápida en el Control Móvil (`LiveModularControlPanel.tsx`, `ModularSceneCard.tsx`, `ModularCharactersCard.tsx`, `ContextualCharacterInspector.tsx`):**
+     - Botón **+ Nuevo NPC** incorporado al final del carrusel de figuras de la tarjeta de personajes para dar de alta monstruos o aliados en el momento sin salir de la sesión.
+     - Botón **Subir Fondo** en la tarjeta de escena actual para reemplazar la imagen de escenario en directo mediante el selector nativo del celular o la biblioteca de recursos.
+     - Botón **Editar Ficha** en el inspector contextual para retocar en caliente nombre, HP, retrato o token del personaje seleccionado.
+  3. **Escalado Responsivo Multi-Resolución Independiente (`display.css`, `StageTouchOverlay.tsx`, `ContextualCharacterInspector.tsx`):**
+     - Reemplazo de anchos fijos en píxeles (`max-width: 280px`, `width: 200px`) en `.character-card` y `.avatar-frame` por unidades relativas a la altura del escenario (`calc(var(--stage-height, 100vh) * factor)` y `cqh` mediante Container Queries), garantizando proporciones visuales idénticas en celulares de 360 px, tablets de 10" y pantallas de 4K.
+     - Inspector contextual con presets D&D por categoría de tamaño (**Peq** 0.7x, **Med** 1.0x, **Gra** 1.4x, **Enor** 1.9x) y deslizador continuo con porcentaje visible en tiempo real (40% a 250%).
+     - Sizing proporcional adaptativo de fichas circulares tácticas y áreas de toque en `StageTouchOverlay.tsx` mediante funciones `clamp` y variables de escenario.
+- **Manual:** actualizadas las secciones de «Panel de Control Modular e Inspector (Celular y Tablet)» y «Creador de Tokens Integrado» en `docs/manual/README.md`.
+- **Evidencia técnica:** 74/74 suites pasando (430/430 pruebas en Vitest), `npx tsc -b` con 0 errores y compilación `npm run build` en 1.41s.
+- **Límites:** comprobado en emulación de resoluciones múltiples y pruebas unitarias/integración; pendiente validación en teléfono físico Android y pantalla 4K por HDMI/Cast.
+
 ## 2026-09-05 — MAN-051: Lienzo Táctico Móvil en Visor 16:9 (Tokens, Cuadrícula y Medición de Distancias)
 
 - **Walkthrough y entorno:** revisión y ejecución completa de pruebas unitarias y de integración en Vitest (421/421 pruebas aprobadas, 73 suites, incluyendo suite completa de 6 pruebas en `StageTouchOverlay.test.tsx`), verificación de tipado estricto con `npx tsc -b` (0 errores) y compilación de producción con Vite (`npm run build` en 1.47s). Comprobación visual en navegador emulando pantallas móviles (360 × 780 px a 640 px); pendiente prueba de campo en dispositivo físico Android y con Mesa física conectada.

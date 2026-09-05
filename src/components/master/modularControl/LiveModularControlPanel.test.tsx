@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { LiveModularControlPanel } from './LiveModularControlPanel';
 import type { Campaign, DisplayState, CharacterOnScreen } from '../../../types';
@@ -260,6 +260,132 @@ describe('LiveModularControlPanel (Propuesta 4 + Propuesta 1)', () => {
       'lighting',
       'mystic_violet',
       expect.any(String)
+    );
+  });
+
+  it('8. Botón "+ Nuevo NPC" en el carrusel de figuras permite crear personaje', () => {
+    const onCreateCharacter = vi.fn();
+    render(
+      <LiveModularControlPanel
+        campaign={mockCampaign}
+        liveState={mockLiveState}
+        onCreateCharacter={onCreateCharacter}
+      />
+    );
+
+    const newNpcBtn = screen.getByText('+ Nuevo NPC');
+    fireEvent.click(newNpcBtn);
+    expect(onCreateCharacter).toHaveBeenCalledTimes(1);
+  });
+
+  it('9. Botón "Subir Fondo" en la tarjeta de escena permite subir o cambiar fondo', () => {
+    const onUploadBackground = vi.fn();
+    render(
+      <LiveModularControlPanel
+        campaign={mockCampaign}
+        liveState={mockLiveState}
+        onUploadBackground={onUploadBackground}
+      />
+    );
+
+    const uploadBgBtn = screen.getByText('Subir Fondo');
+    fireEvent.click(uploadBgBtn);
+    expect(onUploadBackground).toHaveBeenCalledTimes(1);
+  });
+
+  it('10. Inspector ofrece presets D&D (Peq, Med, Gra, Enor) y slider continuo que actualizan la escala', () => {
+    const onUpdateCharacter = vi.fn();
+    render(
+      <LiveModularControlPanel
+        campaign={mockCampaign}
+        liveState={mockLiveState}
+        onUpdateCharacter={onUpdateCharacter}
+      />
+    );
+
+    // Open Bromir
+    fireEvent.click(screen.getByTestId('modular-char-chip-char-bromir'));
+
+    // Check hybrid size buttons
+    const largeBtn = screen.getByText('Gra');
+    fireEvent.click(largeBtn);
+    expect(onUpdateCharacter).toHaveBeenCalledWith(
+      'char-bromir',
+      { scale: 1.4 },
+      expect.stringContaining('140%')
+    );
+
+    // Continuous slider
+    const scaleSlider = screen.getByRole('slider');
+    fireEvent.change(scaleSlider, { target: { value: '1.8' } });
+    expect(onUpdateCharacter).toHaveBeenCalledWith(
+      'char-bromir',
+      { scale: 1.8 },
+      expect.stringContaining('180%')
+    );
+  });
+
+  it('11. Botón "Editar Ficha" en el inspector abre la edición completa de ficha y token', () => {
+    const onEditCharacterSheet = vi.fn();
+    render(
+      <LiveModularControlPanel
+        campaign={mockCampaign}
+        liveState={mockLiveState}
+        onEditCharacterSheet={onEditCharacterSheet}
+      />
+    );
+
+    // Open Bromir
+    fireEvent.click(screen.getByTestId('modular-char-chip-char-bromir'));
+
+    // Click "Editar Ficha"
+    const editSheetBtn = screen.getByText('Editar Ficha');
+    fireEvent.click(editSheetBtn);
+    expect(onEditCharacterSheet).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'char-bromir' })
+    );
+  });
+
+  it('12. Tocar la solapa izquierda (FX) abre el MobileFxEdgeDrawer y permite activar relámpago', () => {
+    const onTriggerLightning = vi.fn();
+    render(
+      <LiveModularControlPanel
+        campaign={mockCampaign}
+        liveState={mockLiveState}
+        onTriggerLightning={onTriggerLightning}
+      />
+    );
+
+    const leftTab = screen.getByTestId('mobile-edge-tab-left');
+    fireEvent.click(leftTab);
+
+    // Drawer should be open
+    expect(screen.getByTestId('mobile-fx-drawer')).toBeDefined();
+    const lightningBtn = screen.getByText('Rayo');
+    fireEvent.click(lightningBtn);
+    expect(onTriggerLightning).toHaveBeenCalledTimes(1);
+  });
+
+  it('13. Tocar la solapa derecha (Mesa) abre el MobileResourcesEdgeDrawer y permite cambiar de escena', () => {
+    const onSelectScene = vi.fn();
+    render(
+      <LiveModularControlPanel
+        campaign={mockCampaign}
+        liveState={mockLiveState}
+        onSelectScene={onSelectScene}
+      />
+    );
+
+    const rightTab = screen.getByTestId('mobile-edge-tab-right');
+    fireEvent.click(rightTab);
+
+    // Drawer should be open
+    const drawer = screen.getByTestId('mobile-resources-drawer');
+    expect(drawer).toBeDefined();
+    const sceneBtn = within(drawer).getByText('Taberna del Jabalí');
+    fireEvent.click(sceneBtn);
+    expect(onSelectScene).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'scene-tavern' })
     );
   });
 });

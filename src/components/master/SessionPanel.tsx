@@ -212,7 +212,7 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
   onOpenHistory,
   onTriggerLightning,
   onTriggerShake,
-  onToggleBlackout: _onToggleBlackout,
+  onToggleBlackout,
   onToggleBanner,
   onToggleAmbientAudio,
   onExecuteFavorite,
@@ -519,6 +519,15 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
             combatTimerRemaining={panelCombatRemaining}
             isTimerRunning={combat?.isTimerRunning}
             onToggleTimer={onToggleCombatTimer}
+            onTriggerLightning={onTriggerLightning}
+            onTriggerShake={onTriggerShake}
+            onToggleBlackout={onToggleBlackout}
+            onToggleBanner={onToggleBanner}
+            favorites={campaign?.favorites || []}
+            onExecuteFavorite={onExecuteFavorite}
+            onOpenNotes={() => onSwitchToTab('notes')}
+            onOpenRevelationJournal={onOpenRevelationJournal}
+            onOpenManageFavorites={onOpenManageFavorites}
           />
           {quickDialogueChar && (
             <ComposerDialogueQuickModal

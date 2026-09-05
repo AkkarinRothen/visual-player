@@ -345,7 +345,7 @@ export const StageTouchOverlay: React.FC<StageTouchOverlayProps> = ({
               ? '#22c55e'
               : '#fbbf24';
 
-          const tokenSize = Math.max(44, Math.min(64, 48 * scale));
+          const tokenSizeStyle = `clamp(40px, calc(var(--stage-height, 100vh) * 0.14 * ${scale}), 96px)`;
 
           return (
             <div
@@ -359,8 +359,8 @@ export const StageTouchOverlay: React.FC<StageTouchOverlayProps> = ({
                 left: `${posX}%`,
                 bottom: `${posY}%`,
                 transform: 'translate(-50%, 50%)',
-                width: `${tokenSize}px`,
-                height: `${tokenSize + 18}px`,
+                width: tokenSizeStyle,
+                height: `calc(${tokenSizeStyle} + 18px)`,
                 cursor: 'pointer',
                 pointerEvents: 'auto',
                 display: 'flex',
@@ -374,8 +374,8 @@ export const StageTouchOverlay: React.FC<StageTouchOverlayProps> = ({
             >
               <div
                 style={{
-                  width: `${tokenSize}px`,
-                  height: `${tokenSize}px`,
+                  width: tokenSizeStyle,
+                  height: tokenSizeStyle,
                   borderRadius: '50%',
                   border: `3px solid ${isSelected ? '#fef3c7' : teamColor}`,
                   backgroundColor: '#020617',
@@ -421,6 +421,9 @@ export const StageTouchOverlay: React.FC<StageTouchOverlayProps> = ({
         }
 
         // CLASSIC STANDEE HITBOX (NON-TACTICAL MODE)
+        const standeeWidthStyle = `clamp(70px, calc(var(--stage-height, 100vh) * 0.28 * ${scale}), 260px)`;
+        const standeeHeightStyle = `clamp(110px, calc(var(--stage-height, 100vh) * 0.46 * ${scale}), 400px)`;
+
         return (
           <div
             key={char.id}
@@ -432,9 +435,9 @@ export const StageTouchOverlay: React.FC<StageTouchOverlayProps> = ({
               position: 'absolute',
               left: `${posX}%`,
               bottom: `${posY}%`,
-              transform: `translate(-50%, 0) scale(${scale})`,
-              width: '120px',
-              height: '180px',
+              transform: 'translate(-50%, 0)',
+              width: standeeWidthStyle,
+              height: standeeHeightStyle,
               cursor: 'pointer',
               pointerEvents: 'auto',
               display: 'flex',
@@ -452,8 +455,8 @@ export const StageTouchOverlay: React.FC<StageTouchOverlayProps> = ({
                 style={{
                   position: 'absolute',
                   bottom: '4px',
-                  width: '90px',
-                  height: '28px',
+                  width: `clamp(60px, calc(var(--stage-height, 100vh) * 0.22 * ${scale}), 200px)`,
+                  height: `clamp(18px, calc(var(--stage-height, 100vh) * 0.07 * ${scale}), 55px)`,
                   borderRadius: '50%',
                   border: '2.5px solid #38bdf8',
                   boxShadow: '0 0 16px #38bdf8, inset 0 0 10px rgba(56, 189, 248, 0.6)',

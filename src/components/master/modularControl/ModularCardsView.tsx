@@ -20,6 +20,7 @@ export interface ModularCardsViewProps {
   backgroundUrl: string;
   onOpenScenePicker?: () => void;
   onTriggerTransition?: () => void;
+  onUploadBackground?: () => void;
 
   characters: CharacterOnScreen[];
   campaignCharacters?: Character[];
@@ -27,6 +28,7 @@ export interface ModularCardsViewProps {
   onSelectCharacter: (id: string) => void;
   onToggleCharacterVisibility: (id: string, currentlyHidden: boolean) => void;
   onOpenCharacterLibrary?: () => void;
+  onCreateCharacter?: () => void;
 
   combatState?: CombatState;
   onNextCombatTurn?: () => void;
@@ -69,12 +71,14 @@ export const ModularCardsView: React.FC<ModularCardsViewProps> = ({
   backgroundUrl,
   onOpenScenePicker,
   onTriggerTransition,
+  onUploadBackground,
   characters,
   campaignCharacters,
   selectedCharId,
   onSelectCharacter,
   onToggleCharacterVisibility,
   onOpenCharacterLibrary,
+  onCreateCharacter,
   combatState,
   onNextCombatTurn,
   onPrevCombatTurn,
@@ -115,6 +119,7 @@ export const ModularCardsView: React.FC<ModularCardsViewProps> = ({
         backgroundUrl={backgroundUrl}
         onOpenScenePicker={onOpenScenePicker}
         onTriggerTransition={onTriggerTransition}
+        onUploadBackground={onUploadBackground}
       />
 
       {/* 2. Personajes en mesa */}
@@ -125,6 +130,7 @@ export const ModularCardsView: React.FC<ModularCardsViewProps> = ({
         onSelectCharacter={onSelectCharacter}
         onToggleCharacterVisibility={onToggleCharacterVisibility}
         onOpenCharacterLibrary={onOpenCharacterLibrary}
+        onCreateCharacter={onCreateCharacter}
       />
 
       {/* 3. Combate táctico */}
