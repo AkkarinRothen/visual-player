@@ -139,6 +139,12 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
 - **Uso:** **Escena** abre directamente el compositor táctil para mover personajes, cambiar fondos y ajustar la composición sin atravesar drawers secundarios.
 - **Evidencia:** `npm run android:build` y `npm run android:verify` completados correctamente; la validación visual en Android físico queda pendiente.
 
+## 2026-09-04 — MAN-049: Añadir NPC desde el editor táctil
+
+- **Cambio de flujo:** el compositor táctil incorpora **Añadir NPC** con personajes de la campaña disponibles en una tira desplazable.
+- **Uso:** tocar un personaje lo agrega al escenario, lo selecciona y lo deja listo para arrastrarlo; conserva deshacer y publicación junto con el resto de la composición.
+- **Evidencia:** `npm run android:build` y `npm run android:verify` completados correctamente. La comprobación visual en Android físico queda pendiente.
+
 ## 2026-09-04 — MAN-031: Modo Partida Android con controles ocultables
 
 - **Versión:** árbol de trabajo local con modo operativo para partidas largas en celulares y tablets Android.

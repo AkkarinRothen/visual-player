@@ -40,6 +40,8 @@ export interface CompositorStageProps {
   setShowLoadPresetModal: (show: boolean) => void;
   campaign?: Campaign | null;
   canSavePreset?: boolean;
+  backgroundUrl?: string;
+  onOpenBackgroundPicker?: () => void;
 }
 
 export const CompositorStage: React.FC<CompositorStageProps> = ({
@@ -60,6 +62,8 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
   setShowLoadPresetModal,
   campaign,
   canSavePreset = true,
+  backgroundUrl,
+  onOpenBackgroundPicker,
 }) => {
   return (
     <div className="compositor-stage-panel flex-1 flex flex-col items-center">
@@ -69,7 +73,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
           aspectGuide === '16:10' ? 'max-w-[90%]' : aspectGuide === '4:3' ? 'max-w-[75%]' : ''
         }`}
         style={{
-          backgroundImage: `url(${initialState.backgroundUrl})`,
+          backgroundImage: `url(${backgroundUrl || initialState.backgroundUrl})`,
           backgroundPosition: `${initialState.focalPoint?.x ?? 50}% ${initialState.focalPoint?.y ?? 50}%`,
           backgroundSize: initialState.fitMode === 'contain' ? 'contain' : 'cover',
           backgroundRepeat: 'no-repeat',
@@ -238,6 +242,17 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
             <Plus size={14} className="text-purple-400" />
             <span>Agregar Objeto</span>
           </button>
+
+          {onOpenBackgroundPicker && (
+            <button
+              type="button"
+              className="compositor-background-button"
+              onClick={onOpenBackgroundPicker}
+            >
+              <span>🌄</span>
+              <span>Cambiar Fondo</span>
+            </button>
+          )}
 
           {canSavePreset && (
             <button

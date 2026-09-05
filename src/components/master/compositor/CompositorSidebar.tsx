@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Character, CharacterOnScreen, SceneProp } from '../../../types';
+import type { Campaign, Character, CharacterOnScreen, SceneProp } from '../../../types';
 import type { SelectedEntity } from './compositorTypes';
 import {
   Users,
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 export interface CompositorSidebarProps {
+  campaign?: Campaign | null;
   filterType: 'all' | 'characters' | 'props';
   setFilterType: (t: 'all' | 'characters' | 'props') => void;
   characters: CharacterOnScreen[];
@@ -43,6 +44,7 @@ export interface CompositorSidebarProps {
   removeProp: (id: string) => void;
   toggleAnchor: () => void;
   setRotation: (deg: number) => void;
+  onAddCharacter?: (character: Character) => void;
 }
 
 export const CompositorSidebar: React.FC<CompositorSidebarProps> = ({
@@ -70,6 +72,8 @@ export const CompositorSidebar: React.FC<CompositorSidebarProps> = ({
   removeProp,
   toggleAnchor,
   setRotation,
+  onAddCharacter,
+  campaign,
 }) => {
   return (
     <div className="compositor-controls w-full md:w-80 flex flex-col gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-800">
@@ -100,6 +104,30 @@ export const CompositorSidebar: React.FC<CompositorSidebarProps> = ({
             </button>
           </div>
         </div>
+
+        {onAddCharacter && (
+          <div className="compositor-add-character-strip">
+            <span className="compositor-control-label">Añadir NPC</span>
+            <div className="compositor-add-character-list">
+              {characterTemplate === undefined && campaign?.characters?.length === 0 ? (
+                <span className="compositor-empty-hint">No hay personajes en la campaña.</span>
+              ) : (
+                campaign?.characters?.map((character) => (
+                  <button
+                    key={character.id}
+                    type="button"
+                    className="compositor-add-character-button"
+                    onClick={() => onAddCharacter(character)}
+                    title={`Añadir ${character.name} al escenario`}
+                  >
+                    <img src={character.defaultAvatarUrl} alt="" aria-hidden="true" />
+                    <span>{character.name}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
 
         {/* LAYER LIST SORTED BY Z-INDEX DESCENDING */}
         <div className="char-list flex md:flex-col gap-1.5 overflow-x-auto md:overflow-y-auto max-h-40 pb-1">

@@ -215,7 +215,8 @@ export function useSessionSceneHandlers({
     updatedCharacters: CharacterOnScreen[],
     updatedProps: SceneProp[],
     applyDirectlyToLive: boolean,
-    transitions?: ElementTransitionDirective[]
+    transitions?: ElementTransitionDirective[],
+    backgroundUrl?: string
   ) => {
     if (applyDirectlyToLive) {
       updateDisplay(
@@ -223,6 +224,7 @@ export function useSessionSceneHandlers({
           ...prev,
           characters: updatedCharacters,
           props: updatedProps,
+          backgroundUrl: backgroundUrl || prev.backgroundUrl,
           activeTransitions: transitions || prev.activeTransitions,
         }),
         'Composición de personajes y objetos actualizada',
@@ -233,6 +235,7 @@ export function useSessionSceneHandlers({
           ...liveState,
           characters: updatedCharacters,
           props: updatedProps,
+          backgroundUrl: backgroundUrl || liveState.backgroundUrl,
           activeTransitions: transitions,
         },
         sessionRevision + 1
@@ -245,6 +248,7 @@ export function useSessionSceneHandlers({
           ...prev,
           characters: updatedCharacters,
           props: updatedProps,
+          backgroundUrl: backgroundUrl || prev.backgroundUrl,
           activeTransitions: transitions || prev.activeTransitions,
         }),
         'Borrador de composición preparado'

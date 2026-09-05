@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Sliders, RotateCcw, Check } from 'lucide-react';
 import type {
   Campaign,
+  Character,
   CharacterOnScreen,
   DisplayState,
   ElementTransitionDirective,
@@ -14,6 +15,7 @@ import { getSlotPositionPercent } from '../compositor/compositorTypes';
 import { CompositorStage } from '../compositor/CompositorStage';
 import { CompositorSidebar } from '../compositor/CompositorSidebar';
 import { CompositorModals } from '../compositor/CompositorModals';
+import { AssetPickerModal } from '../../common/AssetPickerModal';
 
 interface SceneCompositorModalProps {
   initialState: DisplayState;
@@ -23,7 +25,8 @@ interface SceneCompositorModalProps {
     updatedCharacters: CharacterOnScreen[],
     updatedProps: SceneProp[],
     applyDirectlyToLive: boolean,
-    transitions?: ElementTransitionDirective[]
+    transitions?: ElementTransitionDirective[],
+    backgroundUrl?: string
   ) => Promise<void>;
   onSaveCompositionPreset?: (preset: SceneCompositionPreset) => Promise<void>;
   onClose: () => void;
@@ -69,6 +72,8 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
   const [aspectGuide, setAspectGuide] = useState<'16:9' | '16:10' | '4:3'>('16:9');
   const [history, setHistory] = useState<{ characters: CharacterOnScreen[]; props: SceneProp[] }[]>([]);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
+  const [backgroundUrl, setBackgroundUrl] = useState(initialState.backgroundUrl);
 
   // Submodals state
   const [showAddPropModal, setShowAddPropModal] = useState<boolean>(false);
@@ -114,6 +119,26 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
     setCharacters(previous.characters);
     setPropsList(previous.props);
   }, [history]);
+
+  const handleAddCharacter = useCallback((character: Character) => {
+    const nextCharacter: CharacterOnScreen = {
+      id: `compositor-${character.id}-${Date.now()}`,
+      characterId: character.id,
+      name: character.name,
+      avatarUrl: character.defaultAvatarUrl,
+      position: 'center-left',
+      normalizedX: 50,
+      normalizedY: 0,
+      scale: 1,
+      zIndex: characters.length + propsList.length + 1,
+      isFlipped: false,
+      isLocked: false,
+      isSpeaking: false,
+    };
+    pushHistory();
+    setCharacters((prev) => [...prev, nextCharacter]);
+    setSelectedEntity({ type: 'character', id: nextCharacter.id });
+  }, [characters.length, propsList.length, pushHistory]);
 
   // Pointer drag on stage
   const handlePointerDown = (
@@ -357,8 +382,8 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
       id: `comp-${Date.now()}`,
       name: presetName.trim(),
       description: presetDesc.trim() || undefined,
-      thumbnailUrl: initialState.backgroundUrl,
-      backgroundUrl: initialState.backgroundUrl,
+      thumbnailUrl: backgroundUrl,
+      backgroundUrl,
       variantId: initialState.activeVariantId,
       focalPoint: initialState.focalPoint,
       fitMode: initialState.fitMode,
@@ -421,7 +446,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
   const handleSave = async (directToLive: boolean) => {
     setIsSaving(true);
     try {
-      await onSaveState(characters, propsList, directToLive);
+      await onSaveState(characters, propsList, directToLive, undefined, backgroundUrl);
       onClose();
     } finally {
       setIsSaving(false);
@@ -501,7 +526,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
 
         {/* MAIN BODY: 16:9 STAGE PREVIEW + LAYER CONTROLS */}
         <div className="compositor-body flex-1 overflow-y-auto p-4 flex flex-col md:flex-row gap-4">
-          <CompositorStage
+      <CompositorStage
             stageRef={stageRef}
             aspectGuide={aspectGuide}
             initialState={initialState}
@@ -518,11 +543,14 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
             setShowSavePresetModal={setShowSavePresetModal}
             setShowLoadPresetModal={setShowLoadPresetModal}
             campaign={campaign}
-            canSavePreset={Boolean(onSaveCompositionPreset)}
-          />
+        canSavePreset={Boolean(onSaveCompositionPreset)}
+        backgroundUrl={backgroundUrl}
+        onOpenBackgroundPicker={() => setShowBackgroundPicker(true)}
+      />
 
           <CompositorSidebar
             filterType={filterType}
+            campaign={campaign}
             setFilterType={setFilterType}
             characters={characters}
             propsList={propsList}
@@ -546,6 +574,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
             removeProp={removeProp}
             toggleAnchor={toggleAnchor}
             setRotation={setRotation}
+            onAddCharacter={handleAddCharacter}
           />
         </div>
 
@@ -602,6 +631,19 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
         showLoadPresetModal={showLoadPresetModal}
         setShowLoadPresetModal={setShowLoadPresetModal}
         handleApplyPreset={handleApplyPreset}
+      />
+
+      <AssetPickerModal
+        isOpen={showBackgroundPicker}
+        mode="background"
+        currentUrl={backgroundUrl}
+        title="Cambiar fondo de la escena"
+        onSelectAsset={(asset) => {
+          pushHistory();
+          setBackgroundUrl(asset.url);
+          setShowBackgroundPicker(false);
+        }}
+        onClose={() => setShowBackgroundPicker(false)}
       />
     </div>
     ),
