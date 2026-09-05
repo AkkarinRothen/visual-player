@@ -38,6 +38,7 @@ import {
   Plus,
   Edit,
   Trash2,
+  Package,
 } from 'lucide-react';
 
 export interface MasterMainTabsProps {
@@ -88,6 +89,7 @@ export interface MasterMainTabsProps {
   setEditingChar: (ch: Character | null) => void;
   setShowNewCharModal: (show: boolean) => void;
   openEditCharModal: (ch: Character) => void;
+  onOpenResourcePacks?: () => void;
 }
 
 export const MasterMainTabs: React.FC<MasterMainTabsProps> = ({
@@ -134,6 +136,7 @@ export const MasterMainTabs: React.FC<MasterMainTabsProps> = ({
   setEditingChar,
   setShowNewCharModal,
   openEditCharModal,
+  onOpenResourcePacks,
 }) => {
   return (
     <>
@@ -664,6 +667,46 @@ export const MasterMainTabs: React.FC<MasterMainTabsProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Tarjeta de Recursos y Packs Visuales */}
+          {onOpenResourcePacks && (
+            <div
+              className="campaign-meta-box"
+              style={{
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(15, 23, 42, 0.6))',
+                borderColor: 'rgba(245, 158, 11, 0.3)',
+                marginTop: '12px',
+              }}
+            >
+              <div className="meta-info">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Package size={18} className="text-amber-400" />
+                  <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#f1f5f9', margin: 0 }}>
+                    Packs de Recursos Visuales (.vppack)
+                  </h3>
+                </div>
+                <p className="campaign-desc">
+                  Instala paquetes curados de tokens, retratos y fondos para tenerlos disponibles offline.
+                </p>
+              </div>
+              <div className="campaign-tools">
+                <button
+                  className="tool-btn"
+                  onClick={onOpenResourcePacks}
+                  style={{
+                    background: 'rgba(245, 158, 11, 0.18)',
+                    borderColor: 'rgba(245, 158, 11, 0.4)',
+                    color: '#fbbf24',
+                    fontWeight: 600,
+                  }}
+                  title="Abrir Gestor de Packs de Recursos"
+                >
+                  <Package size={16} />
+                  <span>Gestionar Packs</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Scenes Management */}
           <div className="library-section">

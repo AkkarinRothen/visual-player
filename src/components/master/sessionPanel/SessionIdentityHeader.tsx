@@ -13,6 +13,7 @@ import {
   Library,
   BookmarkPlus,
   Sparkles,
+  Package,
 } from 'lucide-react';
 
 export interface SessionIdentityHeaderProps {
@@ -29,6 +30,7 @@ export interface SessionIdentityHeaderProps {
   savedRelativeTime: number;
   savedSecondsAgo: number;
   onOpenSessionLibrary?: () => void;
+  onOpenResourcePacks?: () => void;
   onSaveInitialBaseline?: () => void;
   onEvaluateReadiness?: () => void;
 }
@@ -47,6 +49,7 @@ export const SessionIdentityHeader: React.FC<SessionIdentityHeaderProps> = ({
   savedRelativeTime,
   savedSecondsAgo,
   onOpenSessionLibrary,
+  onOpenResourcePacks,
   onSaveInitialBaseline,
   onEvaluateReadiness,
 }) => {
@@ -146,16 +149,30 @@ export const SessionIdentityHeader: React.FC<SessionIdentityHeaderProps> = ({
           </button>
         )}
 
-        {/* Biblioteca button */}
+        {/* Packs de Recursos Visuales button */}
+        {onOpenResourcePacks && (
+          <button
+            className="btn-session-library"
+            onClick={onOpenResourcePacks}
+            title="Instalar y gestionar paquetes de recursos (.vppack)"
+            aria-label="Packs de Recursos Visuales"
+            style={{ background: 'rgba(245, 158, 11, 0.14)', borderColor: 'rgba(245, 158, 11, 0.35)', color: '#fbbf24' }}
+          >
+            <Package size={13} />
+            <span>Packs</span>
+          </button>
+        )}
+
+        {/* Biblioteca de Sesiones y Partidas button */}
         {onOpenSessionLibrary && (
           <button
             className="btn-session-library"
             onClick={onOpenSessionLibrary}
-            title="Abrir Biblioteca de Preparaciones y Sesiones"
+            title="Biblioteca de Sesiones, Partidas y Preparaciones guardadas"
             aria-label="Biblioteca de Sesiones"
           >
             <Library size={13} />
-            <span>Biblioteca</span>
+            <span>Sesiones</span>
           </button>
         )}
       </div>

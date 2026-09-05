@@ -155,6 +155,8 @@ interface SessionPanelProps {
   onToggleCombatTimerVisibility?: () => void;
   /** Abre el modal de Biblioteca de Preparaciones y Sesiones. */
   onOpenSessionLibrary?: () => void;
+  /** Abre el gestor de paquetes de recursos (.vppack). */
+  onOpenResourcePacks?: () => void;
   onOpenSaveScenePreset?: () => void;
   onOpenInsertScenePreset?: () => void;
   onSaveInitialBaseline?: () => void;
@@ -261,6 +263,7 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
   onResetCombatTimer,
   onToggleCombatTimerVisibility,
   onOpenSessionLibrary,
+  onOpenResourcePacks,
   onOpenSaveScenePreset,
   onOpenInsertScenePreset,
   onSaveInitialBaseline,
@@ -452,6 +455,7 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
         savedRelativeTime={savedRelativeTime}
         savedSecondsAgo={savedSecondsAgo}
         onOpenSessionLibrary={onOpenSessionLibrary}
+        onOpenResourcePacks={onOpenResourcePacks}
         onSaveInitialBaseline={onSaveInitialBaseline}
         onEvaluateReadiness={onEvaluateReadiness}
       />

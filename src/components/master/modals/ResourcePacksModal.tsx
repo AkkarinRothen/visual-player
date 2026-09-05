@@ -35,6 +35,7 @@ export const ResourcePacksModal: React.FC<ResourcePacksModalProps> = ({
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [previewPack, setPreviewPack] = useState<InstalledResourcePack | null>(null);
   const [previewAssets, setPreviewAssets] = useState<StoredAsset[]>([]);
+  const [visiblePreviewCount, setVisiblePreviewCount] = useState<number>(24);
   const [isDragging, setIsDragging] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,6 +46,7 @@ export const ResourcePacksModal: React.FC<ResourcePacksModalProps> = ({
       setStatusMessage(null);
       setPreviewPack(null);
       setPreviewAssets([]);
+      setVisiblePreviewCount(24);
     }
   }, [isOpen]);
 
@@ -74,9 +76,10 @@ export const ResourcePacksModal: React.FC<ResourcePacksModalProps> = ({
       const installed = await resourcePackService.installPack(file, (current, total) => {
         setProgress({ current, total });
       });
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
 
       setStatusMessage({
-        text: `¡Pack "${installed.name}" instalado con éxito! (${installed.itemCount} recursos disponibles)`,
+        text: `¡Pack "${installed.name}" instalado con éxito! (${installed.itemCount} recursos disponibles, ~${mb} MB)`,
         type: 'success',
       });
       await loadPacks();
@@ -127,6 +130,7 @@ export const ResourcePacksModal: React.FC<ResourcePacksModalProps> = ({
 
   const handleOpenPreview = async (pack: InstalledResourcePack) => {
     setPreviewPack(pack);
+    setVisiblePreviewCount(24);
     try {
       const assets = await resourcePackService.getPackAssets(pack.id);
       setPreviewAssets(assets);
@@ -143,56 +147,47 @@ export const ResourcePacksModal: React.FC<ResourcePacksModalProps> = ({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div
-        className="relative w-full max-w-4xl max-h-[90vh] bg-slate-900/95 border border-amber-500/30 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100"
-        role="dialog"
-        aria-labelledby="resource-packs-modal-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Cabecera */}
-        <header className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-950/60">
+      <div className="relative w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100" role="dialog" aria-labelledby="resource-packs-modal-title" onClick={(e) => e.stopPropagation()}>
+        {/* Cabecera del modal */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-              <Package size={22} />
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <Package size={20} />
             </div>
             <div>
-              <h2 id="resource-packs-modal-title" className="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <h2 id="resource-packs-modal-title" className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
                 Packs de Recursos Visuales
-                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-normal">
-                  .vppack
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-normal border border-amber-500/30">
+                  Offline
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                {packs.length} {packs.length === 1 ? 'pack instalado' : 'packs instalados'} · {totalAssetsCount} recursos · {formatMB(totalSize)} MB ocupados
+                {packs.length} packs instalados ({totalAssetsCount} recursos, ~{formatMB(totalSize)} MB)
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-            aria-label="Cerrar gestor de packs"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+            title="Cerrar ventana"
           >
             <X size={20} />
           </button>
-        </header>
+        </div>
 
-        {/* Mensaje de estado */}
+        {/* Notificación de estado */}
         {statusMessage && (
           <div
-            className={`px-4 py-2.5 mx-5 mt-4 rounded-xl flex items-center gap-2.5 text-xs ${
+            className={`px-5 py-2.5 text-xs font-medium flex items-center gap-2 ${
               statusMessage.type === 'success'
-                ? 'bg-emerald-950/60 border border-emerald-500/40 text-emerald-300'
-                : 'bg-red-950/60 border border-red-500/40 text-red-300'
+                ? 'bg-emerald-950/80 text-emerald-300 border-b border-emerald-800/60'
+                : 'bg-rose-950/80 text-rose-300 border-b border-rose-800/60'
             }`}
           >
             {statusMessage.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
             <span className="flex-1">{statusMessage.text}</span>
-            <button
-              type="button"
-              onClick={() => setStatusMessage(null)}
-              className="opacity-70 hover:opacity-100"
-            >
+            <button type="button" onClick={() => setStatusMessage(null)} className="opacity-70 hover:opacity-100">
               <X size={14} />
             </button>
           </div>
@@ -212,12 +207,12 @@ export const ResourcePacksModal: React.FC<ResourcePacksModalProps> = ({
                   <ArrowLeft size={16} /> Volver a lista de packs
                 </button>
                 <span className="text-xs text-slate-400 font-mono">
-                  {previewAssets.length} activos en "{previewPack.name}"
+                  Mostrando {Math.min(visiblePreviewCount, previewAssets.length)} de {previewAssets.length} activos en "{previewPack.name}"
                 </span>
               </div>
 
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 max-h-[55vh] overflow-y-auto pr-1">
-                {previewAssets.map((asset) => (
+                {previewAssets.slice(0, visiblePreviewCount).map((asset) => (
                   <div
                     key={asset.id}
                     className="group relative bg-slate-950 border border-slate-800 hover:border-amber-500/50 rounded-xl overflow-hidden flex flex-col transition-all"
@@ -236,6 +231,25 @@ export const ResourcePacksModal: React.FC<ResourcePacksModalProps> = ({
                   </div>
                 ))}
               </div>
+
+              {visiblePreviewCount < previewAssets.length && (
+                <div className="flex justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setVisiblePreviewCount((prev) => prev + 24)}
+                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
+                  >
+                    Cargar más (+24)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVisiblePreviewCount(previewAssets.length)}
+                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition-colors"
+                  >
+                    Mostrar todos ({previewAssets.length})
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             /* Vista General: Instalador + Listado de Packs */

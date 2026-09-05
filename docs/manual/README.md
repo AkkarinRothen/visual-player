@@ -508,7 +508,7 @@ En la barra de favoritos de **Sesión**, abrí la gestión de favoritos, agregá
 
 El panel del director muestra una cabecera con el nombre de la preparación activa. Tocalo para renombrarlo. El indicador a la derecha confirma el estado del guardado automático: **Guardando…**, **Guardado** o **Error de disco**.
 
-Para abrir la **Biblioteca de Preparaciones**, tocá el botón **Biblioteca** en la cabecera de sesión.
+Para abrir la **Biblioteca de Sesiones y Partidas**, tocá el botón **Sesiones** en la cabecera del panel. Para abrir el gestor de paquetes de recursos visuales (.vppack), tocá el botón **Packs** (con icono de paquete).
 
 ### Biblioteca unificada y selector de campaña
 
@@ -614,10 +614,10 @@ Podés guardar cualquier escena que tengas armada en tu borrador como una pieza 
 Visual Player permite empaquetar, comprimir a WebP e instalar colecciones curadas de imágenes (fondos, personajes, tokens tácticos y assets decorativos) para disponer de miles de recursos sin conexión y sin sobrecargar la memoria del dispositivo:
 
 1. **Gestor de Packs de Recursos:**
-   - Accesible desde **Herramientas de mesa → Packs de recursos** en el móvil, o tocando el botón **Packs de Recursos** dentro de la biblioteca del selector de imágenes (**AssetPickerModal**).
-   - **Instalación táctil o por arrastre:** Arrastrá o seleccioná cualquier archivo `.vppack` (o `.json` de paquete). La app indexa los recursos en segundo plano mostrando una barra de progreso en tiempo real con el porcentaje y conteo de activos procesados.
+   - Accesible directamente tocando el botón **Packs** en la barra superior del panel (junto a **Sesiones**), desde la pestaña **Campaña y biblioteca** mediante la tarjeta de recursos, en la vista del **Taller** (pestaña Banco de Recursos) mediante el botón **Instalar Packs de Recursos (.vppack)**, y en móviles desde **Herramientas de mesa → Packs de recursos**.
+   - **Instalación táctil o por arrastre:** Arrastrá o seleccioná cualquier archivo `.vppack` (o `.json` de paquete). La app indexa los recursos en lotes de 15 elementos en segundo plano con liberación del hilo de ejecución, mostrando una barra de progreso fluida en tiempo real con el porcentaje, conteo de activos procesados y tamaño en MB. No congela la pantalla ni satura la memoria incluso en paquetes grandes de más de 38 MB o cientos de imágenes.
    - **Tarjetas de información:** Muestra carátula, autor, categoría (*Fondos*, *Personajes*, *Tokens*, *Props*, *Assets* o mixto), cantidad de recursos y tamaño en MB.
-   - **Ver contenido del pack:** Tocá el icono del ojo en cualquier paquete instalado para abrir una cuadrícula con todas sus miniaturas y nombres, permitiendo revisar rápidamente qué criaturas, mapas o atrezos incluye.
+   - **Ver contenido del pack con paginación protegida:** Tocá el icono del ojo en cualquier paquete instalado para abrir la vista previa de sus miniaturas y nombres. Para cuidar la memoria de tu dispositivo y evitar cuelgues, carga inicialmente 24 recursos con botones para **Cargar más (+24)** o **Mostrar todos**.
    - **Desinstalación limpia con 1 toque:** El botón de la papelera elimina por completo todos los recursos asociados a ese paquete de la base de datos local (IndexedDB) tras confirmación, liberando espacio al instante.
 
 2. **Filtro por Colección / Pack en el Selector Visual:**

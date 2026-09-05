@@ -641,38 +641,47 @@ export async function importResourcePack(
   }
 
   const total = pack.assets.length;
-  const assetsToStore: StoredAsset[] = [];
   let calculatedSize = 0;
+  const CHUNK_SIZE = 15;
 
-  for (let i = 0; i < total; i++) {
-    const a = pack.assets[i];
-    const sizeEst = a.dataUrl ? Math.round((a.dataUrl.length * 3) / 4) : 0;
-    calculatedSize += sizeEst;
+  // Procesamos e insertamos en lotes para no saturar memoria ni bloquear el hilo de ejecución
+  for (let offset = 0; offset < total; offset += CHUNK_SIZE) {
+    const chunkEnd = Math.min(offset + CHUNK_SIZE, total);
+    const chunkAssets: StoredAsset[] = [];
 
-    const stored: StoredAsset = {
-      id: a.id || generateId('asset'),
-      name: a.name,
-      type: a.type || 'image',
-      dataUrl: a.dataUrl,
-      thumbnailUrl: a.thumbnailUrl || a.dataUrl,
-      dimensions: a.dimensions,
-      category: a.category,
-      tags: a.tags,
-      packId: pack.id,
-      packName: pack.name,
-      createdAt: Date.now(),
-      refCount: 1,
-      optimizedSize: sizeEst,
-    };
-    assetsToStore.push(stored);
+    for (let i = offset; i < chunkEnd; i++) {
+      const a = pack.assets[i];
+      const sizeEst = a.dataUrl ? Math.round((a.dataUrl.length * 3) / 4) : 0;
+      calculatedSize += sizeEst;
 
-    if (onProgress && (i % 10 === 0 || i === total - 1)) {
-      onProgress(i + 1, total);
+      const stored: StoredAsset = {
+        id: a.id || generateId('asset'),
+        name: a.name,
+        type: a.type || 'image',
+        dataUrl: a.dataUrl,
+        thumbnailUrl: a.thumbnailUrl || a.dataUrl,
+        dimensions: a.dimensions,
+        category: a.category,
+        tags: a.tags,
+        packId: pack.id,
+        packName: pack.name,
+        createdAt: Date.now(),
+        refCount: 1,
+        optimizedSize: sizeEst,
+      };
+      chunkAssets.push(stored);
     }
-  }
 
-  if (assetsToStore.length > 0) {
-    await db.assets.bulkPut(assetsToStore);
+    if (chunkAssets.length > 0) {
+      await db.assets.bulkPut(chunkAssets);
+    }
+
+    if (onProgress) {
+      onProgress(chunkEnd, total);
+    }
+
+    // Ceder el hilo de ejecución para que el navegador actualice la interfaz y libere memoria intermedia
+    await new Promise((resolve) => setTimeout(resolve, 16));
   }
 
   const installed: InstalledResourcePack = {

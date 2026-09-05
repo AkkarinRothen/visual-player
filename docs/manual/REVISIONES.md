@@ -2,6 +2,26 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-05 — MAN-057: Accesos Directos a Packs (.vppack), Clarificación de Sesiones e Ingesta en Lotes de Memoria Protegida
+
+- **Walkthrough y entorno:** comprobación y ejecución completa de la suite de pruebas unitarias y de integración en Vitest (456/456 pruebas aprobadas en 79 suites, incluyendo `SessionIdentityHeader.test.tsx`, `ResourcePacksModal.test.tsx`, `resourcePackService.test.ts` y `LiveModularControlPanel.test.tsx`), verificación de sincronización con Android (`npm run android:verify` con 2 assets web verificados y sincronizados) y comprobación en código de la ingesta de packs pesados. Pendiente comprobación visual en navegador y prueba completa con Mesa conectada.
+- **Funciones y componentes afectados:**
+  1. **Cabecera del Panel de Control (`SessionIdentityHeader.tsx`, `SessionPanel.tsx`, `MasterController.tsx`):**
+     - Nuevo botón directo **Packs** (`Packs de Recursos Visuales`) con icono de paquete (`<Package />`) y color distintivo ámbar para acceder al gestor de `.vppack` sin depender de menús secundarios.
+     - Botón de biblioteca renombrado a **Sesiones** con tooltip clarificador *«Biblioteca de Sesiones, Partidas y Preparaciones guardadas»* para eliminar la confusión entre partidas guardadas y recursos visuales.
+  2. **Pestaña Campaña y Biblioteca (`MasterMainTabs.tsx`):**
+     - Nueva tarjeta destacada **Packs de Recursos Visuales (.vppack)** con botón **Gestionar Packs**, permitiendo instalar y administrar colecciones visuales directamente desde la gestión de la campaña.
+  3. **Taller de Preparación (`WorkshopView.tsx`):**
+     - Botón directo **Instalar Packs de Recursos (.vppack)** en la pestaña de recursos multimedia (`Banco de Recursos`), permitiendo abrir `ResourcePacksModal` e instalar colecciones sin abrir selectores de personajes o escenas.
+  4. **Motor de Ingesta en Lotes y Memoria Protegida (`assetDb.ts`, `resourcePackService.ts`):**
+     - `importResourcePack()` optimizado para procesar y escribir en IndexedDB en lotes de 15 activos (`CHUNK_SIZE = 15`) con pausa de liberación de hilo (`setTimeout(16ms)`), actualizando de forma fluida la barra de progreso sin bloquear el navegador ni provocar congelamientos en paquetes de más de 38 MB o cientos de imágenes.
+  5. **Modal Gestor de Packs (`ResourcePacksModal.tsx`):**
+     - Paginación progresiva de miniaturas en la vista previa del pack: carga inicial de 24 activos con botones **Cargar más (+24)** y **Mostrar todos**, protegiendo la memoria del DOM y GPU.
+     - Indicador informativo de tamaño en megabytes al finalizar la instalación.
+- **Manual:** actualizadas las secciones «Gestionar preparaciones y reutilizar sesiones» y «Packs de Recursos Visuales Instalables (.vppack)» en `docs/manual/README.md`.
+- **Evidencia técnica:** 79/79 suites y 456/456 pruebas aprobadas en Vitest (`npx vitest run`); `npm run android:verify` exitoso.
+- **Límites:** comprobado en pruebas unitarias y de integración de Vitest y sincronización de Capacitor; pendiente comprobación visual en navegador y prueba en dispositivo Android físico conectado por ADB.
+
 ## 2026-09-05 — MAN-056: Buscador Rápido de Packs en Control y Clasificación Background/Character/Token/Asset
 
 - **Walkthrough y entorno:** revisión en código del flujo de recursos instalados desde packs, verificación estricta de tipos con `npx tsc -b` (0 errores), compilación de producción con `npm run build` correcta y ejecución enfocada de Vitest sobre `MobileResourcesEdgeDrawer.test.tsx` y `resourcePackService.test.ts` (12/12 pruebas aprobadas). Inspección de la carpeta compartida de Google Drive indicada por el usuario, con 12 archivos `.vppack` disponibles; comparación con la carpeta local `packs/`, donde hay 11 archivos `.vppack`. Pendiente comprobación visual en navegador y prueba completa con Mesa conectada.

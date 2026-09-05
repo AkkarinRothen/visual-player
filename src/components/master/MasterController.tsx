@@ -881,6 +881,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
             onResetCombatTimer={handleResetCombatTimer}
             onToggleCombatTimerVisibility={handleToggleCombatTimerVisibility}
             onOpenSessionLibrary={() => setShowSessionLibraryModal(true)}
+            onOpenResourcePacks={() => setShowResourcePacksModal(true)}
             onOpenSaveScenePreset={handleOpenSaveScenePreset}
             onOpenInsertScenePreset={handleOpenInsertScenePreset}
             onSaveInitialBaseline={handleSaveInitialBaseline}
@@ -942,6 +943,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
           setEditingChar={setEditingChar}
           setShowNewCharModal={setShowNewCharModal}
           openEditCharModal={openEditCharModal}
+          onOpenResourcePacks={() => setShowResourcePacksModal(true)}
         />
       </main>
 

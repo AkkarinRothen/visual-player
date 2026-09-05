@@ -107,4 +107,32 @@ describe('ResourcePackService', () => {
     expect(assets.length).toBe(2);
     expect(assets.map(a => a.name)).toContain('Eldrin Sombrasusurro');
   });
+
+  it('7. Instala paquetes grandes en lotes de 15 reportando progreso continuo', async () => {
+    const largePack: VisualResourcePack = {
+      schemaVersion: 1,
+      type: 'visual_resource_pack',
+      id: 'pack-large-batch',
+      name: 'Pack de Lotes Grandes',
+      category: 'tokens',
+      assets: Array.from({ length: 35 }, (_, i) => ({
+        id: `asset-large-${i}`,
+        name: `Token ${i}`,
+        dataUrl: `data:image/webp;base64,token${i}`,
+        type: 'image' as const,
+      })),
+    };
+
+    const progressReports: { current: number; total: number }[] = [];
+    const installed = await resourcePackService.installPackObject(largePack, (current, total) => {
+      progressReports.push({ current, total });
+    });
+
+    expect(installed.itemCount).toBe(35);
+    expect(progressReports.length).toBeGreaterThanOrEqual(3);
+    expect(progressReports[progressReports.length - 1]).toEqual({ current: 35, total: 35 });
+
+    const storedAssets = await db.assets.where('packId').equals('pack-large-batch').toArray();
+    expect(storedAssets.length).toBe(35);
+  });
 });

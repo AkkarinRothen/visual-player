@@ -10,6 +10,7 @@ import {
   Compass,
   Send,
   FolderArchive,
+  Package,
 } from 'lucide-react';
 import type { Campaign, Scene, Character } from '../../../types';
 import {
@@ -25,6 +26,7 @@ import { CharacterEditModal } from '../modals/CharacterEditModal';
 import { AssetPickerModal } from '../../common/AssetPickerModal';
 import { TransferSceneModal } from './TransferSceneModal';
 import { BackupManagerModal } from '../modals/BackupManagerModal';
+import { ResourcePacksModal } from '../modals/ResourcePacksModal';
 import { App as CapApp } from '@capacitor/app';
 
 export interface WorkshopViewProps {
@@ -43,6 +45,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
   const [showCharModal, setShowCharModal] = useState(false);
   const [charToEdit, setCharToEdit] = useState<Character | null>(null);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
+  const [showResourcePacksModal, setShowResourcePacksModal] = useState(false);
   const [showNewCampaignModal, setShowNewCampaignModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [newCampaignTitle, setNewCampaignTitle] = useState('');
@@ -85,6 +88,10 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
         setShowAssetPicker(false);
         return;
       }
+      if (showResourcePacksModal) {
+        setShowResourcePacksModal(false);
+        return;
+      }
       if (showNewCampaignModal) {
         setShowNewCampaignModal(false);
         return;
@@ -95,7 +102,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
     return () => {
       backListener.then((sub) => sub.remove()).catch(() => {});
     };
-  }, [isComposingScene, showCharModal, showAssetPicker, showNewCampaignModal, onExitToLobby]);
+  }, [isComposingScene, showCharModal, showAssetPicker, showResourcePacksModal, showNewCampaignModal, onExitToLobby]);
 
   // Cambiar campaña activa
   const handleSelectCampaign = async (campaignId: string) => {
@@ -799,27 +806,50 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
             <p style={{ fontSize: '0.9rem', color: '#94a3b8', maxWidth: '420px', margin: '0 auto 20px' }}>
               Importa fotos locales desde tu dispositivo o inspecciona las imágenes guardadas en la base de datos local para reutilizarlas en tus escenas.
             </p>
-            <button
-              type="button"
-              onClick={() => setShowAssetPicker(true)}
-              style={{
-                background: 'linear-gradient(135deg, #d97706, #b45309)',
-                border: 'none',
-                color: '#fff',
-                borderRadius: '10px',
-                padding: '12px 24px',
-                fontWeight: 600,
-                fontSize: '0.95rem',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 16px rgba(217, 119, 6, 0.3)',
-              }}
-            >
-              <Plus size={18} />
-              <span>Abrir Gestor de Imágenes</span>
-            </button>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setShowResourcePacksModal(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #d97706, #b45309)',
+                  border: 'none',
+                  color: '#fff',
+                  borderRadius: '10px',
+                  padding: '12px 24px',
+                  fontWeight: 600,
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 16px rgba(217, 119, 6, 0.3)',
+                }}
+              >
+                <Package size={18} />
+                <span>Instalar Packs de Recursos (.vppack)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAssetPicker(true)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.16)',
+                  color: '#f1f5f9',
+                  borderRadius: '10px',
+                  padding: '12px 24px',
+                  fontWeight: 600,
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <FolderOpen size={18} className="text-amber-400" />
+                <span>Explorar Galería de Medios</span>
+              </button>
+            </div>
 
             <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
               <button
@@ -879,6 +909,12 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
           setShowAssetPicker(false);
         }}
         onClose={() => setShowAssetPicker(false)}
+      />
+
+      {/* RESOURCE PACKS MODAL */}
+      <ResourcePacksModal
+        isOpen={showResourcePacksModal}
+        onClose={() => setShowResourcePacksModal(false)}
       />
 
       {/* MODAL NUEVA CAMPAÑA */}
