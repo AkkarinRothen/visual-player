@@ -37,6 +37,7 @@ export interface MasterAuxiliaryModalsProps {
   showCompositorModal: boolean;
   onCloseCompositor: () => void;
   onSaveCompositorCharacters: any;
+  onPreviewCompositorCharacters: any;
   onSaveCompositionPreset: any;
 
   // Conversation Editor
@@ -117,6 +118,7 @@ export const MasterAuxiliaryModals: React.FC<MasterAuxiliaryModalsProps> = ({
   showCompositorModal,
   onCloseCompositor,
   onSaveCompositorCharacters,
+  onPreviewCompositorCharacters,
   onSaveCompositionPreset,
   showConversationEditor,
   editingConversation,
@@ -180,6 +182,7 @@ export const MasterAuxiliaryModals: React.FC<MasterAuxiliaryModalsProps> = ({
           campaign={campaign}
           operationMode={operationMode}
           onSaveState={onSaveCompositorCharacters}
+          onPreviewState={onPreviewCompositorCharacters}
           onSaveCompositionPreset={onSaveCompositionPreset}
           onClose={onCloseCompositor}
         />

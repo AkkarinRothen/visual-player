@@ -36,17 +36,27 @@ Necesitás tener acceso a la app en el dispositivo que usará quien dirige y en 
 - **Botón Atrás de Android:** En dispositivos móviles, el botón o gesto Atrás nativo no cierra la app de golpe. Sigue un orden seguro: primero cierra el teclado virtual si estás escribiendo, luego cancela arrastres o cierra paneles y ventanas emergentes, y finalmente pide confirmación antes de salir al menú inicial.
 - **Cambios rápidos durante la partida:** En la pestaña **Sesión**, usá **Acciones rápidas** para activar con un toque **Relámpago**, **Sacudir**, **Cartel**, **Ambiente** y **Sonidos**. Tocá **Más** para abrir acciones secundarias como **Iluminación**, **Cámara y escena**, **Mostrar recurso** y **Música ambiental**. El drawer inferior se cierra tocando afuera o después de elegir una acción.
 - **Modo Partida:** Tocá **Modo mesa** para abrir una consola flotante. Desde ahí podés activar **Pantalla activa**, **Pantalla completa** u **Ocultar controles** para despejar la vista. Aunque ocultes los controles, el botón **Mesa** permanece visible para recuperarlos. Tocá **Salir del Modo Partida** al terminar.
-- **Editar durante la partida:** En el control clásico de **En Vivo**, tocá **Mover personajes** dentro de **Editar escena en vivo** para abrir el editor táctil. En **Modo Dirección** podés arrastrar personajes sobre el escenario; desde **Fondo y personajes** podés cambiar el fondo y ajustar la composición antes de aplicar el cambio.
+- **Editar durante la partida:** En el control clásico de **En Vivo**, tocá **Mover personajes** dentro de **Editar escena en vivo** para abrir el editor táctil. Cuando la cabecera indica **Cambios en directo**, cada movimiento, ajuste, alta de NPC, cambio de fondo o cuadrícula se refleja automáticamente en la Mesa; tocá **Listo** al terminar. En **Preparación**, los cambios siguen aislados hasta que los publiques.
 - **Escenas recientes y deshacer:** La vista **Sesión** conserva hasta cinco escenas usadas recientemente con sus miniaturas. Tocá una para volver a esa ubicación siguiendo el modo actual (**En Vivo** o **Preparación**). Después de una acción rápida, usá **Deshacer** si necesitás corregirla.
 - **Panel Ahora / Después:** En la vista **Sesión**, **Ahora · En Mesa** indica la escena que está viendo el grupo y **Después · Preparado** muestra el borrador siguiente. Si hay cambios pendientes, podés tocar **Publicar** o **Descartar** directamente desde ese panel.
 - **Controles según el contexto:** Durante un combate, el bloque **Contexto actual** muestra la ronda y el combatiente activo, con botones **Anterior**, **Siguiente turno** y **Ver combate**. Fuera del combate muestra el próximo paso sugerido y permite **Preparar siguiente** o **Buscar escena**.
 - **Diseño compacto en Android:** En teléfonos, la cabecera deja solo la campaña, conexión y previsualización táctil; los modos y pestañas se manejan desde el panel de Sesión. Las ventanas se abren dentro de la pantalla y su contenido se desplaza internamente.
 - **Editor En Vivo predeterminado:** Al abrir la pestaña **En Vivo**, Visual Player entra directamente en el modo clásico de edición. Desde ahí podés cambiar cartel, clima, iluminación, sonido, escenas y personajes. La vista alternativa de Sesión ya no se ofrece como paso separado.
-- **Editor de escena en el celular:** Al tocar **Editar escena**, el editor ocupa toda la pantalla. El lienzo queda arriba, las capas y controles tienen desplazamiento propio y **Cancelar**/**Publicar a Mesa** permanecen abajo. En **Modo Dirección** podés tocar y arrastrar NPCs sin mover una ventana flotante.
+- **Editor de escena en el celular:** Al tocar **Editar escena**, el editor ocupa toda la pantalla. El escenario 16:9 se muestra completo y permanece fijado arriba mientras desplazás las capas y controles; las figuras y tokens se mantienen dentro de sus bordes para que puedas verlos enteros. **Deshacer**, **Cerrar** y **Listo** permanecen abajo. En **Cambios en directo** podés tocar y arrastrar NPCs y ver el resultado en la Mesa sin una publicación adicional.
 - **Herramientas de mesa en el celular:** En la barra inferior tocá **Más** y luego **Herramientas de mesa**. Desde ese drawer podés cambiar entre **En vivo** y **Preparación**, publicar o descartar cambios, abrir escena y cámara, acceder a recursos, combate, historial, presets, diagnóstico y **Modo Partida**.
 - **Acceso directo a Escena:** La barra inferior también incluye **Escena**. Tocá ese botón para abrir directamente el editor táctil y mover personajes, cambiar el fondo u ordenar la composición durante la mesa.
 - **Añadir NPC desde la escena:** Dentro del editor táctil, la sección **Añadir NPC** muestra personajes de la campaña en una tira horizontal. Tocá uno para incorporarlo y dejarlo seleccionado; después arrastralo al lugar deseado.
-- **Cambiar el fondo desde la escena:** En el editor táctil, tocá **Cambiar Fondo**. Podés elegir un recurso guardado, importar una imagen del dispositivo o usar una URL; el fondo queda aplicado a la composición al publicar o guardar.
+- **Cambiar el fondo desde la escena:** En el editor táctil, tocá **Cambiar Fondo**. Podés elegir un recurso guardado, importar una imagen del dispositivo o usar una URL. En **Cambios en directo** se refleja automáticamente en la Mesa; en **Preparación** queda pendiente hasta publicar el borrador.
+- **Panel de Control Modular e Inspector (Celular y Tablet):** En dispositivos móviles, la vista **Sesión** activa de forma predeterminada el nuevo **Panel Modular**, diseñado para una operación ágil con el pulgar:
+  1. **Escenario 16:9 persistente:** Ubicado en la parte superior sin recortes ni deformaciones, muestra fielmente lo que ve la Mesa. Podés tocar directamente cualquier figura para seleccionarla o arrastrarla suavemente para reubicarla en directo. Arriba a la derecha contás con el botón para **Maximizar / Pantalla completa**.
+  2. **Módulos simultáneos:**
+     - **Escena actual:** Muestra la carátula, nombre y estado; incluye los botones **Cambiar** (para elegir otra escena) y **Transición** (para efectos cinemáticos de cambio).
+     - **Personajes en mesa:** Carrusel horizontal de figuras con retrato, nombre y subtítulo. Cada figura tiene un botón con forma de ojo para alternar al instante entre **Visible** y **Oculto**. Al tocar la tarjeta de cualquier figura, la zona inferior pasa fluidamente al **Inspector de personaje**.
+     - **Ambiente:** Conmutador para encender o apagar el clima, barra de **Intensidad** (0-100%) y paleta de círculos de color para aplicar tintes lumínicos (*Natural*, *Noche*, *Místico*, *Luna de sangre*, *Antorchas* o *Atardecer*).
+     - **Audio:** Mini-reproductor con título de pista, botones de anterior, reproducir/pausar y siguiente, junto con el deslizador de volumen en vivo (0-100%).
+  3. **Inspector contextual de personaje:** Al tocar una figura, los módulos se reemplazan por su ficha de edición rápida: muestra su avatar con anillo luminoso, nombre, interruptor **Visible en mesa**, controles de **Tamaño** (`-`/`+`), **Capa / Orden** (`▲`/`▼`), botón **Hablar…** para abrir de inmediato la ventana de globos de diálogo (JRPG / cinemáticos), botón **Espejo** para reflejar la figura y botón **Volver al panel modular** para regresar.
+  4. **Cambios en directo e instantáneos:** Todos los controles aplican sus cambios en tiempo real a la Mesa conectada mediante WebRTC, sin necesidad de pulsar un botón de publicar.
+  5. **Alternancia de vista:** Mediante las pestañas **Panel Modular** y **Consola Clásica** situadas en la parte superior de la sesión, podés alternar en cualquier momento entre el panel modular táctil y la consola detallada de preparación y borradores.
 - **Últimas acciones:** El **Centro de Partida** muestra las cuatro acciones más recientes, indicando si fueron **En Vivo** o **Borrador**, la escena relacionada y la hora. Tocá **Ver historial completo** para revisar o restaurar un punto anterior.
 
 Para este primer recorrido, usá conexión a Internet. El funcionamiento sin Internet y la conexión local de Android quedan pendientes de una guía comprobada en dispositivos reales. Si vas a usar imágenes o sonidos mediante enlaces, esos enlaces también deben poder abrirse desde los dispositivos.
@@ -302,9 +312,25 @@ En **SFX Pad**, seleccioná un banco y un efecto. Revisá si está en **Ensayo A
 2. Seleccioná un personaje u objeto y arrastralo a su lugar. Ajustá tamaño y el orden de frente/fondo según corresponda.
 3. **Objeto** permite agregar un elemento de decorado mediante su nombre e imagen independiente.
 4. Podés guardar la disposición con **Guardar Preset** y recuperar una con **Cargar**.
-5. Confirmá con **Publicar a Mesa (ACK)** o **Guardar en Borrador**, según el modo activo.
-
 **Ejemplo:** colocá al tabernero detrás de una barra y al visitante delante. Si el encuadre queda demasiado cerca, usá **Cámara → Restablecer**.
+
+### Plantillas rápidas de composición (JRPG, Diálogo y Mapa Táctico)
+
+En la barra de modos del Compositor encontrarás accesos directos para organizar la escena como punto de partida:
+
+- **JRPG:** divide a las figuras en dos bandos enfrentados a izquierda y derecha, sugiriendo globos flotantes con cola y sombras elípticas. Si las figuras ya tienen bandos asignados (Héroes/Enemigos), se respeta esa distribución.
+- **Diálogo:** destaca a dos protagonistas en primer plano con proporciones cinemáticas y caja de estilo novela visual.
+- **Mapa:** reduce las figuras al tamaño de miniaturas compactas (42%) organizadas en cuadrícula regular sobre el mapa táctico de fondo.
+
+**Revisión previa desacoplada:** al tocar una plantilla, una ventana te permite elegir si querés aplicar la **Composición física** (posiciones y escalas), las **Recomendaciones de presentación** (sombras y formato de diálogo), o ambas. La plantilla no sobrescribe tus frases ni elimina figuras existentes.
+
+### Sombras de suelo y anclaje de profundidad
+
+Para evitar que las figuras y tokens parezcan "flotando" en el aire sobre el fondo:
+- La app proyecta automáticamente una **sombra elíptica procedural** en la base de apoyo calibrada de cada personaje.
+- La sombra escala en anchura según el tamaño de la figura y se atenúa suavemente si la figura se eleva por encima del suelo.
+- Podés cambiar el estilo de sombra en el panel de la figura seleccionada entre **Elipse suave**, **Alargada** o **Ninguna**.
+
 
 ### Tácticas y formaciones en escena
 
@@ -391,7 +417,15 @@ En **Sesión → Diálogos & Narración** podés elegir quién habla, escribir u
 
 Al usar una conversación guardada, los controles incluyen **Mostrar** o **Actualizar**, **Anterior**, **Siguiente**, **Completar** (mostrar el texto completo) y **Ocultar**. Una frase también puede tener acciones de cámara o un Momento asociado. **Repetir acciones** vuelve a disparar sus efectos: usalo solo si querés repetirlos.
 
+#### Globos JRPG anclados y cajas de novela visual
+- **Globos con cola orientada:** Cuando habla un personaje presente en el escenario, la frase se proyecta en una burbuja JRPG que flota sobre su cabeza con una flecha apuntando a él.
+- **Posicionamiento adaptativo:** Si la figura está en la parte superior o con zoom elevado, el globo se acomoda automáticamente en el lateral con más espacio libre o en una caja inferior cinemática para no tapar su rostro ni el título del lugar.
+- **Temas estéticos por tokens:** Podés elegir el estilo visual entre *Dorado (Visual Player)*, *Fantasía Clásica* (pergamino y dorados), *JRPG Retro* (borde píxel de 16 bits), *Cyber Neón* (cristal cian translúcido) y *Gótico Oscuro* (sombras y carmesí).
+- **Acceso rápido «Hablar…» en la figura:** Al tocar cualquier personaje en el Compositor, podés tocar **Hablar…** para improvisar una frase, ensayarla en privado (**Ensayar (Local)**) o proyectarla directamente a la pantalla de los jugadores (**Publicar en Mesa**).
+- **Regla de avance en dos toques:** Mientras el texto se escribe en pantalla (typewriter), una primera pulsación completa la frase entera inmediatamente; una segunda pulsación avanza a la siguiente intervención o cierra el globo, evitando saltear texto importante por error.
+
 Las notas privadas y las ramas de conversación tienen controles separados del texto para jugadores. Escribí allí tus recordatorios y reservá el texto público para lo que querés mostrar. La comprobación de privacidad con dos dispositivos está pendiente.
+
 
 ### Mapas, cartas y pistas: Handouts
 
@@ -643,9 +677,9 @@ En el compositor, debajo de la vista previa, encontrás tres botones: **JRPG**, 
 - **JRPG:** coloca la primera mitad de las figuras de la lista a la izquierda y el resto a la derecha, enfrentadas. Ordená la lista o ajustá las figuras si querés cambiar quiénes forman cada bando.
 - Si asignás **Equipo** a una figura desde su panel (**Aliados**, **Enemigos** o **Neutral**), **JRPG** usa esos equipos en lugar del orden de la lista. Los enemigos van a la derecha; aliados y neutrales, a la izquierda.
 - **Diálogo:** destaca las dos primeras figuras a cada lado, como una escena de novela visual. Las demás quedan más pequeñas detrás.
-- **Mapa:** reduce las figuras y las reparte sobre una cuadrícula regular. Elegí primero el mapa como **Cambiar Fondo** y usá retratos o PNG transparentes como miniaturas/tokens. Activá **Cuadrícula** para proyectarla también; podés elegir **Cuadrada** o **Hexagonal**. Con la cuadrícula activa, el editor usa un lienzo táctico: tocá un token para seleccionarlo y arrastralo; al soltarlo se alinea a la celda más cercana. Un token bloqueado no se puede mover.
+- **Mapa:** reduce las figuras y las reparte sobre una cuadrícula regular. Elegí primero el mapa como **Cambiar Fondo** y usá retratos o PNG transparentes como miniaturas/tokens. Activá **Cuadrícula** para proyectarla también; podés elegir **Cuadrada** o **Hexagonal**. Con la cuadrícula activa, el editor usa un lienzo táctico: tocá un token para seleccionarlo y arrastralo; al soltarlo se alinea a la celda más cercana. Un token bloqueado no se puede mover. Al seleccionar un token, aparece la distancia en celdas hasta el enemigo de equipo distinto más cercano; es una ayuda de posicionamiento y no aplica daño ni movimiento automáticamente.
 
-Después de aplicar una plantilla, revisá el encuadre y tocá **Guardar Composición** si querés reutilizarla. En **Modo En Vivo**, terminá con **Publicar a Mesa** para que el grupo la vea. La distribución se aplica al borrador del compositor; no modifica puntos de golpe, iniciativa ni el combate activo.
+Después de aplicar una plantilla, revisá el encuadre y tocá **Guardar Composición** si querés reutilizarla. En **Cambios en directo**, la distribución aparece automáticamente en la Mesa mientras editás y **Listo** solo cierra el compositor. En **Preparación**, la distribución permanece en el borrador hasta que la publiques. Ninguna plantilla modifica puntos de golpe, iniciativa ni el combate activo.
 
 Podés colocar y dirigir a tus personajes directamente sobre la pantalla de previsualización sin entrar a ventanas complejas:
 

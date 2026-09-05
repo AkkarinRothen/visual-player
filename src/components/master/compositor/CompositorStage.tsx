@@ -138,7 +138,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
                 <div
                   key={char.id}
                   data-entity-id={char.id}
-                  className={`absolute flex flex-col items-center cursor-grab active:cursor-grabbing transition-shadow ${
+                  className={`compositor-stage-entity compositor-stage-character absolute flex flex-col items-center cursor-grab active:cursor-grabbing transition-shadow ${
                     isSelected ? 'z-40 ring-2 ring-amber-400 rounded-lg shadow-2xl' : 'hover:ring-1 hover:ring-amber-300/50'
                   }`}
                   style={{
@@ -158,7 +158,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
                 >
                   {/* CHARACTER AVATAR IMAGE */}
                   <div
-                    className="relative flex flex-col items-center"
+                    className="compositor-stage-character-visual relative flex flex-col items-center"
                     style={{
                       transform: `scale(${scale}) ${char.isFlipped ? 'scaleX(-1)' : ''}`,
                       transformOrigin: 'bottom center',
@@ -169,7 +169,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
                       src={char.avatarUrl}
                       alt={char.name}
                       draggable={false}
-                      className="max-h-40 md:max-h-56 w-auto object-contain pointer-events-none drop-shadow-xl select-none"
+                      className="compositor-stage-character-image max-h-40 md:max-h-56 w-auto object-contain pointer-events-none drop-shadow-xl select-none"
                     />
 
                     {/* SPEAKING HALO */}
@@ -182,7 +182,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
 
                   {/* LABEL PILL */}
                   <div
-                    className={`mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap pointer-events-none shadow ${
+                    className={`compositor-stage-entity-label mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap pointer-events-none shadow ${
                       isSelected
                         ? 'bg-amber-500 text-black'
                         : 'bg-slate-900/80 text-slate-200 border border-slate-700'
@@ -210,7 +210,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
               <div
                 key={prop.id}
                 data-entity-id={prop.id}
-                className={`absolute cursor-grab active:cursor-grabbing transition-shadow ${
+                className={`compositor-stage-entity compositor-stage-prop absolute cursor-grab active:cursor-grabbing transition-shadow ${
                   isSelected ? 'z-40 ring-2 ring-purple-400 rounded-lg shadow-2xl' : 'hover:ring-1 hover:ring-purple-300/50'
                 }`}
                 style={{
@@ -238,13 +238,13 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
                     src={prop.assetUrl}
                     alt={prop.name}
                     draggable={false}
-                    className="max-h-32 md:max-h-48 w-auto object-contain pointer-events-none drop-shadow-2xl select-none"
+                    className="compositor-stage-prop-image max-h-32 md:max-h-48 w-auto object-contain pointer-events-none drop-shadow-2xl select-none"
                   />
                 </div>
 
                 {/* PROP LABEL PILL */}
                 <div
-                  className={`mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-semibold text-center whitespace-nowrap pointer-events-none shadow ${
+                  className={`compositor-stage-entity-label mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-semibold text-center whitespace-nowrap pointer-events-none shadow ${
                     isSelected
                       ? 'bg-purple-600 text-white'
                       : 'bg-slate-900/80 text-purple-200 border border-purple-800/60'
@@ -265,7 +265,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
             <button type="button" className="px-1.5 py-1 text-sky-300 hover:bg-slate-800 rounded text-[10px] flex items-center gap-1" onClick={() => onApplyLayoutTemplate('visual-novel')} title="Novela visual: protagonistas en primer plano"><MessageCircle size={14} />Diálogo</button>
             <button type="button" className="px-1.5 py-1 text-emerald-300 hover:bg-slate-800 rounded text-[10px] flex items-center gap-1" onClick={() => onApplyLayoutTemplate('tactical-map')} title="Mapa táctico: miniaturas compactas en cuadrícula"><Map size={14} />Mapa</button>
           </div>
-          <label className="compositor-grid-toggle flex items-center gap-1 text-[10px] text-emerald-200 cursor-pointer" title="Muestra una cuadrícula sobre el mapa en la Mesa al publicar">
+          <label className="compositor-grid-toggle flex items-center gap-1 text-[10px] text-emerald-200 cursor-pointer" title="Muestra una cuadrícula sobre el mapa y la refleja en directo en la Mesa">
             <input type="checkbox" checked={tacticalGrid.enabled} onChange={(event) => onChangeTacticalGrid({ ...tacticalGrid, enabled: event.target.checked })} />
             Cuadrícula
           </label>

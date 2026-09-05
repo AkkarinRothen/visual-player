@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   Campaign,
   Character,
@@ -64,6 +64,11 @@ export function useSessionSceneHandlers({
   const [executedActionLineIds, setExecutedActionLineIds] = useState<Record<string, string>>({});
   const [selectedChoiceIds, setSelectedChoiceIds] = useState<Record<string, string>>({});
   const [executingInteractionId, setExecutingInteractionId] = useState<string | null>(null);
+  const latestLiveStateRef = useRef(liveState);
+
+  useEffect(() => {
+    latestLiveStateRef.current = liveState;
+  }, [liveState]);
 
   const handleSelectSceneVariant = async (variant: SceneVariant) => {
     updateDisplay(
@@ -259,6 +264,26 @@ export function useSessionSceneHandlers({
       );
     }
   };
+
+  const handlePreviewCompositorCharacters = useCallback((
+    updatedCharacters: CharacterOnScreen[],
+    updatedProps: SceneProp[],
+    backgroundUrl?: string,
+    tacticalGrid?: import('../../../types').TacticalGridConfig
+  ) => {
+    const current = latestLiveStateRef.current;
+    const nextState: DisplayState = {
+      ...current,
+      characters: updatedCharacters,
+      props: updatedProps,
+      backgroundUrl: backgroundUrl || current.backgroundUrl,
+      tacticalGrid: tacticalGrid || current.tacticalGrid,
+    };
+
+    latestLiveStateRef.current = nextState;
+    updateDisplay(() => nextState, 'Ajuste desde el compositor en vivo', false);
+    sessionCommandBus.dispatchFullState(nextState);
+  }, [updateDisplay]);
 
   const handleSaveCompositionPreset = async (preset: SceneCompositionPreset) => {
     if (!campaign) return;
@@ -665,6 +690,7 @@ export function useSessionSceneHandlers({
     handleUpdateSceneLights,
     handleUpdateZoneEmitters,
     handleSaveCompositorCharacters,
+    handlePreviewCompositorCharacters,
     handleSaveCompositionPreset,
     handleUpdateCampaignCharacter,
     handlePublishDialogue,

@@ -9,8 +9,9 @@ import {
   Check,
   Minus,
   Plus,
+  MessageSquare,
 } from 'lucide-react';
-import type { CharacterOnScreen } from '../../../types';
+import type { CharacterOnScreen, ShadowPreset } from '../../../types';
 import { type DpadPreset, getDpadDeltas } from './composerTypes';
 
 interface ComposerSelectedCharPanelProps {
@@ -23,6 +24,8 @@ interface ComposerSelectedCharPanelProps {
   onCloseSelection: () => void;
   onScaleChange: (id: string, delta: number) => void;
   onNudge: (id: string, deltaX: number, deltaY: number) => void;
+  onOpenQuickDialogue?: () => void;
+  onChangeShadowPreset?: (id: string, preset: ShadowPreset) => void;
 }
 
 export const ComposerSelectedCharPanel: React.FC<ComposerSelectedCharPanelProps> = ({
@@ -35,6 +38,8 @@ export const ComposerSelectedCharPanel: React.FC<ComposerSelectedCharPanelProps>
   onCloseSelection,
   onScaleChange,
   onNudge,
+  onOpenQuickDialogue,
+  onChangeShadowPreset,
 }) => {
   const deltas = getDpadDeltas(dpadPreset);
 
@@ -65,6 +70,30 @@ export const ComposerSelectedCharPanel: React.FC<ComposerSelectedCharPanelProps>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {onOpenQuickDialogue && (
+            <button
+              type="button"
+              onClick={onOpenQuickDialogue}
+              style={{
+                background: 'rgba(56, 189, 248, 0.18)',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                color: '#38bdf8',
+                borderRadius: '6px',
+                padding: '4px 8px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                cursor: 'pointer',
+              }}
+              title="Hacer hablar a la figura con globo JRPG o novela visual"
+            >
+              <MessageSquare size={13} />
+              <span>Hablar…</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => onToggleMirror(selectedChar.id)}
@@ -221,6 +250,41 @@ export const ComposerSelectedCharPanel: React.FC<ComposerSelectedCharPanelProps>
             </button>
           </div>
         </div>
+
+        {/* Selector de Sombra de Suelo */}
+        {onChangeShadowPreset && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Sombra suelo:</span>
+            <button
+              type="button"
+              onClick={() => {
+                const current = selectedChar.shadowPreset ?? 'soft-ellipse';
+                const next: ShadowPreset =
+                  current === 'soft-ellipse' ? 'elongated' : current === 'elongated' ? 'none' : 'soft-ellipse';
+                onChangeShadowPreset(selectedChar.id, next);
+              }}
+              style={{
+                background: (selectedChar.shadowPreset ?? 'soft-ellipse') !== 'none' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid',
+                borderColor: (selectedChar.shadowPreset ?? 'soft-ellipse') !== 'none' ? '#fbbf24' : 'rgba(255, 255, 255, 0.12)',
+                color: (selectedChar.shadowPreset ?? 'soft-ellipse') !== 'none' ? '#fbbf24' : '#64748b',
+                borderRadius: '6px',
+                padding: '5px 8px',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+              title="Alternar entre elipse suave, sombra alargada y ninguna"
+            >
+              {(selectedChar.shadowPreset ?? 'soft-ellipse') === 'soft-ellipse'
+                ? 'Elipse suave'
+                : selectedChar.shadowPreset === 'elongated'
+                ? 'Alargada'
+                : 'Ninguna'}
+            </button>
+          </div>
+        )}
 
         {/* Sección D-Pad con pasos Fino (1px), Normal (5px) y Amplio (20px) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>

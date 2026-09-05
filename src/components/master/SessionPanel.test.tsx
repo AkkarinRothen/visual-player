@@ -368,5 +368,47 @@ describe('Phase 1: Session Panel, Emergency Dock & DM Favorites Suite', () => {
       fireEvent.click(nextTurnBtn);
       expect(onNextTurn).toHaveBeenCalledTimes(1);
     });
+
+    it('renders LiveModularControlPanel when initialViewMode is "modular" and allows toggling to Consola Clásica', () => {
+      render(
+        <SessionPanel
+          campaign={dummyCampaign}
+          liveState={dummyState}
+          stagedState={dummyState}
+          operationMode="live"
+          pendingChangesCount={0}
+          connectionStatus="connected"
+          latencyMs={24}
+          roomCode="DEMO1"
+          initialViewMode="modular"
+          onSelectScene={vi.fn()}
+          onPrepareSceneInStaging={vi.fn()}
+          onPublishAllStaged={vi.fn()}
+          onOpenSelectivePublish={vi.fn()}
+          onDiscardStaged={vi.fn()}
+          onToggleOperationMode={vi.fn()}
+          onTriggerLightning={vi.fn()}
+          onTriggerShake={vi.fn()}
+          onToggleBlackout={vi.fn()}
+          onToggleBanner={vi.fn()}
+          onToggleAmbientAudio={vi.fn()}
+          onExecuteFavorite={vi.fn()}
+          onOpenManageFavorites={vi.fn()}
+          onSwitchToTab={vi.fn()}
+          onToggleClassicView={vi.fn()}
+        />
+      );
+
+      // Verify modular control container is present
+      expect(screen.getByTestId('modular-control-container')).toBeDefined();
+      expect(screen.getByLabelText('Escenario en vivo 16:9')).toBeDefined();
+
+      // Click "Consola Clásica" tab
+      const consoleTab = screen.getByRole('tab', { name: /Consola Clásica/i });
+      fireEvent.click(consoleTab);
+
+      // Verify classical console section is now rendered
+      expect(screen.getByText(/ESCENA EN MESA/i)).toBeDefined();
+    });
   });
 });

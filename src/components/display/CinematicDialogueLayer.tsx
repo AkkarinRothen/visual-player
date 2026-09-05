@@ -59,11 +59,106 @@ export const CinematicDialogueLayer: React.FC<CinematicDialogueLayerProps> = ({ 
     shout: 'dialogue-style-shout border-rose-500/60 bg-slate-950/90 shadow-rose-950/50 shadow-2xl',
   }[dialogue.style || 'speech'];
 
+  const isBalloon = dialogue.presentationMode === 'balloon' && Boolean(dialogue.anchorCoordinates);
+  const themeClass = `dialogue-theme-${dialogue.themeId || 'default-gold'}`;
+
+  if (isBalloon && dialogue.anchorCoordinates) {
+    const coords = dialogue.anchorCoordinates;
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={dialogue.id}
+          className={`cinematic-dialogue-overlay jrpg-speech-balloon ${themeClass}`}
+          onClick={handleSkipTypewriter}
+          role="region"
+          aria-label="Globo de Diálogo JRPG"
+          style={{
+            left: `${coords.x}%`,
+            bottom: `${coords.y}%`,
+          }}
+          initial={{ opacity: 0, scale: 0.88, y: coords.tailDirection === 'down' ? 8 : -8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.92 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+        >
+          {coords.tailDirection && coords.tailDirection !== 'none' && (
+            <div className={`balloon-tail tail-${coords.tailDirection}`} />
+          )}
+
+          {/* Hidden container for screen readers */}
+          <div className="sr-only" aria-live="polite">
+            {dialogue.speakerName ? `${dialogue.speakerName}: ` : ''}
+            {dialogue.text}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {/* Speaker Header in Balloon */}
+            {dialogue.speakerName && dialogue.style !== 'narration' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {dialogue.avatarUrl && (
+                  <img
+                    src={dialogue.avatarUrl}
+                    alt=""
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '1px solid var(--dt-border, #fbbf24)',
+                    }}
+                  />
+                )}
+                <span
+                  style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    color: 'var(--dt-speaker-color, #fbbf24)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    fontFamily: 'var(--dt-font-family, inherit)',
+                  }}
+                >
+                  {dialogue.speakerName}
+                </span>
+                {dialogue.activeExpression && (
+                  <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                    ({dialogue.activeExpression})
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Balloon Text Content */}
+            <div
+              className={`dialogue-text ${dialogue.style === 'shout' ? 'font-bold uppercase text-rose-200' : ''}`}
+              style={{
+                fontFamily: 'var(--dt-font-family, inherit)',
+                fontSize:
+                  dialogue.fontSize === 'large'
+                    ? '1.18rem'
+                    : dialogue.fontSize === 'small'
+                    ? '0.85rem'
+                    : '0.98rem',
+                lineHeight: 1.4,
+                color: 'var(--dt-text, #fff)',
+              }}
+            >
+              {displayText}
+              {isTyping && (
+                <span className="typewriter-cursor inline-block w-1.5 h-3.5 ml-0.5 bg-amber-400 animate-pulse" />
+              )}
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
+
   return (
     <AnimatePresence mode="wait">
     <motion.div
       key={dialogue.id}
-      className="cinematic-dialogue-overlay pointer-events-auto select-none"
+      className={`cinematic-dialogue-overlay pointer-events-auto select-none ${themeClass}`}
       onClick={handleSkipTypewriter}
       role="region"
       aria-label="Capa de Diálogo Cinematográfico"
@@ -89,10 +184,18 @@ export const CinematicDialogueLayer: React.FC<CinematicDialogueLayerProps> = ({ 
 
       <div
         className={`dialogue-box relative flex items-center gap-4 p-4 md:p-5 rounded-2xl border-2 backdrop-blur-xl shadow-2xl transition-all duration-300 ${styleClasses}`}
+        style={{
+          background: 'var(--dt-bg, rgba(15, 23, 42, 0.88))',
+          borderColor: 'var(--dt-border, rgba(245, 158, 11, 0.5))',
+          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.7), 0 0 20px var(--dt-glow, rgba(245, 158, 11, 0.25))',
+        }}
       >
         {/* SPEAKER PORTRAIT (IF PRESENT AND STYLE IS NOT NARRATION) */}
         {dialogue.style !== 'narration' && dialogue.avatarUrl && (
-          <div className="speaker-avatar-frame shrink-0 relative w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden border-2 border-amber-400/50 shadow-lg bg-black/60">
+          <div
+            className="speaker-avatar-frame shrink-0 relative w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden border-2 shadow-lg bg-black/60"
+            style={{ borderColor: 'var(--dt-border, #fbbf24)' }}
+          >
             <img
               src={dialogue.avatarUrl}
               alt={dialogue.speakerName || 'Hablante'}
@@ -117,7 +220,13 @@ export const CinematicDialogueLayer: React.FC<CinematicDialogueLayerProps> = ({ 
           {/* SPEAKER BADGE / TITLE */}
           {dialogue.speakerName && dialogue.style !== 'narration' && (
             <div className="flex items-center gap-2 mb-1">
-              <span className="speaker-name text-xs md:text-sm font-black text-amber-400 tracking-wide uppercase">
+              <span
+                className="speaker-name text-xs md:text-sm font-black tracking-wide uppercase"
+                style={{
+                  color: 'var(--dt-speaker-color, #fbbf24)',
+                  fontFamily: 'var(--dt-font-family, inherit)',
+                }}
+              >
                 {dialogue.speakerName}
               </span>
               {dialogue.activeExpression && (
@@ -148,10 +257,12 @@ export const CinematicDialogueLayer: React.FC<CinematicDialogueLayerProps> = ({ 
 
           {/* TEXT CONTENT WITH SMOOTH TYPEWRITER */}
           <div
-            className={`dialogue-text leading-relaxed text-slate-100 ${
+            className={`dialogue-text leading-relaxed ${
               dialogue.style === 'shout' ? 'font-bold uppercase tracking-wide text-rose-100' : ''
             }`}
             style={{
+              fontFamily: 'var(--dt-font-family, inherit)',
+              color: 'var(--dt-text, #fff)',
               fontSize:
                 dialogue.fontSize === 'large'
                   ? '1.35rem'

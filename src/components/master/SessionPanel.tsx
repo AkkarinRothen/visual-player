@@ -17,6 +17,8 @@ import {
   Swords,
   Volume2,
   Zap,
+  LayoutGrid,
+  Sliders,
 } from 'lucide-react';
 import type {
   Campaign,
@@ -41,6 +43,7 @@ import type {
   SceneSituation,
   DraftSaveState,
   HistoryEvent,
+  CharacterOnScreen,
 } from '../../types';
 import { gameSessionService, type BackupStatus } from '../../services/gameSessionService';
 import { SessionIdentityHeader } from './sessionPanel/SessionIdentityHeader';
@@ -53,6 +56,8 @@ import { OverwriteStagingModal } from './sessionPanel/OverwriteStagingModal';
 import { SessionFavoritesBar } from './SessionFavoritesBar';
 import { CinematicDialogueDock } from './CinematicDialogueDock';
 import { calculateRemainingTimerSeconds } from '../../domain/combat/combatTimerCoordinator';
+import { LiveModularControlPanel } from './modularControl/LiveModularControlPanel';
+import { ComposerDialogueQuickModal } from './composer/ComposerDialogueQuickModal';
 
 interface SessionPanelProps {
   campaign: Campaign | null;
@@ -157,6 +162,21 @@ interface SessionPanelProps {
   /** Estado del respaldo externo de la sesión. */
   backupStatus?: BackupStatus;
   lastExportIsComplete?: boolean;
+  initialViewMode?: 'modular' | 'console';
+  onUpdateCharacter?: (
+    id: string,
+    updates: Partial<CharacterOnScreen>,
+    description: string
+  ) => void;
+  onUpdateDisplayField?: <K extends keyof DisplayState>(
+    field: K,
+    value: DisplayState[K],
+    description: string
+  ) => void;
+  onOpenCharacterLibrary?: () => void;
+  onDismissCharacter?: (id: string) => void;
+  onOpenFullScreenPreview?: () => void;
+  canUndo?: boolean;
 }
 
 export const SessionPanel: React.FC<SessionPanelProps> = ({
@@ -165,9 +185,16 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
   stagedState,
   operationMode,
   pendingChangesCount,
-  connectionStatus: _connectionStatus,
+  connectionStatus,
   latencyMs: _latencyMs,
   roomCode: _roomCode,
+  initialViewMode,
+  onUpdateCharacter,
+  onUpdateDisplayField,
+  onOpenCharacterLibrary,
+  onDismissCharacter,
+  onOpenFullScreenPreview,
+  canUndo,
   onSelectScene,
   onPrepareSceneInStaging,
   backupStatus,
@@ -373,6 +400,15 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
     combat ? calculateRemainingTimerSeconds(combat) : 60
   );
 
+  const [controlViewMode, setControlViewMode] = useState<'modular' | 'console'>(() => {
+    if (initialViewMode) return initialViewMode;
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      return 'modular';
+    }
+    return 'console';
+  });
+  const [quickDialogueChar, setQuickDialogueChar] = useState<CharacterOnScreen | null>(null);
+
   useEffect(() => {
     if (!combat?.isActive) return;
     const updateCountdown = () => {
@@ -412,15 +448,79 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
         onEvaluateReadiness={onEvaluateReadiness}
       />
 
-      {/* 1. TOP STATUS & NAVIGATION BAR */}
-      <SessionModeHeader
-        operationMode={operationMode}
-        onToggleOperationMode={onToggleOperationMode}
-        pendingChangesCount={pendingChangesCount}
-        onToggleClassicView={onToggleClassicView}
-      />
+      {/* SELECTOR DE VISTA DE SESIÓN (PANEL MODULAR EN VIVO / CONSOLA CLÁSICA) */}
+      <div className="session-view-mode-selector" role="tablist" aria-label="Modo de vista de control">
+        <button
+          type="button"
+          className={`session-view-tab ${controlViewMode === 'modular' ? 'active' : ''}`}
+          onClick={() => setControlViewMode('modular')}
+          role="tab"
+          aria-selected={controlViewMode === 'modular'}
+        >
+          <LayoutGrid size={15} />
+          <span>Panel Modular</span>
+        </button>
+        <button
+          type="button"
+          className={`session-view-tab ${controlViewMode === 'console' ? 'active' : ''}`}
+          onClick={() => setControlViewMode('console')}
+          role="tab"
+          aria-selected={controlViewMode === 'console'}
+        >
+          <Sliders size={15} />
+          <span>Consola Clásica</span>
+        </button>
+      </div>
 
-      <section className="now-next-strip" aria-label="Estado Ahora y Después">
+      {controlViewMode === 'modular' ? (
+        <>
+          <LiveModularControlPanel
+            campaign={campaign}
+            liveState={liveState}
+            isConnected={connectionStatus === 'connected'}
+            onUpdateCharacter={onUpdateCharacter}
+            onUpdateDisplayField={onUpdateDisplayField}
+            onSelectScene={onSelectScene}
+            onOpenScenePicker={() => onSwitchToTab('library')}
+            onTriggerTransition={onTriggerShake}
+            onOpenCharacterLibrary={onOpenCharacterLibrary || (() => onSwitchToTab('library'))}
+            onOpenQuickDialogue={(charId) => {
+              const c = liveState.characters.find((char) => char.id === charId);
+              if (c) setQuickDialogueChar(c);
+            }}
+            onDismissCharacter={onDismissCharacter}
+            onUndo={onUndo}
+            canUndo={canUndo || pastEvents.length > 0}
+            onSavePreset={onOpenSaveScenePreset}
+            onOpenAtmospherePresets={onOpenLightingPresets}
+            onOpenSoundtrack={onOpenBiomeSoundtrack}
+            onToggleAmbientAudio={onToggleAmbientAudio}
+            onOpenFullScreen={onOpenFullScreenPreview}
+          />
+          {quickDialogueChar && (
+            <ComposerDialogueQuickModal
+              isOpen={!!quickDialogueChar}
+              onClose={() => setQuickDialogueChar(null)}
+              selectedChar={quickDialogueChar}
+              onRehearse={(dlg) => onPublishDialogue?.(dlg)}
+              onPublish={(dlg) => {
+                onPublishDialogue?.(dlg);
+                setQuickDialogueChar(null);
+              }}
+            />
+          )}
+        </>
+      ) : (
+        <>
+          {/* 1. TOP STATUS & NAVIGATION BAR */}
+          <SessionModeHeader
+            operationMode={operationMode}
+            onToggleOperationMode={onToggleOperationMode}
+            pendingChangesCount={pendingChangesCount}
+            onToggleClassicView={onToggleClassicView}
+          />
+
+          <section className="now-next-strip" aria-label="Estado Ahora y Después">
         <div className="now-next-scene now-next-current">
           <div className="now-next-label"><span className="now-next-dot live" /> Ahora · En Mesa</div>
           <div className="now-next-content">
@@ -782,6 +882,8 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
         onExecuteFavorite={onExecuteFavorite}
         onOpenManageFavorites={onOpenManageFavorites}
       />
+        </>
+      )}
 
       {/* Confirmation Dialog: Overwrite Staging */}
       <OverwriteStagingModal

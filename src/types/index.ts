@@ -149,6 +149,8 @@ export interface Character {
   maxHp?: number;
 }
 
+export type ShadowPreset = 'soft-ellipse' | 'elongated' | 'none';
+
 export interface CharacterOnScreen {
   id: string;
   instanceId?: string; // Stable unique ID for screen instance
@@ -173,6 +175,7 @@ export interface CharacterOnScreen {
   statusBadge?: string;
   tacticalTeam?: TacticalTeam;
   nameplatePosition?: 'auto' | 'bottom' | 'top' | 'side'; // Adaptive or manual tag position
+  shadowPreset?: ShadowPreset; // Depth ground shadow preset (default: 'soft-ellipse')
   revelation?: CharacterRevelationState;
 }
 
@@ -298,6 +301,15 @@ export interface SceneCompositionPreset {
 }
 
 export type DialogueStyle = 'speech' | 'narration' | 'whisper' | 'shout';
+export type DialoguePresentationMode = 'auto' | 'balloon' | 'visual-novel' | 'subtitle' | 'narration';
+export type DialogueThemeId = 'default-gold' | 'classic-fantasy' | 'jrpg-retro' | 'cyber-modern' | 'gothic-dark';
+
+export interface DialogueAnchorCoordinates {
+  x: number; // 0-100% (anchored point)
+  y: number; // 0-100% (anchored point)
+  placement: 'top' | 'left' | 'right' | 'bottom';
+  tailDirection: 'down' | 'left' | 'right' | 'up' | 'none';
+}
 
 export interface CinematicDialogue {
   id: string; // Unique dialogue intervention ID
@@ -311,6 +323,9 @@ export interface CinematicDialogue {
   autoFocusSpeaker?: boolean; // Highlight speaker NPC while active
   fontSize?: 'small' | 'medium' | 'large';
   isCompleted?: boolean; // True when typewriter text is fully revealed
+  presentationMode?: DialoguePresentationMode;
+  themeId?: DialogueThemeId;
+  anchorCoordinates?: DialogueAnchorCoordinates;
 }
 
 export type DialogueCameraAction = 'none' | 'general' | 'speaker' | 'group' | 'custom';
@@ -341,6 +356,8 @@ export interface DialogueLine {
   dmNotes?: string; // Private DM notes, strictly excluded from players
   actions?: DialogueLineActions;
   choices?: DialogueBranchChoice[]; // Private branching choices for the DM
+  presentationMode?: DialoguePresentationMode;
+  themeId?: DialogueThemeId;
 }
 
 export interface SavedConversation {
@@ -349,6 +366,8 @@ export interface SavedConversation {
   description?: string;
   sceneId?: string;
   lines: DialogueLine[];
+  defaultThemeId?: DialogueThemeId;
+  defaultPresentationMode?: DialoguePresentationMode;
   createdAt: number;
   updatedAt?: number;
 }

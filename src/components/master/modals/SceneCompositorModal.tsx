@@ -1,6 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Sliders, RotateCcw, Check } from 'lucide-react';
+import { X, Sliders, RotateCcw, Check, Radio } from 'lucide-react';
 import type {
   Campaign,
   Character,
@@ -32,6 +32,12 @@ interface SceneCompositorModalProps {
     backgroundUrl?: string,
     tacticalGrid?: TacticalGridConfig
   ) => Promise<void>;
+  onPreviewState?: (
+    updatedCharacters: CharacterOnScreen[],
+    updatedProps: SceneProp[],
+    backgroundUrl?: string,
+    tacticalGrid?: TacticalGridConfig
+  ) => Promise<void> | void;
   onSaveCompositionPreset?: (preset: SceneCompositionPreset) => Promise<void>;
   onClose: () => void;
 }
@@ -41,6 +47,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
   campaign,
   operationMode,
   onSaveState,
+  onPreviewState,
   onSaveCompositionPreset,
   onClose,
 }) => {
@@ -93,6 +100,10 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
   const [showLoadPresetModal, setShowLoadPresetModal] = useState<boolean>(false);
 
   const stageRef = useRef<HTMLDivElement>(null);
+  const previewCallbackRef = useRef(onPreviewState);
+  const livePreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestPreviewRef = useRef({ characters, propsList, backgroundUrl, tacticalGrid });
+  const lastQueuedPreviewRef = useRef({ characters, propsList, backgroundUrl, tacticalGrid });
   const isDraggingRef = useRef<boolean>(false);
   const dragStartRef = useRef<{
     pointerX: number;
@@ -105,6 +116,53 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
     startX: 0,
     startY: 0,
   });
+
+  useEffect(() => {
+    previewCallbackRef.current = onPreviewState;
+  }, [onPreviewState]);
+
+  const flushLivePreview = useCallback(() => {
+    if (operationMode !== 'live' || !previewCallbackRef.current) return;
+    const latest = latestPreviewRef.current;
+    void previewCallbackRef.current(
+      latest.characters,
+      latest.propsList,
+      latest.backgroundUrl,
+      latest.tacticalGrid
+    );
+  }, [operationMode]);
+
+  useEffect(() => {
+    const nextPreview = { characters, propsList, backgroundUrl, tacticalGrid };
+    latestPreviewRef.current = nextPreview;
+    const previous = lastQueuedPreviewRef.current;
+    if (
+      previous.characters === characters &&
+      previous.propsList === propsList &&
+      previous.backgroundUrl === backgroundUrl &&
+      previous.tacticalGrid === tacticalGrid
+    ) return;
+    lastQueuedPreviewRef.current = nextPreview;
+    if (operationMode !== 'live' || !previewCallbackRef.current || livePreviewTimerRef.current) return;
+
+    // Throttle to ~12 FPS: immediate feedback without flooding the connection while dragging.
+    livePreviewTimerRef.current = setTimeout(() => {
+      livePreviewTimerRef.current = null;
+      flushLivePreview();
+    }, 80);
+  }, [characters, propsList, backgroundUrl, tacticalGrid, operationMode, flushLivePreview]);
+
+  useEffect(() => () => {
+    if (!livePreviewTimerRef.current) return;
+    clearTimeout(livePreviewTimerRef.current);
+    const latest = latestPreviewRef.current;
+    void previewCallbackRef.current?.(
+      latest.characters,
+      latest.propsList,
+      latest.backgroundUrl,
+      latest.tacticalGrid
+    );
+  }, []);
 
   // Push snapshot to history before mutating
   const pushHistory = useCallback(() => {
@@ -463,6 +521,16 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
   };
 
   const handleSave = async (directToLive: boolean) => {
+    if (directToLive && onPreviewState) {
+      if (livePreviewTimerRef.current) {
+        clearTimeout(livePreviewTimerRef.current);
+        livePreviewTimerRef.current = null;
+      }
+      flushLivePreview();
+      onClose();
+      return;
+    }
+
     setIsSaving(true);
     try {
       await onSaveState(characters, propsList, directToLive, undefined, backgroundUrl, tacticalGrid);
@@ -470,6 +538,15 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleClose = () => {
+    if (operationMode === 'live' && livePreviewTimerRef.current) {
+      clearTimeout(livePreviewTimerRef.current);
+      livePreviewTimerRef.current = null;
+      flushLivePreview();
+    }
+    onClose();
   };
 
   const selectedChar =
@@ -499,8 +576,8 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
           <div className="compositor-heading flex items-center gap-2">
             <Sliders size={20} className="text-amber-400" />
             <h2 className="font-bold text-lg text-white">
-              <span className="compositor-title-full">Compositor Táctil de Escena</span>
-              <span className="compositor-title-mobile">Compositor</span>
+              <span className="compositor-title-full">Control de mesa</span>
+              <span className="compositor-title-mobile">Control</span>
             </h2>
             <span
               className={`compositor-mode-badge text-xs px-2 py-0.5 rounded-full font-semibold ${
@@ -509,7 +586,9 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
                   : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
               }`}
             >
-              {operationMode === 'live' ? '⚡ Modo En Vivo' : '📝 Modo Borrador'}
+              {operationMode === 'live' ? (
+                <><Radio size={12} aria-hidden="true" /> En vivo</>
+              ) : 'Preparación'}
             </span>
           </div>
 
@@ -538,7 +617,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
 
             <button
               className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
-              onClick={onClose}
+              onClick={handleClose}
               aria-label="Cerrar compositor"
             >
               <X size={20} />
@@ -601,6 +680,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
             setRotation={setRotation}
             onAddCharacter={handleAddCharacter}
             setTacticalTeam={setTacticalTeam}
+            operationMode={operationMode}
           />
         </div>
 
@@ -618,19 +698,24 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              className="compositor-cancel-button px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
-              onClick={onClose}
-            >
-              Cancelar
-            </button>
+            {operationMode === 'live' && (
+              <span className="compositor-live-hint"><Radio size={12} aria-hidden="true" /> Los cambios ya están en la mesa</span>
+            )}
+            {operationMode === 'staging' && (
+              <button
+                className="compositor-cancel-button px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
+                onClick={handleClose}
+              >
+                Cancelar
+              </button>
+            )}
             <button
               className="compositor-publish-button px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center gap-1.5 shadow-lg disabled:opacity-50"
               onClick={() => handleSave(operationMode === 'live')}
               disabled={isSaving}
             >
               <Check size={16} />
-              <span>{operationMode === 'live' ? 'Publicar a Mesa (ACK)' : 'Guardar en Borrador'}</span>
+              <span>{operationMode === 'live' ? 'Listo' : 'Guardar en Borrador'}</span>
             </button>
           </div>
         </footer>

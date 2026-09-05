@@ -200,6 +200,21 @@ export const ComposerViewport: React.FC<ComposerViewportProps> = ({
                 alignItems: 'center',
               }}
             >
+              {/* Procedural ground shadow in Composer */}
+              {char.shadowPreset !== 'none' && (
+                <div
+                  className={`character-ground-shadow ${char.shadowPreset === 'elongated' ? 'elongated' : ''}`}
+                  style={{
+                    width: `${Math.max(38, scale * 78)}px`,
+                    height: `${Math.max(12, scale * 22)}px`,
+                    opacity: 0.65,
+                    position: 'absolute',
+                    bottom: '22px',
+                  }}
+                  aria-hidden="true"
+                />
+              )}
+
               {/* Indicador de selección */}
               {isSelected && touchMode === 'characters' && (
                 <div

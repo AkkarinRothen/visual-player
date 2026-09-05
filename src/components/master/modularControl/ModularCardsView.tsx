@@ -1,0 +1,161 @@
+import React from 'react';
+import { Undo, Bookmark, ShieldCheck } from 'lucide-react';
+import type {
+  Scene,
+  Character,
+  CharacterOnScreen,
+  WeatherType,
+  LightingFilter,
+} from '../../../types';
+import { ModularSceneCard } from './ModularSceneCard';
+import { ModularCharactersCard } from './ModularCharactersCard';
+import { ModularAtmosphereCard } from './ModularAtmosphereCard';
+import { ModularAudioCard } from './ModularAudioCard';
+
+export interface ModularCardsViewProps {
+  currentScene?: Scene | null;
+  sceneName: string;
+  backgroundUrl: string;
+  onOpenScenePicker?: () => void;
+  onTriggerTransition?: () => void;
+
+  characters: CharacterOnScreen[];
+  campaignCharacters?: Character[];
+  selectedCharId: string | null;
+  onSelectCharacter: (id: string) => void;
+  onToggleCharacterVisibility: (id: string, currentlyHidden: boolean) => void;
+  onOpenCharacterLibrary?: () => void;
+
+  weather: WeatherType;
+  weatherIntensity: number;
+  lighting: LightingFilter;
+  onWeatherChange: (weather: WeatherType) => void;
+  onWeatherIntensityChange: (intensity: number) => void;
+  onLightingChange: (filter: LightingFilter) => void;
+  onOpenAtmospherePresets?: () => void;
+
+  audioTrackTitle?: string;
+  isAudioPlaying: boolean;
+  audioVolume: number;
+  onToggleAudioPlay: () => void;
+  onAudioVolumeChange: (volume: number) => void;
+  onNextTrack?: () => void;
+  onPrevTrack?: () => void;
+  onOpenSoundtrack?: () => void;
+
+  onUndo?: () => void;
+  canUndo?: boolean;
+  onSavePreset?: () => void;
+}
+
+export const ModularCardsView: React.FC<ModularCardsViewProps> = ({
+  currentScene,
+  sceneName,
+  backgroundUrl,
+  onOpenScenePicker,
+  onTriggerTransition,
+  characters,
+  campaignCharacters,
+  selectedCharId,
+  onSelectCharacter,
+  onToggleCharacterVisibility,
+  onOpenCharacterLibrary,
+  weather,
+  weatherIntensity,
+  lighting,
+  onWeatherChange,
+  onWeatherIntensityChange,
+  onLightingChange,
+  onOpenAtmospherePresets,
+  audioTrackTitle,
+  isAudioPlaying,
+  audioVolume,
+  onToggleAudioPlay,
+  onAudioVolumeChange,
+  onNextTrack,
+  onPrevTrack,
+  onOpenSoundtrack,
+  onUndo,
+  canUndo = false,
+  onSavePreset,
+}) => {
+  return (
+    <div className="modular-control-scroll-area">
+      {/* 1. Escena actual */}
+      <ModularSceneCard
+        currentScene={currentScene}
+        sceneName={sceneName}
+        backgroundUrl={backgroundUrl}
+        onOpenScenePicker={onOpenScenePicker}
+        onTriggerTransition={onTriggerTransition}
+      />
+
+      {/* 2. Personajes en mesa */}
+      <ModularCharactersCard
+        characters={characters}
+        campaignCharacters={campaignCharacters}
+        selectedCharId={selectedCharId}
+        onSelectCharacter={onSelectCharacter}
+        onToggleCharacterVisibility={onToggleCharacterVisibility}
+        onOpenCharacterLibrary={onOpenCharacterLibrary}
+      />
+
+      {/* 3. Ambiente */}
+      <ModularAtmosphereCard
+        weather={weather}
+        weatherIntensity={weatherIntensity}
+        lighting={lighting}
+        onWeatherChange={onWeatherChange}
+        onWeatherIntensityChange={onWeatherIntensityChange}
+        onLightingChange={onLightingChange}
+        onOpenAtmospherePresets={onOpenAtmospherePresets}
+      />
+
+      {/* 4. Audio */}
+      <ModularAudioCard
+        trackTitle={audioTrackTitle}
+        isPlaying={isAudioPlaying}
+        volume={audioVolume}
+        onTogglePlay={onToggleAudioPlay}
+        onVolumeChange={onAudioVolumeChange}
+        onNextTrack={onNextTrack}
+        onPrevTrack={onPrevTrack}
+        onOpenSoundtrack={onOpenSoundtrack}
+      />
+
+      {/* 5. Footer Actions: Deshacer & Guardar Preset */}
+      <div className="modular-footer-actions">
+        {onUndo && (
+          <button
+            type="button"
+            className="modular-footer-btn undo"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Deshacer el último cambio"
+          >
+            <Undo size={16} />
+            <span>Deshacer</span>
+          </button>
+        )}
+
+        {onSavePreset && (
+          <button
+            type="button"
+            className="modular-footer-btn save-preset"
+            onClick={onSavePreset}
+            title="Guardar estado como preset de escena"
+          >
+            <Bookmark size={16} />
+            <span>Guardar preset</span>
+          </button>
+        )}
+      </div>
+
+      {/* 6. Live Status legend */}
+      <div className="modular-status-badge">
+        <ShieldCheck size={14} style={{ color: '#34d399' }} />
+        <span>Todos los cambios se aplican <strong>al instante</strong>. No se publica nada.</span>
+      </div>
+    </div>
+  );
+};

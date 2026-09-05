@@ -1,0 +1,175 @@
+/* ==========================================================================
+   Visual Player — Dialogue Themes & Ground Shadows (MAN-048)
+   Tokens y estilos para Globos JRPG, Cajas de Novela Visual y Sombras de Suelo
+   ========================================================================== */
+
+/* --- TEMA 1: Visual Player Default Gold --- */
+.dialogue-theme-default-gold {
+  --dt-bg: rgba(15, 23, 42, 0.88);
+  --dt-border: rgba(245, 158, 11, 0.5);
+  --dt-glow: rgba(245, 158, 11, 0.25);
+  --dt-text: #f8fafc;
+  --dt-speaker-color: #fbbf24;
+  --dt-font-family: inherit;
+  --dt-badge-bg: rgba(245, 158, 11, 0.15);
+  --dt-badge-border: rgba(245, 158, 11, 0.4);
+  --dt-tail-color: rgba(15, 23, 42, 0.95);
+  --dt-tail-border: rgba(245, 158, 11, 0.5);
+}
+
+/* --- TEMA 2: Fantasía Clásica (Gold & Parchment / Unicorn Overlord) --- */
+.dialogue-theme-classic-fantasy {
+  --dt-bg: rgba(26, 20, 14, 0.92);
+  --dt-border: #d4af37;
+  --dt-glow: rgba(212, 175, 55, 0.35);
+  --dt-text: #fdf6e2;
+  --dt-speaker-color: #ffd700;
+  --dt-font-family: 'Cinzel', 'Georgia', serif;
+  --dt-badge-bg: rgba(212, 175, 55, 0.2);
+  --dt-badge-border: #d4af37;
+  --dt-tail-color: rgba(26, 20, 14, 0.95);
+  --dt-tail-border: #d4af37;
+}
+
+/* --- TEMA 3: JRPG Retro (16-Bit Pixel / Arcade) --- */
+.dialogue-theme-jrpg-retro {
+  --dt-bg: #09090b;
+  --dt-border: #38bdf8;
+  --dt-glow: rgba(56, 189, 248, 0.3);
+  --dt-text: #f0fdf4;
+  --dt-speaker-color: #4ade80;
+  --dt-font-family: 'Courier New', monospace;
+  --dt-badge-bg: #0f172a;
+  --dt-badge-border: #38bdf8;
+  --dt-tail-color: #09090b;
+  --dt-tail-border: #38bdf8;
+}
+
+/* --- TEMA 4: Cyber / Moderno (Neon Cyan Glass) --- */
+.dialogue-theme-cyber-modern {
+  --dt-bg: rgba(8, 20, 32, 0.88);
+  --dt-border: #06b6d4;
+  --dt-glow: rgba(6, 182, 212, 0.4);
+  --dt-text: #e0f2fe;
+  --dt-speaker-color: #22d3ee;
+  --dt-font-family: 'Inter', system-ui, sans-serif;
+  --dt-badge-bg: rgba(6, 182, 212, 0.18);
+  --dt-badge-border: #0891b2;
+  --dt-tail-color: rgba(8, 20, 32, 0.92);
+  --dt-tail-border: #06b6d4;
+}
+
+/* --- TEMA 5: Gótico / Dark Fantasy (Crimson Shadows / Vampire) --- */
+.dialogue-theme-gothic-dark {
+  --dt-bg: rgba(20, 10, 14, 0.92);
+  --dt-border: #e11d48;
+  --dt-glow: rgba(225, 29, 72, 0.35);
+  --dt-text: #ffe4e6;
+  --dt-speaker-color: #fb7185;
+  --dt-font-family: 'Georgia', serif;
+  --dt-badge-bg: rgba(225, 29, 72, 0.25);
+  --dt-badge-border: #9f1239;
+  --dt-tail-color: rgba(20, 10, 14, 0.95);
+  --dt-tail-border: #e11d48;
+}
+
+/* --- Globo JRPG Flotante --- */
+.jrpg-speech-balloon {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: var(--dt-bg, rgba(15, 23, 42, 0.88));
+  border: 2px solid var(--dt-border, #fbbf24);
+  border-radius: 14px;
+  padding: 10px 14px;
+  color: var(--dt-text, #fff);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7), 0 0 16px var(--dt-glow, rgba(245, 158, 11, 0.25));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  max-width: min(340px, 82vw);
+  z-index: 55;
+  transition: transform 0.15s ease-out, opacity 0.15s ease-out;
+  pointer-events: auto;
+}
+
+/* Colas de globo con borde */
+.balloon-tail {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.balloon-tail.tail-down {
+  bottom: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 11px solid var(--dt-border, #fbbf24);
+}
+
+.balloon-tail.tail-down::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: -8px;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 9px solid var(--dt-tail-color, rgba(15, 23, 42, 0.95));
+}
+
+.balloon-tail.tail-left {
+  left: -11px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-right: 11px solid var(--dt-border, #fbbf24);
+}
+
+.balloon-tail.tail-left::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: -8px;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 9px solid var(--dt-tail-color, rgba(15, 23, 42, 0.95));
+}
+
+.balloon-tail.tail-right {
+  right: -11px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-left: 11px solid var(--dt-border, #fbbf24);
+}
+
+.balloon-tail.tail-right::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  top: -8px;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 9px solid var(--dt-tail-color, rgba(15, 23, 42, 0.95));
+}
+
+/* --- Sombras de Suelo Procedurales --- */
+.character-ground-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translate(-50%, 50%);
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.35) 45%, rgba(0, 0, 0, 0) 72%);
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(2px);
+  z-index: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.character-ground-shadow.elongated {
+  transform: translate(-50%, 50%) scaleX(1.35) scaleY(0.75);
+}

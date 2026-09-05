@@ -1684,7 +1684,72 @@
   min-height: 0;
   max-height: min(620px, calc(95dvh - 190px));
   margin-inline: auto;
+  container-type: size;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
+}
+
+.compositor-stage-entity {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 46%;
+  isolation: isolate;
+}
+
+.compositor-stage-character-visual {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.compositor-stage-character-image,
+.compositor-stage-prop-image {
+  display: block;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.compositor-stage-character-image {
+  max-width: 38cqw;
+  max-height: 68cqh;
+}
+
+.compositor-stage-prop-image {
+  max-width: 34cqw;
+  max-height: 56cqh;
+}
+
+.compositor-tactical-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.compositor-tactical-canvas > div,
+.compositor-tactical-canvas canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.compositor-stage-entity-label {
+  max-width: min(150px, 40cqw);
+  padding: 2px 6px;
+  overflow: hidden;
+  border-radius: 5px;
+  font-size: clamp(8px, 2.5cqh, 11px);
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .compositor-stage-toolbar {
@@ -1836,6 +1901,11 @@
     width: 100%;
     height: auto !important;
     min-height: 0 !important;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 0 0 8px;
+    background: linear-gradient(180deg, #08101f 0%, #08101f 92%, rgba(8, 16, 31, 0) 100%);
   }
 
   .compositor-stage-panel .stage-viewport {
@@ -1848,7 +1918,17 @@
   }
 
   .compositor-stage-panel .stage-viewport img {
-    max-height: 32vh;
+    max-height: none;
+  }
+
+  .compositor-stage-panel .compositor-stage-character-image {
+    max-width: 40cqw;
+    max-height: 66cqh;
+  }
+
+  .compositor-stage-panel .compositor-stage-prop-image {
+    max-width: 36cqw;
+    max-height: 54cqh;
   }
 
   .compositor-stage-toolbar {
@@ -2314,6 +2394,133 @@
     width: 100%;
     justify-content: center;
     min-height: 52px;
+  }
+}
+
+/* Stage-first mobile compositor: the canvas stays complete while contextual controls lead. */
+.compositor-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.compositor-live-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #67e8f9;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.compositor-selection-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+
+.compositor-selection-identity > img {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  border-radius: 50%;
+  background: #020617;
+  object-fit: contain;
+}
+
+.compositor-selection-identity > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  color: #f8fafc;
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compositor-selection-identity small {
+  color: #67e8f9;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.compositor-layer-chip {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 1px solid #334155;
+  border-radius: 999px;
+  color: #94a3b8;
+  background: rgba(15, 23, 42, 0.8);
+  font-size: 0.64rem;
+}
+
+@media (max-width: 767px) {
+  .compositor-header {
+    min-height: calc(56px + var(--sat));
+  }
+
+  .compositor-mode-badge {
+    border-color: rgba(34, 211, 238, 0.3) !important;
+    color: #67e8f9 !important;
+    background: rgba(8, 145, 178, 0.12) !important;
+  }
+
+  .compositor-body {
+    padding: 8px 8px 14px !important;
+  }
+
+  .compositor-stage-panel {
+    padding-bottom: 10px;
+    background: linear-gradient(180deg, #08101f 0%, #08101f 92%, rgba(8, 16, 31, 0) 100%);
+  }
+
+  .compositor-stage-panel .stage-viewport {
+    aspect-ratio: 16 / 9 !important;
+    background-position: center !important;
+    background-size: contain !important;
+    background-color: #02040a !important;
+  }
+
+  .compositor-controls .selected-controls {
+    order: -1;
+    padding: 12px !important;
+    border: 1px solid rgba(51, 65, 85, 0.92) !important;
+    border-radius: 14px;
+    background:
+      radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.09), transparent 42%),
+      rgba(15, 23, 42, 0.94);
+    box-shadow: 0 12px 32px rgba(2, 6, 23, 0.28);
+  }
+
+  .compositor-layers-section {
+    order: 1;
+  }
+
+  .compositor-selection-header {
+    min-height: 42px;
+  }
+
+  .compositor-live-hint {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.66rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .compositor-footer > div:last-child {
+    align-items: center;
+  }
+}
+
+@media (max-width: 390px) {
+  .compositor-live-hint {
+    max-width: 40vw;
   }
 }
 

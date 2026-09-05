@@ -9,6 +9,8 @@ import type {
   CameraTransform,
   BackgroundType,
   SceneVideoConfig,
+  ShadowPreset,
+  CinematicDialogue,
 } from '../../../types';
 import { db } from '../../../db';
 import {
@@ -23,12 +25,19 @@ import {
   type DpadPreset,
   type ComposerBottomTab,
 } from './composerTypes';
+import {
+  type SceneLayoutTemplate,
+  applySceneLayoutTemplate,
+} from '../../../domain/display/sceneLayoutTemplates';
 import { ComposerHeader } from './ComposerHeader';
 import { ComposerTouchModeBar } from './ComposerTouchModeBar';
 import { ComposerViewport } from './ComposerViewport';
 import { ComposerSelectedCharPanel } from './ComposerSelectedCharPanel';
 import { ComposerBottomTabs } from './ComposerBottomTabs';
 import { ComposerModals } from './ComposerModals';
+import { ComposerDialogueQuickModal } from './ComposerDialogueQuickModal';
+import { ApplyTemplateModal } from './ApplyTemplateModal';
+import { CinematicDialogueLayer } from '../../display/CinematicDialogueLayer';
 
 export interface SceneCanvasComposerProps {
   campaign: Campaign;
@@ -104,6 +113,27 @@ export const SceneCanvasComposer: React.FC<SceneCanvasComposerProps> = ({
   // Resiliencia de borrador ante cierres o interrupciones de Android
   const [recoveredDraft, setRecoveredDraft] = useState<SceneDraftState | null>(null);
   const [showDraftModal, setShowDraftModal] = useState(false);
+
+  // Diálogos rápidos y previsualización de ensayo
+  const [showQuickDialogueModal, setShowQuickDialogueModal] = useState(false);
+  const [rehearsalDialogue, setRehearsalDialogue] = useState<CinematicDialogue | null>(null);
+
+  // Modal de confirmación de plantilla
+  const [selectedTemplateForModal, setSelectedTemplateForModal] = useState<SceneLayoutTemplate | null>(null);
+
+  const handleChangeShadowPreset = (id: string, preset: ShadowPreset) => {
+    setCharacters((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, shadowPreset: preset } : c))
+    );
+  };
+
+  const handleApplyTemplate = (options: { applyComposition: boolean; applyPresentation: boolean }) => {
+    if (!selectedTemplateForModal) return;
+    setCharacters((current) =>
+      applySceneLayoutTemplate(current, selectedTemplateForModal, options)
+    );
+    setSelectedTemplateForModal(null);
+  };
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
@@ -554,34 +584,44 @@ export const SceneCanvasComposer: React.FC<SceneCanvasComposerProps> = ({
       <ComposerTouchModeBar
         touchMode={touchMode}
         setTouchMode={setTouchMode}
+        onSelectTemplate={(tmpl) => setSelectedTemplateForModal(tmpl)}
       />
 
       {/* 3. LIENZO CENTRAL 16:9 */}
-      <ComposerViewport
-        canvasRef={canvasRef}
-        touchMode={touchMode}
-        editorPan={editorPan}
-        editorZoom={editorZoom}
-        setEditorPan={setEditorPan}
-        setEditorZoom={setEditorZoom}
-        bgOffset={bgOffset}
-        setBgOffset={setBgOffset}
-        isDragging={isDraggingRef.current}
-        backgroundUrl={backgroundUrl}
-        backgroundType={backgroundType}
-        videoPosterUrl={videoConfig?.videoPosterUrl}
-        lighting={lighting}
-        locationBanner={locationBanner}
-        characters={characters}
-        selectedCharId={selectedCharId}
-        onOpenBackgroundPicker={() => {
-          setAssetPickerMode('background');
-          setShowAssetPicker(true);
-        }}
-        onCanvasTouchStart={handleCanvasTouchStart}
-        onCanvasTouchMove={handleCanvasTouchMove}
-        onFigureTouchStart={handleFigureTouchStart}
-      />
+      <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
+        <ComposerViewport
+          canvasRef={canvasRef}
+          touchMode={touchMode}
+          editorPan={editorPan}
+          editorZoom={editorZoom}
+          setEditorPan={setEditorPan}
+          setEditorZoom={setEditorZoom}
+          bgOffset={bgOffset}
+          setBgOffset={setBgOffset}
+          isDragging={isDraggingRef.current}
+          backgroundUrl={backgroundUrl}
+          backgroundType={backgroundType}
+          videoPosterUrl={videoConfig?.videoPosterUrl}
+          lighting={lighting}
+          locationBanner={locationBanner}
+          characters={characters}
+          selectedCharId={selectedCharId}
+          onOpenBackgroundPicker={() => {
+            setAssetPickerMode('background');
+            setShowAssetPicker(true);
+          }}
+          onCanvasTouchStart={handleCanvasTouchStart}
+          onCanvasTouchMove={handleCanvasTouchMove}
+          onFigureTouchStart={handleFigureTouchStart}
+        />
+
+        {/* Previsualización local de Diálogo en Ensayo */}
+        {rehearsalDialogue && (
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 60 }}>
+            <CinematicDialogueLayer dialogue={rehearsalDialogue} />
+          </div>
+        )}
+      </div>
 
       {/* 4. BANDEJA INFERIOR FIJA TÁCTIL */}
       <div
@@ -606,6 +646,8 @@ export const SceneCanvasComposer: React.FC<SceneCanvasComposerProps> = ({
             onCloseSelection={() => setSelectedCharId(null)}
             onScaleChange={handleScaleChange}
             onNudge={handleNudge}
+            onOpenQuickDialogue={() => setShowQuickDialogueModal(true)}
+            onChangeShadowPreset={handleChangeShadowPreset}
           />
         ) : (
           <ComposerBottomTabs
@@ -722,6 +764,31 @@ export const SceneCanvasComposer: React.FC<SceneCanvasComposerProps> = ({
             : undefined
         }
       />
+
+      {/* Modal de confirmación de plantilla rápida */}
+      {selectedTemplateForModal && (
+        <ApplyTemplateModal
+          isOpen={Boolean(selectedTemplateForModal)}
+          onClose={() => setSelectedTemplateForModal(null)}
+          template={selectedTemplateForModal}
+          onConfirm={handleApplyTemplate}
+        />
+      )}
+
+      {/* Modal de diálogo rápido con opciones de ensayo y publicación */}
+      {showQuickDialogueModal && selectedChar && (
+        <ComposerDialogueQuickModal
+          isOpen={showQuickDialogueModal}
+          onClose={() => setShowQuickDialogueModal(false)}
+          selectedChar={selectedChar}
+          onRehearse={(dlg) => setRehearsalDialogue(dlg)}
+          onPublish={async (_dlg) => {
+            setRehearsalDialogue(null);
+            const updated = buildCurrentSceneData();
+            await onSaveScene(updated);
+          }}
+        />
+      )}
     </div>
   );
 };

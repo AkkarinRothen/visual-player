@@ -2,6 +2,62 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-05 — MAN-049: Panel de Control Móvil Unificado (Panel Modular 16:9 + Inspector Contextual de Personajes)
+
+- **Walkthrough y entorno:** revisión y ejecución completa de pruebas unitarias y de integración en Vitest (409/409 pruebas aprobadas, 71 suites), verificación de tipado estricto con `npx tsc -b` (0 errores) y compilación de producción con Vite (`npm run build` en 4.01s). Comprobación visual en navegador emulando pantallas móviles (360 × 780 px a 640 px); pendiente prueba de campo en dispositivo físico Android y con Mesa física conectada.
+- **Funciones y componentes afectados:**
+  1. **Escenario persistente 16:9 (`LiveModularControlPanel.tsx`, `StageTouchOverlay.tsx`):** Visor con relación 16:9 fija sin deformación ni corte de figuras. Incorpora capa táctil interactiva (`StageTouchOverlay`) con soporte para selección directa de figuras mediante toque, anillo cian luminoso y arrastre suave para actualización de posición en vivo en la Mesa.
+  2. **Panel Modular de Control (`ModularCardsView.tsx`):** Interfaz simultánea compuesta por 4 tarjetas compactas diseñadas para el pulgar:
+     - *Escena actual (`ModularSceneCard.tsx`):* Portada, nombre, estado, selector rápido (**Cambiar**) y botón de **Transición**.
+     - *Personajes en mesa (`ModularCharactersCard.tsx`):* Carrusel horizontal de figuras con avatares, nombre, rol y switch de visibilidad rápida (**Ojo**). Tocar la tarjeta abre el inspector.
+     - *Ambiente (`ModularAtmosphereCard.tsx`):* Interruptor de clima (*Lluvia*, *Tormenta*, *Niebla*, *Nieve*, *Cenizas*, *Luciérnagas*), barra de intensidad (0-100%) y paleta de círculos de tinte lumínico (*Natural*, *Noche*, *Místico*, *Luna de sangre*, *Antorchas*, *Atardecer*).
+     - *Audio (`ModularAudioCard.tsx`):* Mini-reproductor con play/pause pulsante, navegación entre pistas y control deslizante de volumen (0-100%).
+     - *Acciones y leyenda:* Botones de **Deshacer** y **Guardar preset**, acompañados de la indicación: *"Todos los cambios se aplican al instante. No se publica nada."*
+  3. **Inspector Contextual de Personaje (`ContextualCharacterInspector.tsx`):** Transición fluida al seleccionar una figura. Despliega avatar luminoso con halo, nombre/rol, interruptor **Visible en mesa**, controles por pasos de **Tamaño** (`-`/`+`), **Capa / Orden** (`▲`/`▼`), botón directo **Hablar…** (con apertura del modal de globos JRPG/cinemáticos), botón **Espejo** (reflejo horizontal) y botón para volver al panel modular.
+  4. **Integración en SessionPanel (`SessionPanel.tsx`):** Selector de modo en cabecera para alternar entre **Panel Modular** (activo por defecto en pantallas móviles y tablets) y **Consola Clásica** (con soporte de preparación por borrador).
+  5. **Estilos dedicados (`src/styles/modularControl.css`):** Diseño oscuro moderno de inspiración RPG con glassmorphism, áreas táctiles superiores a 44 px y transiciones fluidas.
+- **Manual:** actualizada la sección de «Panel de Control Modular e Inspector (Celular y Tablet)» en `docs/manual/README.md`.
+- **Evidencia técnica:** 71/71 suites pasando (409/409 pruebas aprobadas, incluyendo 7 nuevas pruebas específicas en `LiveModularControlPanel.test.tsx` y 1 en `SessionPanel.test.tsx`), `npx tsc -b` limpio y empaquetado de producción correcto.
+- **Límites:** comprobado en pruebas automatizadas y en entorno web local; pendiente validar ergonomía de arrastre en pantalla táctil capacitiva real de Android.
+
+## 2026-09-05 — Escenario completo y figuras visibles en celular vertical
+
+- **Problema observado:** en el compositor vertical podían verse solo partes del escenario y las figuras dependían de estilos utilitarios que no garantizaban su geometría en Capacitor. En el lienzo táctico, los tokens con posición de suelo nacían centrados sobre el borde inferior y quedaban recortados.
+- **Corrección:** el escenario mantiene una superficie 16:9 completa y fija durante el desplazamiento de controles. Personajes, objetos y etiquetas tienen posicionamiento y límites relativos explícitos al lienzo. Los tokens tácticos se mantienen dentro de un margen seguro que incluye su retrato y nombre.
+- **Comprobación visual:** recorrido local a 360 × 780 px con Eldrin Sombrasusurro seleccionado. Se comprobó la figura completa en composición normal, el token y su nombre completos con **Cuadrícula**, y la permanencia del escenario al desplazarse hasta tamaño, movimiento, capas y expresiones.
+- **Manual:** actualizada la descripción de **Editor de escena en el celular**.
+- **Límites:** comprobado en navegador con dimensiones de teléfono; pendiente repetir en Android físico.
+
+## 2026-09-05 — Compositor con cambios visibles en directo
+
+- **Cambio de uso:** en **En Vivo**, el compositor transmite automáticamente a la Mesa los movimientos, tamaños, capas, NPCs, objetos, fondos y ajustes de cuadrícula. La cabecera muestra **Cambios en directo** y el cierre principal ahora es **Listo**; ya no hace falta pulsar **Publicar a Mesa** dentro del compositor. **Preparación** conserva el flujo de borrador y publicación.
+- **Comprobación visual y funcional:** recorrido local con un navegador como Maestro y otro como Mesa conectada. Se añadió a Eldrin Sombrasusurro desde el compositor y apareció en la Mesa conectada sin tocar **Listo**. También se comprobó que el estado En Vivo del Maestro se actualiza durante la edición.
+- **Evidencia técnica:** transmisión limitada a aproximadamente 12 actualizaciones por segundo durante arrastres para mantener respuesta táctil sin saturar la conexión; build de producción correcto y 21/21 pruebas dirigidas aprobadas.
+- **Manual:** actualizadas las instrucciones de edición En Vivo, controles inferiores, cambio de fondo y plantillas de composición.
+- **Límites:** recorrido completo en navegador local; pendiente repetirlo en dos dispositivos Android físicos sobre red real.
+
+## 2026-09-05 — MAN-048: Diálogos Anclados (Globos JRPG / Novela Visual), Sombras de Suelo y Plantillas Desacopladas
+
+- **Walkthrough y entorno:** revisión completa de código, pruebas unitarias e integración en Vitest (401/401 pruebas) y verificación de empaquetado Vite de producción; comprobación de interacción táctil y visual en navegador local; no se realizó prueba en dispositivo Android físico ni con Mesa física conectada.
+- **Funciones afectadas:**
+  1. **Sombras elípticas de suelo:** proyección procedural en la base calibrada (`anchorPercent`) de cada figura en `DisplayCharactersLayer` y `ComposerViewport`, con atenuación dinámica por elevación y selector de estilo (*Elipse suave*, *Alargada*, *Ninguna*) en el panel de personaje.
+  2. **Globos JRPG con posicionamiento adaptativo:** cálculo geométrico multi-candidato en coordenadas 16:9 (`dialogueGeometry.ts`) con cola orientada hacia el hablante, desvío lateral automático en bordes o zoom e histéresis para evitar parpadeos, con fallback elegante a caja inferior de novela visual.
+  3. **Temas estéticos por tokens (`dialogueThemes.css`):** 5 temas visuales intercambiables (*Dorado VP*, *Fantasía Clásica*, *JRPG Retro*, *Cyber Neón* y *Gótico Oscuro*).
+  4. **Interacción rápida desde el panel («Hablar…»):** botón en `ComposerSelectedCharPanel` que abre `ComposerDialogueQuickModal`, permitiendo redactar frases espontáneas con separación estricta entre **Ensayar (Local)** y **Publicar en Mesa**.
+  5. **Ciclo de avance en dos toques (`dialogueSession.ts`):** 1ª pulsación completa de inmediato el efecto typewriter; 2ª pulsación avanza a la siguiente línea o cierra la burbuja. Sanitización estricta que excluye notas secretas del DM y ramas no elegidas de la Mesa.
+  6. **Plantillas desacopladas (`sceneLayoutTemplates.ts` y `ApplyTemplateModal.tsx`):** separación entre composición física y presentación recomendada, permitiendo al DM decidir qué capas aplicar mediante casillas independientes y checkpoint preventivo.
+- **Manual:** se actualizaron las secciones «Plantillas rápidas de composición», «Sombras de suelo y anclaje de profundidad» y «Globos JRPG anclados y cajas de novela visual» en `docs/manual/README.md`.
+- **Evidencia técnica:** compilación TypeScript estricta limpia (`npx tsc -b`, 0 errores), 70 suites de pruebas pasando al 100% (401 de 401 pruebas aprobadas en Vitest) y empaquetado de producción (`npm run build`) en 3.96s.
+- **Límites y próxima comprobación:** pendiente prueba en dispositivo Android físico con pantalla táctil y Mesa física conectada para validar ergonomía y legibilidad de fuentes de temas en televisores de sala. Resultado: aprobado con pruebas locales completas.
+
+## 2026-09-05 — Integración de Motion, Howler y Turf
+
+- **Funciones afectadas:** las cajas de diálogo entran y salen con una transición breve; el uso no cambia. En el lienzo táctico, al seleccionar un token aparece su distancia en celdas al enemigo más próximo. Los SFX de archivos pasan a usar el reproductor interno de Howler; los controles **Sonidos** y **Detener SFX** conservan sus nombres y ubicación.
+- **Evidencia:** `npm run build` completado y 4/4 pruebas dirigidas aprobadas, incluidas las de distancia táctica.
+- **Comprobación de uso:** revisado en código; falta recorrido visual y reproducción de audio en una Mesa conectada.
+- **Límites:** la distancia es una referencia de cuadrícula, no una regla de alcance ni una automatización de combate. No se incorporó colaboración simultánea (Yjs) ni PixiJS, porque el lienzo ya está resuelto con Konva y la colaboración requiere definir transporte y permisos.
+- **Manual:** se actualizó la explicación de **Mapa** en `README.md`. Resultado: actualizado; comprobación visual pendiente.
+
 ## 2026-09-05 — Compositor táctil: jerarquía y layout móvil
 
 - **Alcance:** rediseño responsive de `SceneCompositorModal`, su escenario, barra de herramientas, capas, controles de selección y pie de acciones. No se cambiaron funciones, nombres de controles ni la forma de guardar o publicar.

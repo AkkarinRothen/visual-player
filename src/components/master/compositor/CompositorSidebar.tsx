@@ -46,6 +46,7 @@ export interface CompositorSidebarProps {
   setRotation: (deg: number) => void;
   onAddCharacter?: (character: Character) => void;
   setTacticalTeam: (team: TacticalTeam) => void;
+  operationMode: 'live' | 'staging';
 }
 
 export const CompositorSidebar: React.FC<CompositorSidebarProps> = ({
@@ -76,6 +77,7 @@ export const CompositorSidebar: React.FC<CompositorSidebarProps> = ({
   onAddCharacter,
   campaign,
   setTacticalTeam,
+  operationMode,
 }) => {
   return (
     <div className="compositor-controls w-full md:w-80 flex flex-col gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-800">
@@ -194,9 +196,12 @@ export const CompositorSidebar: React.FC<CompositorSidebarProps> = ({
       {/* CONTROLS FOR SELECTED CHARACTER */}
       {selectedChar && (
         <div className="selected-controls flex flex-col gap-2.5 pt-2 border-t border-slate-800">
-          <div className="flex items-center justify-between text-xs font-bold text-amber-300">
-            <span>NPC: {selectedChar.name}</span>
-            <span className="text-[10px] text-slate-400">Capa {selectedChar.zIndex ?? 1}</span>
+          <div className="compositor-selection-header flex items-center justify-between text-xs font-bold text-amber-300">
+            <div className="compositor-selection-identity">
+              <img src={selectedChar.avatarUrl} alt="" aria-hidden="true" />
+              <span><small>{operationMode === 'live' ? 'Editando en vivo' : 'Editando borrador'}</small>{selectedChar.name}</span>
+            </div>
+            <span className="compositor-layer-chip">Capa {selectedChar.zIndex ?? 1}</span>
           </div>
 
           <div className="grid grid-cols-3 gap-1.5">
@@ -355,9 +360,12 @@ export const CompositorSidebar: React.FC<CompositorSidebarProps> = ({
       {/* CONTROLS FOR SELECTED PROP */}
       {selectedProp && (
         <div className="selected-controls flex flex-col gap-2.5 pt-2 border-t border-slate-800">
-          <div className="flex items-center justify-between text-xs font-bold text-purple-300">
-            <span className="truncate max-w-[170px]">{selectedProp.name}</span>
-            <span className="text-[10px] text-slate-400">Capa {selectedProp.zIndex}</span>
+          <div className="compositor-selection-header flex items-center justify-between text-xs font-bold text-purple-300">
+            <div className="compositor-selection-identity">
+              <img src={selectedProp.assetUrl} alt="" aria-hidden="true" />
+              <span><small>{operationMode === 'live' ? 'Editando en vivo' : 'Editando borrador'}</small>{selectedProp.name}</span>
+            </div>
+            <span className="compositor-layer-chip">Capa {selectedProp.zIndex}</span>
           </div>
 
           {/* PROP ACTIONS: VISIBILITY, FLIP, ANCHOR, DUPLICATE, DELETE */}

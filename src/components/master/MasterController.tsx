@@ -601,6 +601,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     handleUpdateSceneLights,
     handleUpdateZoneEmitters,
     handleSaveCompositorCharacters,
+    handlePreviewCompositorCharacters,
     handleSaveCompositionPreset,
     handleUpdateCampaignCharacter,
     handlePublishDialogue,
@@ -876,6 +877,14 @@ export const MasterController: React.FC<MasterControllerProps> = ({
             onEvaluateReadiness={() => setShowReadinessModal(true)}
             backupStatus={gameSessionService.getBackupStatus(gameSessionService.getCurrentSession())}
             lastExportIsComplete={gameSessionService.getCurrentSession()?.lastExportIsComplete}
+            onUpdateCharacter={handleDirectorUpdateCharacter}
+            onUpdateDisplayField={(field, value, desc) => {
+              updateDisplay((prev) => ({ ...prev, [field]: value }), desc);
+            }}
+            onOpenCharacterLibrary={() => setShowSummonModal(true)}
+            onDismissCharacter={dismissCharacter}
+            onOpenFullScreenPreview={() => setShowFullScreenPreview(true)}
+            canUndo={pastEvents.length > 0}
           />
         )}
 
@@ -1054,6 +1063,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         showCompositorModal={showCompositorModal}
         onCloseCompositor={() => setShowCompositorModal(false)}
         onSaveCompositorCharacters={handleSaveCompositorCharacters}
+        onPreviewCompositorCharacters={handlePreviewCompositorCharacters}
         onSaveCompositionPreset={handleSaveCompositionPreset}
         showConversationEditor={showConversationEditor}
         editingConversation={editingConversation}

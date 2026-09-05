@@ -29,4 +29,22 @@ describe('scene layout templates', () => {
     expect(layout.every((item) => item.scale === 0.42)).toBe(true);
     expect(new Set(layout.map((item) => `${item.normalizedX},${item.normalizedY}`)).size).toBe(4);
   });
+
+  it('allows applying presentation recommendations without modifying physical composition', () => {
+    const originalPositions = figures.map((f) => ({ x: f.normalizedX, y: f.normalizedY, scale: f.scale }));
+    const layout = applySceneLayoutTemplate(figures, 'jrpg-battle', {
+      applyComposition: false,
+      applyPresentation: true,
+    });
+
+    // Positions should remain untouched
+    layout.forEach((char, i) => {
+      expect(char.normalizedX).toBe(originalPositions[i].x);
+      expect(char.normalizedY).toBe(originalPositions[i].y);
+      expect(char.scale).toBe(originalPositions[i].scale);
+      // Presentation recommendation applied
+      expect(char.shadowPreset).toBe('soft-ellipse');
+    });
+  });
 });
+

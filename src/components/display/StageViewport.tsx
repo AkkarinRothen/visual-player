@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { DisplayState } from '../../types';
 import { db } from '../../db';
 import { AtmosphereCanvas } from '../canvas/AtmosphereCanvas';
@@ -7,6 +7,7 @@ import { SceneLightsLayer } from './SceneLightsLayer';
 import { ZoneEmittersLayer } from './ZoneEmittersLayer';
 import { CinematicDialogueLayer } from './CinematicDialogueLayer';
 import { InitiativeRibbon } from './InitiativeRibbon';
+import { computeDialogueGeometry } from '../../domain/display/dialogueGeometry';
 
 export interface StageViewportProps {
   state: DisplayState;
@@ -277,6 +278,27 @@ export const StageViewport: React.FC<StageViewportProps> = ({
     </div>
   );
 
+  const resolvedDialogue = useMemo(() => {
+    if (!state.dialogue || !state.dialogue.visible) return null;
+    const speaker = state.dialogue.speakerInstanceId
+      ? state.characters.find((c) => c.id === state.dialogue?.speakerInstanceId)
+      : null;
+
+    const geo = computeDialogueGeometry({
+      speaker,
+      camera: state.camera,
+      preferredMode: state.dialogue.presentationMode ?? 'auto',
+      textLength: state.dialogue.text?.length,
+      previousCoordinates: state.dialogue.anchorCoordinates,
+    });
+
+    return {
+      ...state.dialogue,
+      presentationMode: geo.mode,
+      anchorCoordinates: geo.coordinates,
+    };
+  }, [state.dialogue, state.characters, state.camera]);
+
   // Scaled rendering for GM Mini Preview or Modal (reproduces Mesa physical aspect ratio + 16:9 canvas with bands)
   if (isScaledPreview) {
     return (
@@ -304,8 +326,8 @@ export const StageViewport: React.FC<StageViewportProps> = ({
           {viewportContent}
 
           {/* Cinematic Dialogue & Narration Projection Layer */}
-          {state.dialogue && (
-            <CinematicDialogueLayer dialogue={state.dialogue} />
+          {resolvedDialogue && (
+            <CinematicDialogueLayer dialogue={resolvedDialogue} />
           )}
 
           {/* Combat Initiative Ribbon Overlay */}
@@ -376,8 +398,8 @@ export const StageViewport: React.FC<StageViewportProps> = ({
         {viewportContent}
 
         {/* Cinematic Dialogue & Narration Projection Layer */}
-        {state.dialogue && (
-          <CinematicDialogueLayer dialogue={state.dialogue} />
+        {resolvedDialogue && (
+          <CinematicDialogueLayer dialogue={resolvedDialogue} />
         )}
 
         {/* Combat Initiative Ribbon Overlay */}

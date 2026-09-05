@@ -14,6 +14,8 @@ interface TacticalMapCanvasProps {
 
 interface CanvasSize { width: number; height: number; }
 
+const TOKEN_EDGE_PADDING = 58;
+
 function useLoadedImage(source: string): HTMLImageElement | undefined {
   const [image, setImage] = useState<HTMLImageElement>();
   useEffect(() => {
@@ -112,13 +114,15 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
     .sort((a, b) => a.distance - b.distance)[0];
 
   return (
-    <div ref={containerRef} className="absolute inset-0 z-20" aria-label="Lienzo táctico con tokens">
+    <div ref={containerRef} className="compositor-tactical-canvas absolute inset-0 z-20" aria-label="Lienzo táctico con tokens">
       <Stage width={size.width} height={size.height}>
         <Layer listening={false} opacity={grid.opacity}>{lines}</Layer>
         <Layer>
           {characters.map((character) => {
-            const x = ((character.normalizedX ?? 50) / 100) * size.width;
-            const y = size.height - ((character.normalizedY ?? 0) / 100) * size.height;
+            const rawX = ((character.normalizedX ?? 50) / 100) * size.width;
+            const rawY = size.height - ((character.normalizedY ?? 0) / 100) * size.height;
+            const x = Math.max(TOKEN_EDGE_PADDING, Math.min(size.width - TOKEN_EDGE_PADDING, rawX));
+            const y = Math.max(TOKEN_EDGE_PADDING, Math.min(size.height - TOKEN_EDGE_PADDING, rawY));
             return <TacticalToken
               key={character.id}
               character={character}
@@ -128,7 +132,15 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
               draggable={!character.isLocked}
               onSelect={() => onSelectCharacter(character.id)}
               onDragStart={onDragStart}
-              onDragEnd={(nextX, nextY) => onMoveCharacter(character.id, snap(nextX / size.width * 100, stepX), snap((size.height - nextY) / size.height * 100, stepY))}
+              onDragEnd={(nextX, nextY) => {
+                const visibleX = Math.max(TOKEN_EDGE_PADDING, Math.min(size.width - TOKEN_EDGE_PADDING, nextX));
+                const visibleY = Math.max(TOKEN_EDGE_PADDING, Math.min(size.height - TOKEN_EDGE_PADDING, nextY));
+                onMoveCharacter(
+                  character.id,
+                  snap(visibleX / size.width * 100, stepX),
+                  snap((size.height - visibleY) / size.height * 100, stepY)
+                );
+              }}
             />;
           })}
           {nearestOpponent && <Text text={`${nearestOpponent.distance.toFixed(1)} celdas a ${nearestOpponent.character.name}`} x={12} y={12} padding={7} fontSize={12} fill="#ecfdf5" fillAfterStrokeEnabled={false} shadowColor="#020617" shadowBlur={5} />}

@@ -204,6 +204,19 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
                 transition: 'left 0.4s cubic-bezier(0.16, 1, 0.3, 1), bottom 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             >
+              {/* Procedural ground shadow */}
+              {char.shadowPreset !== 'none' && (
+                <div
+                  className={`character-ground-shadow ${char.shadowPreset === 'elongated' ? 'elongated' : ''}`}
+                  style={{
+                    width: `${Math.max(42, effectiveScale * 84)}px`,
+                    height: `${Math.max(14, effectiveScale * 24)}px`,
+                    opacity: Math.max(0.15, 0.68 - (posY * 0.007)),
+                  }}
+                  aria-hidden="true"
+                />
+              )}
+
               {/* 2. MIDDLE WRAPPER: Ephemeral transition animation */}
               <div
                 className={`stage-item-anim-wrapper ${animClass}`}
