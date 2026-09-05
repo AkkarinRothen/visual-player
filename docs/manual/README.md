@@ -641,8 +641,9 @@ El control **Mute Total** se ofrece para silenciar y cambia a **Reactivar**. En 
 En el compositor, debajo de la vista previa, encontrás tres botones: **JRPG**, **Diálogo** y **Mapa**. Son puntos de partida; no crean ni borran figuras y podés mover cada una después.
 
 - **JRPG:** coloca la primera mitad de las figuras de la lista a la izquierda y el resto a la derecha, enfrentadas. Ordená la lista o ajustá las figuras si querés cambiar quiénes forman cada bando.
+- Si asignás **Equipo** a una figura desde su panel (**Aliados**, **Enemigos** o **Neutral**), **JRPG** usa esos equipos en lugar del orden de la lista. Los enemigos van a la derecha; aliados y neutrales, a la izquierda.
 - **Diálogo:** destaca las dos primeras figuras a cada lado, como una escena de novela visual. Las demás quedan más pequeñas detrás.
-- **Mapa:** reduce las figuras y las reparte sobre una cuadrícula regular. Elegí primero el mapa como **Cambiar Fondo** y usá retratos o PNG transparentes como miniaturas/tokens.
+- **Mapa:** reduce las figuras y las reparte sobre una cuadrícula regular. Elegí primero el mapa como **Cambiar Fondo** y usá retratos o PNG transparentes como miniaturas/tokens. Activá **Cuadrícula** para proyectarla también; podés elegir **Cuadrada** o **Hexagonal**.
 
 Después de aplicar una plantilla, revisá el encuadre y tocá **Guardar Composición** si querés reutilizarla. En **Modo En Vivo**, terminá con **Publicar a Mesa** para que el grupo la vea. La distribución se aplica al borrador del compositor; no modifica puntos de golpe, iniciativa ni el combate activo.
 

@@ -7,6 +7,13 @@ export type WeatherType = 'none' | 'rain' | 'storm' | 'snow' | 'fog' | 'embers' 
 export type LightingFilter = 'normal' | 'night' | 'sunset' | 'blood_moon' | 'torch_flicker' | 'mystic_violet';
 
 export type CharacterPosition = 'left' | 'center-left' | 'center-right' | 'right';
+export type TacticalTeam = 'allies' | 'enemies' | 'neutral';
+export interface TacticalGridConfig {
+  enabled: boolean;
+  type: 'square' | 'hex';
+  columns: number;
+  opacity: number;
+}
 
 export type CombatCondition =
   | 'poisoned'
@@ -164,6 +171,7 @@ export interface CharacterOnScreen {
   activeExpression?: string;
   visualStateId?: string;
   statusBadge?: string;
+  tacticalTeam?: TacticalTeam;
   nameplatePosition?: 'auto' | 'bottom' | 'top' | 'side'; // Adaptive or manual tag position
   revelation?: CharacterRevelationState;
 }
@@ -283,6 +291,7 @@ export interface SceneCompositionPreset {
   zoom?: number;
   tags?: string[];
   schemaVersion?: number;
+  tacticalGrid?: TacticalGridConfig;
   isDeleted?: boolean;
   createdAt: number;
   updatedAt?: number;
@@ -840,6 +849,7 @@ export interface DisplayState {
   backgroundType?: BackgroundType;
   videoConfig?: SceneVideoConfig;
   videoPlayback?: VideoPlaybackState | null;
+  tacticalGrid?: TacticalGridConfig;
 }
 
 // History & Checkpoint Interfaces

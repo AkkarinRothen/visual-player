@@ -210,6 +210,22 @@ export const StageViewport: React.FC<StageViewportProps> = ({
         )}
       </div>
 
+      {state.tacticalGrid?.enabled && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none"
+          style={state.tacticalGrid.type === 'hex' ? {
+            opacity: state.tacticalGrid.opacity,
+            backgroundImage: 'radial-gradient(circle at 50% 0, transparent 69%, rgba(167, 243, 208, .95) 70%, transparent 72%), radial-gradient(circle at 0 50%, transparent 69%, rgba(167, 243, 208, .95) 70%, transparent 72%)',
+            backgroundSize: `${100 / Math.max(1, state.tacticalGrid.columns)}% ${100 / Math.max(1, state.tacticalGrid.columns)}%`,
+          } : {
+            opacity: state.tacticalGrid.opacity,
+            backgroundImage: 'linear-gradient(rgba(167, 243, 208, .85) 1px, transparent 1px), linear-gradient(90deg, rgba(167, 243, 208, .85) 1px, transparent 1px)',
+            backgroundSize: `${100 / Math.max(1, state.tacticalGrid.columns)}% ${100 / Math.max(1, state.tacticalGrid.columns)}%`,
+          }}
+        />
+      )}
+
       {/* Atmosphere / Weather Particles & Lighting */}
       <AtmosphereCanvas
         weather={state.weather}

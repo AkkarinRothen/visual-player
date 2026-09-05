@@ -216,7 +216,8 @@ export function useSessionSceneHandlers({
     updatedProps: SceneProp[],
     applyDirectlyToLive: boolean,
     transitions?: ElementTransitionDirective[],
-    backgroundUrl?: string
+    backgroundUrl?: string,
+    tacticalGrid?: import('../../../types').TacticalGridConfig
   ) => {
     if (applyDirectlyToLive) {
       updateDisplay(
@@ -225,6 +226,7 @@ export function useSessionSceneHandlers({
           characters: updatedCharacters,
           props: updatedProps,
           backgroundUrl: backgroundUrl || prev.backgroundUrl,
+          tacticalGrid: tacticalGrid || prev.tacticalGrid,
           activeTransitions: transitions || prev.activeTransitions,
         }),
         'Composición de personajes y objetos actualizada',
@@ -236,6 +238,7 @@ export function useSessionSceneHandlers({
           characters: updatedCharacters,
           props: updatedProps,
           backgroundUrl: backgroundUrl || liveState.backgroundUrl,
+          tacticalGrid: tacticalGrid || liveState.tacticalGrid,
           activeTransitions: transitions,
         },
         sessionRevision + 1
@@ -249,6 +252,7 @@ export function useSessionSceneHandlers({
           characters: updatedCharacters,
           props: updatedProps,
           backgroundUrl: backgroundUrl || prev.backgroundUrl,
+          tacticalGrid: tacticalGrid || prev.tacticalGrid,
           activeTransitions: transitions || prev.activeTransitions,
         }),
         'Borrador de composición preparado'

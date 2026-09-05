@@ -9,6 +9,8 @@ import type {
   ElementTransitionDirective,
   SceneCompositionPreset,
   SceneProp,
+  TacticalGridConfig,
+  TacticalTeam,
 } from '../../../types';
 import type { SelectedEntity } from '../compositor/compositorTypes';
 import { getSlotPositionPercent } from '../compositor/compositorTypes';
@@ -16,7 +18,7 @@ import { CompositorStage } from '../compositor/CompositorStage';
 import { CompositorSidebar } from '../compositor/CompositorSidebar';
 import { CompositorModals } from '../compositor/CompositorModals';
 import { AssetPickerModal } from '../../common/AssetPickerModal';
-import { applySceneLayoutTemplate, type SceneLayoutTemplate } from '../../../domain/display/sceneLayoutTemplates';
+import { applySceneLayoutTemplate, DEFAULT_TACTICAL_GRID, type SceneLayoutTemplate } from '../../../domain/display/sceneLayoutTemplates';
 
 interface SceneCompositorModalProps {
   initialState: DisplayState;
@@ -27,7 +29,8 @@ interface SceneCompositorModalProps {
     updatedProps: SceneProp[],
     applyDirectlyToLive: boolean,
     transitions?: ElementTransitionDirective[],
-    backgroundUrl?: string
+    backgroundUrl?: string,
+    tacticalGrid?: TacticalGridConfig
   ) => Promise<void>;
   onSaveCompositionPreset?: (preset: SceneCompositionPreset) => Promise<void>;
   onClose: () => void;
@@ -75,6 +78,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
   const [backgroundUrl, setBackgroundUrl] = useState(initialState.backgroundUrl);
+  const [tacticalGrid, setTacticalGrid] = useState<TacticalGridConfig>(initialState.tacticalGrid || DEFAULT_TACTICAL_GRID);
 
   // Submodals state
   const [showAddPropModal, setShowAddPropModal] = useState<boolean>(false);
@@ -408,6 +412,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
       props: JSON.parse(JSON.stringify(propsList)),
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      tacticalGrid,
     };
 
     if (onSaveCompositionPreset) {
@@ -441,18 +446,26 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
     if (preset.props) {
       setPropsList(JSON.parse(JSON.stringify(preset.props)));
     }
+    if (preset.tacticalGrid) setTacticalGrid(preset.tacticalGrid);
     setShowLoadPresetModal(false);
   };
 
   const handleApplyLayoutTemplate = (template: SceneLayoutTemplate) => {
     pushHistory();
     setCharacters((current) => applySceneLayoutTemplate(current, template));
+    if (template === 'tactical-map') setTacticalGrid((grid) => ({ ...grid, enabled: true }));
+  };
+
+  const setTacticalTeam = (team: TacticalTeam) => {
+    if (!selectedChar) return;
+    pushHistory();
+    setCharacters((current) => current.map((character) => character.id === selectedChar.id ? { ...character, tacticalTeam: team } : character));
   };
 
   const handleSave = async (directToLive: boolean) => {
     setIsSaving(true);
     try {
-      await onSaveState(characters, propsList, directToLive, undefined, backgroundUrl);
+      await onSaveState(characters, propsList, directToLive, undefined, backgroundUrl, tacticalGrid);
       onClose();
     } finally {
       setIsSaving(false);
@@ -553,6 +566,8 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
         backgroundUrl={backgroundUrl}
         onOpenBackgroundPicker={() => setShowBackgroundPicker(true)}
         onApplyLayoutTemplate={handleApplyLayoutTemplate}
+        tacticalGrid={tacticalGrid}
+        onChangeTacticalGrid={setTacticalGrid}
       />
 
           <CompositorSidebar
@@ -582,6 +597,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
             toggleAnchor={toggleAnchor}
             setRotation={setRotation}
             onAddCharacter={handleAddCharacter}
+            setTacticalTeam={setTacticalTeam}
           />
         </div>
 

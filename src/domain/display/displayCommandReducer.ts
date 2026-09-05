@@ -615,6 +615,7 @@ export function reduceDisplayCommand(
             preset.weatherIntensity !== undefined ? preset.weatherIntensity : state.weatherIntensity,
           characters: nextCharacters,
           props: Array.isArray(preset.props) ? preset.props : state.props || [],
+          tacticalGrid: preset.tacticalGrid !== undefined ? preset.tacticalGrid : state.tacticalGrid,
           // Preserves combatState, locationBanner, and session notes!
         },
         sideEffects,

@@ -21,7 +21,7 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
 ## 2026-09-04 — Plantillas de composición visual
 
 - **Walkthrough y entorno:** revisión de código del compositor y pruebas unitarias locales; no se realizó recorrido visual ni una prueba con Mesa conectada.
-- **Funciones afectadas:** el Compositor Táctil incorpora **JRPG**, **Diálogo** y **Mapa** debajo de la vista previa. Reorganizan las figuras existentes como punto de partida: bandos laterales, dos interlocutores destacados o miniaturas compactas para un mapa elegido como fondo.
+- **Funciones afectadas:** el Compositor Táctil incorpora **JRPG**, **Diálogo** y **Mapa** debajo de la vista previa. Reorganizan las figuras existentes como punto de partida: bandos laterales, dos interlocutores destacados o miniaturas compactas para un mapa elegido como fondo. Cada figura puede tener equipo **Aliados**, **Enemigos** o **Neutral**; JRPG respeta esa asignación. Mapa habilita una cuadrícula proyectable, cuadrada o hexagonal.
 - **Manual:** se agregó la sección «Plantillas de composición: JRPG, diálogo y mapa táctico» a `README.md`.
 - **Evidencia:** `sceneLayoutTemplates.test.ts` pasó 2/2 pruebas. La compilación completa quedó bloqueada por un error TypeScript preexistente: variable `container` sin uso en `src/domain/display/stageViewportVideo.test.tsx:87`.
 - **Límites y próxima comprobación:** pendiente abrir el compositor en móvil y escritorio, comprobar publicación hacia una Mesa conectada y validar la legibilidad de tokens sobre mapas reales. Resultado: revisión parcial por bloqueo.

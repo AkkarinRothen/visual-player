@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Campaign, Character, CharacterOnScreen, SceneProp } from '../../../types';
+import type { Campaign, Character, CharacterOnScreen, SceneProp, TacticalTeam } from '../../../types';
 import type { SelectedEntity } from './compositorTypes';
 import {
   Users,
@@ -45,6 +45,7 @@ export interface CompositorSidebarProps {
   toggleAnchor: () => void;
   setRotation: (deg: number) => void;
   onAddCharacter?: (character: Character) => void;
+  setTacticalTeam: (team: TacticalTeam) => void;
 }
 
 export const CompositorSidebar: React.FC<CompositorSidebarProps> = ({
@@ -74,6 +75,7 @@ export const CompositorSidebar: React.FC<CompositorSidebarProps> = ({
   setRotation,
   onAddCharacter,
   campaign,
+  setTacticalTeam,
 }) => {
   return (
     <div className="compositor-controls w-full md:w-80 flex flex-col gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-800">
@@ -227,6 +229,13 @@ export const CompositorSidebar: React.FC<CompositorSidebarProps> = ({
               {selectedChar.isLocked ? <Lock size={14} /> : <Unlock size={14} />}
               <span className="mt-0.5 text-[10px]">{selectedChar.isLocked ? 'Bloqueado' : 'Mover'}</span>
             </button>
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] bg-slate-900 p-1.5 rounded">
+            <span className="text-slate-400">Equipo</span>
+            <select value={selectedChar.tacticalTeam || 'neutral'} onChange={(event) => setTacticalTeam(event.target.value as TacticalTeam)} className="bg-slate-800 text-slate-100 rounded p-1 border border-slate-700 text-[11px]" aria-label={`Equipo de ${selectedChar.name}`}>
+              <option value="allies">Aliados</option><option value="enemies">Enemigos</option><option value="neutral">Neutral</option>
+            </select>
           </div>
 
           {/* SCALE SLIDER */}

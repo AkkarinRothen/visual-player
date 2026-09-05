@@ -15,6 +15,15 @@ describe('scene layout templates', () => {
     expect(layout.every((item) => !item.isSpeaking)).toBe(true);
   });
 
+  it('uses explicit teams rather than list order when they are assigned', () => {
+    const layout = applySceneLayoutTemplate([
+      { ...figures[0], tacticalTeam: 'enemies' },
+      { ...figures[1], tacticalTeam: 'allies' },
+    ], 'jrpg-battle');
+    expect(layout[0].normalizedX).toBeGreaterThan(50);
+    expect(layout[1].normalizedX).toBeLessThan(50);
+  });
+
   it('makes compact grid-ready tokens for a tactical map', () => {
     const layout = applySceneLayoutTemplate(figures, 'tactical-map');
     expect(layout.every((item) => item.scale === 0.42)).toBe(true);

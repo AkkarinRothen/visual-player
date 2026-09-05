@@ -19,6 +19,7 @@ import {
   Map,
 } from 'lucide-react';
 import type { SceneLayoutTemplate } from '../../../domain/display/sceneLayoutTemplates';
+import type { TacticalGridConfig } from '../../../types';
 
 export interface CompositorStageProps {
   stageRef: React.RefObject<HTMLDivElement | null>;
@@ -47,6 +48,8 @@ export interface CompositorStageProps {
   backgroundUrl?: string;
   onOpenBackgroundPicker?: () => void;
   onApplyLayoutTemplate: (template: SceneLayoutTemplate) => void;
+  tacticalGrid: TacticalGridConfig;
+  onChangeTacticalGrid: (grid: TacticalGridConfig) => void;
 }
 
 export const CompositorStage: React.FC<CompositorStageProps> = ({
@@ -70,6 +73,8 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
   backgroundUrl,
   onOpenBackgroundPicker,
   onApplyLayoutTemplate,
+  tacticalGrid,
+  onChangeTacticalGrid,
 }) => {
   return (
     <div className="compositor-stage-panel flex-1 flex flex-col items-center">
@@ -246,6 +251,15 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
             <button type="button" className="px-1.5 py-1 text-sky-300 hover:bg-slate-800 rounded text-[10px] flex items-center gap-1" onClick={() => onApplyLayoutTemplate('visual-novel')} title="Novela visual: protagonistas en primer plano"><MessageCircle size={14} />Diálogo</button>
             <button type="button" className="px-1.5 py-1 text-emerald-300 hover:bg-slate-800 rounded text-[10px] flex items-center gap-1" onClick={() => onApplyLayoutTemplate('tactical-map')} title="Mapa táctico: miniaturas compactas en cuadrícula"><Map size={14} />Mapa</button>
           </div>
+          <label className="flex items-center gap-1 text-[10px] text-emerald-200 cursor-pointer" title="Muestra una cuadrícula sobre el mapa en la Mesa al publicar">
+            <input type="checkbox" checked={tacticalGrid.enabled} onChange={(event) => onChangeTacticalGrid({ ...tacticalGrid, enabled: event.target.checked })} />
+            Cuadrícula
+          </label>
+          {tacticalGrid.enabled && (
+            <select value={tacticalGrid.type} onChange={(event) => onChangeTacticalGrid({ ...tacticalGrid, type: event.target.value as TacticalGridConfig['type'] })} className="bg-slate-800 text-emerald-100 text-[10px] rounded p-1 border border-slate-700" aria-label="Tipo de cuadrícula">
+              <option value="square">Cuadrada</option><option value="hex">Hexagonal</option>
+            </select>
+          )}
           <button
             className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded text-slate-200 flex items-center gap-1.5"
             onClick={() => setShowAddPropModal(true)}

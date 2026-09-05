@@ -1,4 +1,8 @@
-import type { CharacterOnScreen } from '../../types';
+import type { CharacterOnScreen, TacticalGridConfig } from '../../types';
+
+export const DEFAULT_TACTICAL_GRID: TacticalGridConfig = {
+  enabled: true, type: 'square', columns: 10, opacity: 0.38,
+};
 
 /** Layouts are deliberately only starting points: they never add, remove, or rename figures. */
 export type SceneLayoutTemplate = 'jrpg-battle' | 'visual-novel' | 'tactical-map';
@@ -34,12 +38,16 @@ export function applySceneLayoutTemplate(
     });
   }
 
-  // JRPG: first half of the current layer list is the party, second half the opposition.
-  // The order remains visible and can be refined by the director afterwards.
-  const partySize = Math.ceil(characters.length / 2);
+  // Explicit teams take precedence. Older scenes with no teams retain the former, ordered fallback.
+  const hasTeams = characters.some((character) => character.tacticalTeam);
+  const partySize = hasTeams
+    ? characters.filter((character) => character.tacticalTeam !== 'enemies').length
+    : Math.ceil(characters.length / 2);
+  let partyIndex = 0;
+  let enemyIndex = 0;
   return characters.map((character, index) => {
-    const isParty = index < partySize;
-    const offset = isParty ? index : index - partySize;
+    const isParty = hasTeams ? character.tacticalTeam !== 'enemies' : index < partySize;
+    const offset = isParty ? partyIndex++ : enemyIndex++;
     const count = isParty ? partySize : Math.max(1, characters.length - partySize);
     const y = count === 1 ? 0 : 5 + (offset % 3) * 14;
     const x = isParty ? 20 + Math.floor(offset / 3) * 13 : 80 - Math.floor(offset / 3) * 13;
