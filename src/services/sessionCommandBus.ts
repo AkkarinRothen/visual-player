@@ -469,6 +469,7 @@ export class SessionCommandBus {
     const sanitizedState = sanitizeDisplayStateForDisplay(state);
     return this.sendCommand('FULL_STATE', sanitizedState, {
       params: { sceneName: state.sceneName, revision },
+      stateSnapshot: sanitizedState,
     });
   }
 

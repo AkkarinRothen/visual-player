@@ -21,11 +21,12 @@ import {
   AlertTriangle,
   Layers,
   Plus,
+  Users,
 } from 'lucide-react';
 
 export interface DirectorModalsProps {
   characters: CharacterOnScreen[];
-  campaignCharacters: Character[];
+  campaignCharacters?: Character[];
   unifiedStageItems: StageUnifiedItem[];
   waypoints: StageWaypoint[];
   selectedIds: Set<string>;
@@ -73,6 +74,13 @@ export interface DirectorModalsProps {
   occlusionForm: OcclusionFormState;
   setOcclusionForm: React.Dispatch<React.SetStateAction<OcclusionFormState>>;
 
+  // Save formation modal
+  savingFormationModalOpen?: boolean;
+  setSavingFormationModalOpen?: (open: boolean) => void;
+  formationNameInput?: string;
+  setFormationNameInput?: (name: string) => void;
+  onSaveCurrentFormation?: () => void;
+
   // Action callbacks
   onSaveCameraPreset?: (name: string, camera: CameraTransform) => void;
   onSaveWaypoint?: (waypoint: Omit<StageWaypoint, 'id'>) => void;
@@ -89,7 +97,7 @@ export interface DirectorModalsProps {
 
 export const DirectorModals: React.FC<DirectorModalsProps> = ({
   characters,
-  campaignCharacters,
+  campaignCharacters = [],
   unifiedStageItems,
   waypoints,
   selectedIds,
@@ -120,6 +128,11 @@ export const DirectorModals: React.FC<DirectorModalsProps> = ({
   setCreatingOcclusionModalOpen,
   occlusionForm,
   setOcclusionForm,
+  savingFormationModalOpen,
+  setSavingFormationModalOpen,
+  formationNameInput = '',
+  setFormationNameInput,
+  onSaveCurrentFormation,
   onSaveCameraPreset,
   onSaveWaypoint,
   onSaveOcclusionRegion,
@@ -934,6 +947,66 @@ export const DirectorModals: React.FC<DirectorModalsProps> = ({
                 }}
               >
                 Crear región
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: GUARDAR FORMACIÓN TÁCTICA PERSONALIZADA ── */}
+      {savingFormationModalOpen && (
+        <div className="director-ui-element absolute inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto">
+          <div className="bg-slate-900 border-2 border-amber-500/60 rounded-2xl p-4 shadow-2xl flex flex-col gap-3 w-full max-w-sm">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="font-bold text-amber-300 text-xs flex items-center gap-1.5">
+                <Users size={14} />
+                <span>Guardar formación personalizada</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSavingFormationModalOpen?.(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-400">
+              Guarda las posiciones relativas actuales de las{' '}
+              <strong className="text-amber-300">{selectedIds.size} figuras seleccionadas</strong> para
+              reutilizar esta disposición táctica rápidamente con cualquier grupo.
+            </p>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-slate-400 font-medium">Nombre de la formación:</label>
+              <input
+                type="text"
+                className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
+                placeholder="ej. Escolta en V, Guardia en puerta, Emboscada..."
+                value={formationNameInput}
+                onChange={(e) => setFormationNameInput?.(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white"
+                onClick={() => setSavingFormationModalOpen?.(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={!formationNameInput?.trim()}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-slate-950 disabled:opacity-40"
+                onClick={() => {
+                  onSaveCurrentFormation?.();
+                  setSavingFormationModalOpen?.(false);
+                }}
+              >
+                Guardar formación
               </button>
             </div>
           </div>

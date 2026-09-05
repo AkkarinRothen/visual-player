@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Monitor, Moon, Smartphone, Sun, X } from 'lucide-react';
 import type {
   Campaign,
   Character,
@@ -12,28 +13,16 @@ import type {
   Scene,
   SessionCheckpoint,
   WeatherType,
-  CombatState,
+  GameSession,
+  SavedConversation,
 } from '../../types';
-import { soundEngine, DUCKING_PRESETS } from '../../services/soundEngine';
-import { peerService } from '../../services/peerService';
+import { soundEngine } from '../../services/soundEngine';
 import { getPlatformBridge } from '../../platform';
 import { sessionRecoveryService } from '../../services/sessionRecovery';
 import { backButtonStack } from '../../services/backButtonStack';
 import {
-  db,
-  BUILTIN_SFX,
-  DEMO_CAMPAIGN,
-  DEMO_SCENES,
-  DEMO_CHARACTERS,
-  DEMO_MACROS,
-  DEMO_ENCOUNTERS,
   initDefaultDataIfNeeded,
   getAllCampaigns,
-  createCampaign,
-  updateCampaign,
-  duplicateCampaign,
-  deleteCampaign,
-  setActiveCampaignId,
   getCampaignCheckpoints,
   saveCheckpoint,
   deleteCheckpoint,
@@ -44,100 +33,28 @@ import { useMasterConnection } from '../../hooks/useMasterConnection';
 import { useDisplaySession } from '../../hooks/useDisplaySession';
 import { useMacroSequencer } from '../../hooks/useMacroSequencer';
 import { accumulateMacroToState } from '../../domain/macros/macroEngine';
-import { QuickMomentsDropdown } from './QuickMomentsDropdown';
-import { SelectivePublishModal } from './SelectivePublishModal';
-import { LiveMiniPreview } from './LiveMiniPreview';
-import { FullScreenPreviewModal } from './FullScreenPreviewModal';
-import { HistoryModal } from './HistoryModal';
-import { CheckpointsModal } from './CheckpointsModal';
-import { NetworkDiagnosticsModal } from './NetworkDiagnosticsModal';
-import { CampaignPickerModal } from './modals/CampaignPickerModal';
-import { SceneEditModal } from './modals/SceneEditModal';
-import { CharacterEditModal } from './modals/CharacterEditModal';
-import { SummonCharacterModal } from './modals/SummonCharacterModal';
-import { MasterQRModal } from './modals/MasterQRModal';
-import { EmergencyDock } from './EmergencyDock';
-import { SessionPanel } from './SessionPanel';
-import { MasterAuxiliaryModals } from './modals/MasterAuxiliaryModals';
-import { MasterBottomNav } from './navigation/MasterBottomNav';
-import { useStormCoordinator } from './controller/useStormCoordinator';
-import { useDirectorHandlers } from './controller/useDirectorHandlers';
-import { MasterMainTabs } from './controller/MasterMainTabs';
-import {
-  advanceCombatTurnWithTimer,
-  startCombatTurnTimer,
-  pauseCombatTurnTimer,
-  addSecondsToCombatTurnTimer,
-  resetCombatTurnTimer,
-} from '../../domain/combat/combatTimerCoordinator';
-import type {
-  GameSession,
-  SceneVariant,
-  SceneProp,
-  SceneCompositionPreset,
-  ElementTransitionDirective,
-  CinematicDialogue,
-  CameraTransform,
-  SavedConversation,
-  SceneLight,
-  DialogueLineActions,
-  DialogueBranchChoice,
-  SceneZoneEmitter,
-  SceneInteraction,
-  SceneInteractionTransition,
-  CampaignKnowledgeEntry,
-  CampaignWorldStateEntry,
-  SessionPrepDraft,
-  CombatTrackingMode,
-  DuckingPreset,
-  HandoutState,
-  CampaignRecap,
-  BiomeSoundProfile,
-  SceneSituation,
-  SceneLightingPreset,
-  LightingApplyMode,
-} from '../../types';
-import {
-  findBiomeProfile,
-  resolveBiomeTrackLayer,
-} from '../../domain/audio/biomeDefaults';
-import { resolveAudioTransitionPlan } from '../../domain/audio/biomeSoundCoordinator';
-import { calculateGroupFraming } from '../../domain/display/cameraFraming';
 import { useEmergencyActions } from '../../hooks/useEmergencyActions';
 import { useFavoritesActions } from '../../hooks/useFavoritesActions';
 import { sessionCommandBus, type MesaTelemetryInfo } from '../../services/sessionCommandBus';
-import { TransportStatusChip } from '../common/TransportStatusChip';
-import type { TransportStatusState } from '../common/TransportStatusChip';
-import { ConnectionDiagnosticModal } from '../common/ConnectionDiagnosticModal';
-import {
-  Zap,
-  Activity,
-  AlertTriangle,
-  EyeOff,
-  Sparkles,
-  BookOpen,
-  Sliders,
-  FolderOpen,
-  Trash2,
-  X,
-  LogOut,
-  Swords,
-  Send,
-  RotateCcw,
-  RotateCw,
-  Layers,
-  Radio,
-  History,
-  Bookmark,
-  CheckCheck,
-  WifiOff,
-} from 'lucide-react';
+import { peerService } from '../../services/peerService';
 import {
   PROTOCOL_VERSION,
   APP_CAPABILITIES,
   evaluateVersionCompatibility,
   type VersionCompatibilityResult,
 } from '../../version';
+import { useStormCoordinator } from './controller/useStormCoordinator';
+import { useDirectorHandlers } from './controller/useDirectorHandlers';
+import { useSessionSceneHandlers } from './controller/useSessionSceneHandlers';
+import { useCombatCoordinator } from './controller/useCombatCoordinator';
+import { useCampaignManagement } from './controller/useCampaignManagement';
+import { MasterHeader } from './controller/MasterHeader';
+import { MasterPrimaryModals } from './modals/MasterPrimaryModals';
+import { MasterMainTabs } from './controller/MasterMainTabs';
+import { SessionPanel } from './SessionPanel';
+import { EmergencyDock } from './EmergencyDock';
+import { MasterAuxiliaryModals } from './modals/MasterAuxiliaryModals';
+import { MasterBottomNav } from './navigation/MasterBottomNav';
 
 interface MasterControllerProps {
   initialRoomCode?: string;
@@ -176,9 +93,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const [editingScene, setEditingScene] = useState<Scene | null>(null);
   const [showNewCharModal, setShowNewCharModal] = useState<boolean>(false);
   const [editingChar, setEditingChar] = useState<Character | null>(null);
-  const [diceLog, setDiceLog] = useState<{ id: string; text: string; time: string }[]>([]);
 
-  // Session View & Favorites State
+  // Session View & Auxiliary Modals State
   const [sessionViewMode, setSessionViewMode] = useState<'session' | 'classic'>('session');
   const [showManageFavoritesModal, setShowManageFavoritesModal] = useState<boolean>(false);
   const [showCompositorModal, setShowCompositorModal] = useState<boolean>(false);
@@ -196,9 +112,11 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const [showScenePresetModal, setShowScenePresetModal] = useState<boolean>(false);
   const [scenePresetMode, setScenePresetMode] = useState<'save' | 'insert'>('save');
   const [showReadinessModal, setShowReadinessModal] = useState<boolean>(false);
-  const [executedActionLineIds, setExecutedActionLineIds] = useState<Record<string, string>>({});
-  const [selectedChoiceIds, setSelectedChoiceIds] = useState<Record<string, string>>({});
-  const [executingInteractionId, setExecutingInteractionId] = useState<string | null>(null);
+  const [partyMode, setPartyMode] = useState(false);
+  const [partyMenuOpen, setPartyMenuOpen] = useState(false);
+  const [partyControlsVisible, setPartyControlsVisible] = useState(true);
+  const [partyKeepAwake, setPartyKeepAwake] = useState(false);
+  const [partyImmersive, setPartyImmersive] = useState(false);
 
   // 1. Connection Hook
   const {
@@ -321,18 +239,15 @@ export const MasterController: React.FC<MasterControllerProps> = ({
       const checkpoints = await getCampaignCheckpoints(camp.id);
       setCheckpointsList(checkpoints);
       const encs = await getCampaignEncounters(camp.id);
-      setEncountersList(encs.length > 0 ? encs : DEMO_ENCOUNTERS);
+      setEncountersList(encs.length > 0 ? encs : []);
 
       if (camp.scenes.length > 0) {
-        // Intentar recuperar el borrador persistido de la sesión activa
         const activeSession = await gameSessionService.loadOrCreateSession(camp.id);
         const persistedDraft = activeSession?.stagedState;
 
         if (persistedDraft) {
-          // Restaurar borrador exacto (sin publicarlo a la Mesa)
           initSessionState(persistedDraft);
         } else {
-          // Sin borrador: inicializar desde la primera escena de la campaña
           const initialScene = camp.scenes[0];
           const initialState: DisplayState = {
             currentSceneId: initialScene.id,
@@ -370,17 +285,15 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     loadData();
   }, [initSessionState]);
 
-  // Platform Bridge: Unlock Orientation & Handle Native Back Button with LIFO Stack
+  // Platform Bridge: Native Back Button with LIFO Stack
   useEffect(() => {
     const bridge = getPlatformBridge();
     bridge.screen.setOrientation('unlocked');
 
     const unbindBack = bridge.lifecycle.onBackButton(() => {
-      // 1. Dispatch through centralized LIFO stack (handles keyboard, active drawers, drag gestures)
       const consumedByStack = backButtonStack.dispatchBack();
       if (consumedByStack) return true;
 
-      // 2. Modals layer (ordered by visual priority)
       if (showQRModal) { setShowQRModal(false); return true; }
       if (showDiagnosticsModal) { setShowDiagnosticsModal(false); return true; }
       if (showHistoryModal) { setShowHistoryModal(false); return true; }
@@ -404,16 +317,13 @@ export const MasterController: React.FC<MasterControllerProps> = ({
       if (showChronicleExportModal) { setShowChronicleExportModal(false); return true; }
       if (showReadinessModal) { setShowReadinessModal(false); return true; }
 
-      // 3. Expanded Private Preview / Director Mode
       if (showFullScreenPreview) { setShowFullScreenPreview(false); return true; }
 
-      // 4. Secondary Tab Return: Navigate back to main 'live' session tab before exiting
       if (activeTab !== 'live') {
         setActiveTab('live');
         return true;
       }
 
-      // Root reached: let system handle or prompt exit confirmation
       return false;
     });
 
@@ -447,8 +357,19 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     activeTab,
   ]);
 
-  // Session Recovery: Save non-sensitive transactional snapshot for crash / process death recovery
-  // También guarda el borrador en la sesión persistida (independiente del recovery de caídas)
+  // Android tabletop mode: keep the control surface awake and optionally immersive.
+  useEffect(() => {
+    const bridge = getPlatformBridge();
+    void bridge.screen.setKeepAwake(partyMode && partyKeepAwake);
+    void bridge.screen.setImmersive(partyMode && partyImmersive);
+
+    return () => {
+      void bridge.screen.setKeepAwake(false);
+      void bridge.screen.setImmersive(false);
+    };
+  }, [partyMode, partyKeepAwake, partyImmersive]);
+
+  // Session Recovery & Debounced Draft Save
   useEffect(() => {
     if (roomCode && campaign) {
       sessionRecoveryService.saveIncrementalSnapshot({
@@ -466,7 +387,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         lastSceneName: activeDisplay.sceneName,
       });
     }
-    // Guardado persistente del borrador en la sesión activa (independiente del recovery de caídas)
     gameSessionService.saveDraftDebounced(stagedState);
   }, [
     roomCode,
@@ -563,8 +483,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const handleUpdateMacros = async (updatedMacros: CinematicMacro[]) => {
     if (!campaign) return;
     const updatedCamp = { ...campaign, macros: updatedMacros };
-    await updateCampaign(updatedCamp);
-    setCampaign(updatedCamp);
+    await setCampaign(updatedCamp);
   };
 
   // Checkpoints Management
@@ -598,147 +517,11 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     setCheckpointsList(updated);
   };
 
-  // Restore state from History Modal
   const handleRestoreFromHistory = (evt: HistoryEvent) => {
     restoreSnapshot(evt.stateSnapshot, `Restaurado a: ${evt.description}`);
   };
 
-  // Switch Active Campaign
-  const handleSwitchCampaign = async (selected: Campaign) => {
-    setCampaign(selected);
-    await setActiveCampaignId(selected.id);
-    const cps = await getCampaignCheckpoints(selected.id);
-    setCheckpointsList(cps);
-    const encs = await getCampaignEncounters(selected.id);
-    setEncountersList(encs);
-    if (selected.scenes.length > 0) {
-      selectScene(selected.scenes[0]);
-    }
-    setShowCampaignPickerModal(false);
-  };
-
-  // Duplicate Campaign
-  const handleDuplicateCampaign = async (id: string) => {
-    const dup = await duplicateCampaign(id);
-    if (dup) {
-      const all = await getAllCampaigns();
-      setCampaignList(all);
-      alert(`¡Campaña "${dup.title}" duplicada con éxito!`);
-    }
-  };
-
-  // Delete Campaign
-  const handleDeleteCampaign = async (id: string, title: string) => {
-    if (campaignList.length <= 1) {
-      alert('Debe existir al menos una campaña.');
-      return;
-    }
-    if (window.confirm(`¿Estás seguro de eliminar permanentemente la campaña "${title}"?`)) {
-      await deleteCampaign(id);
-      const all = await getAllCampaigns();
-      setCampaignList(all);
-      if (campaign?.id === id) {
-        setCampaign(all[0]);
-        selectScene(all[0].scenes[0]);
-      }
-    }
-  };
-
-  const openEditSceneModal = (sc: Scene) => {
-    setEditingScene(sc);
-    setShowNewSceneModal(true);
-  };
-
-  const openEditCharModal = (ch: Character) => {
-    setEditingChar(ch);
-    setShowNewCharModal(true);
-  };
-
-  // Character Management
-  const summonCharacter = (char: Character) => {
-    const positions: CharacterPosition[] = ['left', 'center-left', 'center-right', 'right'];
-    const usedPositions = activeDisplay.characters.map((c) => c.position);
-    const availablePos = positions.find((p) => !usedPositions.includes(p)) || 'center-left';
-
-    const initialAnchor =
-      char.expressionAnchors?.default ??
-      char.expressionAnchors?.neutral ??
-      (char.expressionAnchors ? Object.values(char.expressionAnchors)[0] : undefined) ??
-      0;
-
-    const newOnScreen: CharacterOnScreen = {
-      id: `active-${char.id}-${Date.now()}`,
-      characterId: char.id,
-      name: char.name,
-      avatarUrl: char.defaultAvatarUrl,
-      position: availablePos,
-      isSpeaking: false,
-      visualAnchorOffsetY: initialAnchor,
-      instanceVariantAnchors: char.expressionAnchors ? { ...char.expressionAnchors } : undefined,
-    };
-
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        characters: [...prev.characters, newOnScreen],
-      }),
-      `Invocado ${char.name}`
-    );
-    setShowSummonModal(false);
-  };
-
-  const dismissCharacter = (id: string) => {
-    const charName = activeDisplay.characters.find((c) => c.id === id)?.name || 'Personaje';
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        characters: prev.characters.filter((c) => c.id !== id),
-      }),
-      `Retirado ${charName}`
-    );
-  };
-
-  const toggleSpeaking = (id: string) => {
-    const char = activeDisplay.characters.find((c) => c.id === id);
-    const newSpeaking = !char?.isSpeaking;
-
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        characters: prev.characters.map((c) => ({
-          ...c,
-          isSpeaking: c.id === id ? newSpeaking : false,
-        })),
-      }),
-      `${newSpeaking ? 'Foco de voz' : 'Silenciado'}: ${char?.name}`
-    );
-  };
-
-  const changeCharacterPosition = (id: string, position: CharacterPosition) => {
-    const charName = activeDisplay.characters.find((c) => c.id === id)?.name || 'Personaje';
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        characters: prev.characters.map((c) => (c.id === id ? { ...c, position } : c)),
-      }),
-      `Posición de ${charName} a ${position}`
-    );
-  };
-
-  const changeCharacterExpression = (id: string, expressionName: string, avatarUrl: string) => {
-    const charName = activeDisplay.characters.find((c) => c.id === id)?.name || 'Personaje';
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        characters: prev.characters.map((c) =>
-          c.id === id ? { ...c, avatarUrl, activeExpression: expressionName } : c
-        ),
-      }),
-      `Expresión de ${charName}: ${expressionName}`
-    );
-  };
-
-  // Weather & Atmosphere
+  // Atmospheric / Direct Actions
   const setWeatherEffect = (type: WeatherType) => {
     updateDisplay((prev) => ({ ...prev, weather: type }), `Clima: ${type}`);
   };
@@ -751,7 +534,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     updateDisplay((prev) => ({ ...prev, lighting: filter }), `Iluminación: ${filter}`);
   };
 
-  // Panic & Direct SFX
   const toggleBlackout = () => {
     const next = !activeDisplay.isBlackout;
     updateDisplay((prev) => ({ ...prev, isBlackout: next }), next ? 'Blackout Activado' : 'Blackout Desactivado');
@@ -773,7 +555,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     );
   };
 
-  // Audio Controls
   const toggleAmbientAudio = () => {
     const next = !activeDisplay.ambientPlaying;
     updateDisplay((prev) => ({ ...prev, ambientPlaying: next }), next ? 'Música Iniciada' : 'Música Pausada');
@@ -784,7 +565,23 @@ export const MasterController: React.FC<MasterControllerProps> = ({
 
   const toggleAmbientPlay = toggleAmbientAudio;
 
-  // Modular Coordinators (Strangler Pattern)
+  const playSfx = (sfx: any) => {
+    if (sfx.soundType === 'synthesized' && sfx.synthPreset) {
+      soundEngine.playSynth(sfx.synthPreset);
+    }
+    broadcastMessage({
+      type: 'PLAY_SFX',
+      payload: {
+        id: sfx.id,
+        name: sfx.name,
+        synthPreset: sfx.synthPreset,
+        audioUrl: sfx.audioUrl,
+        timestamp: Date.now(),
+      },
+    });
+  };
+
+  // Emergency Actions Hook
   const {
     isMuted: isMasterAudioMuted,
     toggleMuteTotal: handleToggleMuteTotal,
@@ -805,12 +602,15 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     saveCheckpoint,
   });
 
+  // Favorites Actions Hook
   const {
     saveFavorites: handleSaveFavorites,
     executeFavorite: handleExecuteFavorite,
   } = useFavoritesActions({
     campaign,
-    updateCampaign,
+    updateCampaign: async (c) => {
+      setCampaign(c);
+    },
     setCampaign,
     selectScene,
     handleExecuteMacro,
@@ -871,426 +671,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     );
   };
 
-  const handleNextCombatTurn = () => {
-    const cs = liveState.combatState;
-    if (!cs?.isActive || cs.combatants.length === 0) return;
-    soundEngine.playSynth('gong');
-    const deployed = cs.combatants.filter((c) => c.isDeployed !== false);
-    const nextIndex = cs.currentTurnIndex + 1;
-    const isNewRound = nextIndex >= deployed.length;
-    const newTurnIndex = isNewRound ? 0 : nextIndex;
-    const newRound = isNewRound ? cs.round + 1 : cs.round;
-    const activeCombatant = deployed[newTurnIndex];
-    const targetChar = activeCombatant
-      ? liveState.characters.find((c) => c.id === activeCombatant.characterId || c.id === activeCombatant.id)
-      : null;
-
-    const baseUpdated = advanceCombatTurnWithTimer(cs, newTurnIndex, newRound);
-    const updatedCombat: CombatState = {
-      ...baseUpdated,
-      suggestedFocusCharacterId: targetChar ? targetChar.id : null,
-    };
-
-    let newCamera = liveState.camera;
-    if (cs.trackingMode === 'auto' && targetChar) {
-      newCamera = {
-        focalPoint: {
-          x: targetChar.normalizedX ?? 50,
-          y: targetChar.normalizedY ?? 50,
-        },
-        zoom: 1.35,
-      };
-    }
-
-    updateDisplay(
-      (prev) => ({ ...prev, combatState: updatedCombat, camera: newCamera || prev.camera }),
-      `Avanzado Turno: Ronda ${updatedCombat.round}`
-    );
-  };
-
-  const handlePrevCombatTurn = () => {
-    const cs = liveState.combatState;
-    if (!cs?.isActive || cs.combatants.length === 0) return;
-    const deployed = cs.combatants.filter((c) => c.isDeployed !== false);
-    const prevIndex = cs.currentTurnIndex - 1;
-    let newTurnIndex = prevIndex;
-    let newRound = cs.round;
-
-    if (prevIndex < 0) {
-      if (cs.round > 1) {
-        newRound = cs.round - 1;
-        newTurnIndex = Math.max(0, deployed.length - 1);
-      } else {
-        newTurnIndex = 0;
-      }
-    }
-
-    const activeCombatant = deployed[newTurnIndex];
-    const targetChar = activeCombatant
-      ? liveState.characters.find((c) => c.id === activeCombatant.characterId || c.id === activeCombatant.id)
-      : null;
-
-    const baseUpdated = advanceCombatTurnWithTimer(cs, newTurnIndex, newRound);
-    const updatedCombat: CombatState = {
-      ...baseUpdated,
-      suggestedFocusCharacterId: targetChar ? targetChar.id : null,
-    };
-
-    let newCamera = liveState.camera;
-    if (cs.trackingMode === 'auto' && targetChar) {
-      newCamera = {
-        focalPoint: {
-          x: targetChar.normalizedX ?? 50,
-          y: targetChar.normalizedY ?? 50,
-        },
-        zoom: 1.35,
-      };
-    }
-
-    updateDisplay(
-      (prev) => ({ ...prev, combatState: updatedCombat, camera: newCamera || prev.camera }),
-      `Retrocedido Turno: Ronda ${updatedCombat.round}`
-    );
-  };
-
-  const handleToggleCombatTimer = () => {
-    const cs = liveState.combatState;
-    if (!cs?.isActive) return;
-    const updated = cs.isTimerRunning ? pauseCombatTurnTimer(cs) : startCombatTurnTimer(cs);
-    updateDisplay((prev) => ({ ...prev, combatState: updated }), 'Temporizador de Combate');
-  };
-
-  const handleAddCombatTimerSeconds = (seconds: number = 30) => {
-    const cs = liveState.combatState;
-    if (!cs?.isActive) return;
-    const updated = addSecondsToCombatTurnTimer(cs, seconds);
-    updateDisplay((prev) => ({ ...prev, combatState: updated }), `Añadir +${seconds}s al Turno`);
-  };
-
-  const handleResetCombatTimer = () => {
-    const cs = liveState.combatState;
-    if (!cs?.isActive) return;
-    const updated = resetCombatTurnTimer(cs);
-    updateDisplay((prev) => ({ ...prev, combatState: updated }), 'Reiniciar Temporizador');
-  };
-
-  const handleToggleCombatTimerVisibility = () => {
-    const cs = liveState.combatState;
-    if (!cs?.isActive) return;
-    const next = cs.showTurnTimerToPlayers === false ? true : false;
-    const updated: CombatState = { ...cs, showTurnTimerToPlayers: next };
-    updateDisplay((prev) => ({ ...prev, combatState: updated }), 'Visibilidad del Reloj en Mesa');
-  };
-
-  const handleFocusCombatant = async (characterId: string) => {
-    const targetChar = liveState.characters.find(
-      (c) => c.id === characterId || (c as any).characterId === characterId
-    );
-    if (!targetChar) return;
-
-    const posX = targetChar.normalizedX ?? 50;
-    const posY = targetChar.normalizedY ?? 50;
-    const newCamera: CameraTransform = {
-      focalPoint: { x: posX, y: posY },
-      zoom: 1.35,
-    };
-    await handleSetCameraTransform(newCamera);
-  };
-
-  const handleToggleCombatTrackingMode = async (mode: CombatTrackingMode) => {
-    const updatedCombat: CombatState = {
-      ...liveState.combatState,
-      trackingMode: mode,
-    };
-    updateDisplay(
-      (prev) => ({ ...prev, combatState: updatedCombat }),
-      `Seguimiento de Combate: ${mode}`,
-      true
-    );
-  };
-
-  const handleToggleDmSpeakingDucked = () => {
-    const nextDucked = !liveState.isDmSpeakingDucked;
-    if (nextDucked) {
-      soundEngine.acquireDucking('dm_speaking', liveState.duckingProfile);
-    } else {
-      soundEngine.releaseDucking('dm_speaking');
-    }
-    updateDisplay(
-      (prev) => ({ ...prev, isDmSpeakingDucked: nextDucked }),
-      nextDucked ? 'Voz DM Activada (Audio Atenuado)' : 'Voz DM Finalizada (Audio Normal)',
-      true
-    );
-  };
-
-  const handleSelectDuckingPreset = (preset: DuckingPreset) => {
-    const profile = DUCKING_PRESETS[preset];
-    soundEngine.setDuckingProfile(profile);
-    updateDisplay(
-      (prev) => ({ ...prev, duckingProfile: profile }),
-      `Perfil de Atenuación: ${preset}`,
-      true
-    );
-  };
-
-  const handleAmbientVolumeChange = (vol: number) => {
-    updateDisplay((prev) => ({ ...prev, ambientVolume: vol }), `Volumen Música: ${Math.round(vol * 100)}%`);
-    if (operationMode === 'live' && activeDisplay.ambientAudioUrl) {
-      soundEngine.setAmbient(activeDisplay.ambientAudioUrl, activeDisplay.ambientPlaying, vol, false);
-    }
-  };
-
-  const playSfx = (sfx: typeof BUILTIN_SFX[0]) => {
-    if (sfx.soundType === 'synthesized' && sfx.synthPreset) {
-      soundEngine.playSynth(sfx.synthPreset);
-    }
-    broadcastMessage({
-      type: 'PLAY_SFX',
-      payload: {
-        id: sfx.id,
-        name: sfx.name,
-        synthPreset: sfx.synthPreset,
-        audioUrl: sfx.audioUrl,
-        timestamp: Date.now(),
-      },
-    });
-  };
-
-  const rollDice = (sides: number) => {
-    const result = Math.floor(Math.random() * sides) + 1;
-    const isCrit = sides === 20 && result === 20;
-    const isFumble = sides === 20 && result === 1;
-
-    let text = `d${sides}: ${result}`;
-    if (isCrit) text += ' (¡CRÍTICO! ⚔️)';
-    if (isFumble) text += ' (¡PIFIA! 💀)';
-
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setDiceLog((prev) => [{ id: Math.random().toString(), text, time }, ...prev.slice(0, 15)]);
-    soundEngine.playSynth('heartbeat');
-  };
-
-  const handleResetDemo = async () => {
-    if (window.confirm('¿Restaurar la campaña de demostración inicial?')) {
-      await db.campaigns.clear();
-      await db.scenes.clear();
-      await db.characters.clear();
-      await db.encounters.clear();
-      await db.campaigns.put(DEMO_CAMPAIGN);
-      setCampaign(DEMO_CAMPAIGN);
-      const all = await getAllCampaigns();
-      setCampaignList(all);
-      setEncountersList(DEMO_ENCOUNTERS);
-      if (DEMO_CAMPAIGN.scenes.length > 0) {
-        selectScene(DEMO_CAMPAIGN.scenes[0]);
-      }
-    }
-  };
-
-  const exportCampaignJSON = () => {
-    if (!campaign) return;
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(campaign, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `${campaign.title.replace(/\s+/g, '_')}_backup.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  };
-
-  const importCampaignJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileReader = new FileReader();
-    if (e.target.files && e.target.files[0]) {
-      fileReader.readAsText(e.target.files[0], 'UTF-8');
-      fileReader.onload = async (event) => {
-        try {
-          const parsed = JSON.parse(event.target?.result as string) as Campaign;
-          if (parsed.id && parsed.scenes) {
-            await db.campaigns.put(parsed);
-            setCampaign(parsed);
-            const all = await getAllCampaigns();
-            setCampaignList(all);
-            alert('¡Campaña importada exitosamente!');
-          }
-        } catch (err) {
-          alert('Archivo JSON no válido.');
-        }
-      };
-    }
-  };
-
-  const handleSaveCompositorCharacters = async (
-    updatedCharacters: CharacterOnScreen[],
-    updatedProps: SceneProp[],
-    applyDirectlyToLive: boolean,
-    transitions?: ElementTransitionDirective[]
-  ) => {
-    if (applyDirectlyToLive) {
-      updateDisplay(
-        (prev) => ({
-          ...prev,
-          characters: updatedCharacters,
-          props: updatedProps,
-          activeTransitions: transitions || prev.activeTransitions,
-        }),
-        'Composición de personajes y objetos actualizada',
-        true
-      );
-      const cmdId = sessionCommandBus.dispatchFullState(
-        {
-          ...liveState,
-          characters: updatedCharacters,
-          props: updatedProps,
-          activeTransitions: transitions,
-        },
-        sessionRevision + 1
-      );
-      await sessionCommandBus.waitForResult(cmdId, 5000);
-    } else {
-      setOperationMode('staging');
-      updateDisplay(
-        (prev) => ({
-          ...prev,
-          characters: updatedCharacters,
-          props: updatedProps,
-          activeTransitions: transitions || prev.activeTransitions,
-        }),
-        'Borrador de composición preparado'
-      );
-    }
-  };
-
-  const handleUpdateCampaignCharacter = async (
-    characterId: string,
-    updates: Partial<Character>
-  ) => {
-    if (!campaign) return;
-    const updatedChars = campaign.characters.map((c) =>
-      c.id === characterId ? { ...c, ...updates } : c
-    );
-    const updatedCampaign: Campaign = {
-      ...campaign,
-      characters: updatedChars,
-      updatedAt: Date.now(),
-    };
-    await db.campaigns.put(updatedCampaign);
-    setCampaign(updatedCampaign);
-  };
-
-  const handleSaveCompositionPreset = async (preset: SceneCompositionPreset) => {
-    if (!campaign) return;
-    const existing = campaign.savedCompositions || [];
-    const updatedCompositions = [...existing.filter((c) => c.id !== preset.id), preset];
-    const updatedCampaign: Campaign = {
-      ...campaign,
-      savedCompositions: updatedCompositions,
-      updatedAt: Date.now(),
-    };
-    await db.campaigns.put(updatedCampaign);
-    setCampaign(updatedCampaign);
-  };
-
-  const executeDialogueActions = async (
-    actions: DialogueLineActions,
-    lineId: string,
-    attempt: number = 1
-  ) => {
-    // Record attempt to prevent duplicate execution
-    setExecutedActionLineIds((prev) => ({
-      ...prev,
-      [lineId]: `att-${lineId}-${attempt}-${Date.now()}`,
-    }));
-
-    // 1. Camera action
-    if (actions.cameraPreset) {
-      if (actions.cameraPreset === 'general') {
-        await handleResetCamera();
-      } else if (actions.cameraPreset === 'speaker') {
-        const speaking =
-          liveState.characters.find((c) => c.isSpeaking) || liveState.characters[0];
-        if (speaking) {
-          const targetX = speaking.normalizedX ?? 50;
-          const targetY = Math.max(25, (speaking.normalizedY ?? 50) - 15);
-          await handleSetCameraTransform({ focalPoint: { x: targetX, y: targetY }, zoom: 1.45 });
-        }
-      } else if (actions.cameraPreset === 'group') {
-        if (liveState.characters.length >= 2) {
-          const framing = calculateGroupFraming(liveState.characters, {
-            hasActiveDialogue: true,
-            hasActiveInitiative: !!liveState.combatState?.isActive,
-            hasActiveBanner: !!liveState.locationBanner?.visible,
-          });
-          await handleSetCameraTransform(framing.camera);
-        }
-      } else if (actions.cameraPreset === 'custom' && actions.customCamera) {
-        await handleSetCameraTransform(actions.customCamera);
-      }
-    }
-
-    // 2. Character expression update
-    if (actions.expression) {
-      const targetSpeaker =
-        liveState.characters.find((c) => c.isSpeaking) || liveState.characters[0];
-      if (targetSpeaker) {
-        const updatedChars = liveState.characters.map((c) =>
-          c.id === targetSpeaker.id ? { ...c, activeExpression: actions.expression } : c
-        );
-        updateDisplay(
-          (prev) => ({ ...prev, characters: updatedChars }),
-          `Expresión: ${actions.expression}`,
-          true
-        );
-      }
-    }
-
-    // 3. Moment / Macro trigger
-    if (actions.momentId && campaign?.macros) {
-      const macro = campaign.macros.find((m) => m.id === actions.momentId);
-      if (macro) {
-        handleExecuteMacro(macro);
-      } else {
-        console.warn(`[DialogueActions] Momento ${actions.momentId} no encontrado en campaña.`);
-      }
-    }
-  };
-
-  const handlePublishDialogue = async (
-    dialogue: CinematicDialogue,
-    actions?: DialogueLineActions,
-    lineId?: string
-  ) => {
-    updateDisplay((prev) => ({ ...prev, dialogue }), 'Diálogo en pantalla proyectado', true);
-    const cmdId = sessionCommandBus.dispatchDialogue(dialogue);
-    await sessionCommandBus.waitForResult(cmdId, 5000);
-
-    // Idempotent action execution: execute ONLY once per line attempt
-    if (actions && lineId) {
-      const alreadyExecuted = executedActionLineIds[lineId];
-      if (!alreadyExecuted) {
-        await executeDialogueActions(actions, lineId, 1);
-      }
-    }
-  };
-
-  const handleRepeatDialogueActions = async (actions: DialogueLineActions, lineId: string) => {
-    await executeDialogueActions(actions, lineId, Date.now());
-  };
-
-  const handleDismissDialogue = async () => {
-    updateDisplay((prev) => ({ ...prev, dialogue: null }), 'Diálogo ocultado', true);
-    const cmdId = sessionCommandBus.dispatchDismissDialogue();
-    await sessionCommandBus.waitForResult(cmdId, 5000);
-  };
-
-  const handleCompleteDialogueText = async () => {
-    if (!liveState.dialogue) return;
-    const updated = { ...liveState.dialogue, isCompleted: true };
-    updateDisplay((prev) => ({ ...prev, dialogue: updated }), 'Texto completado', true);
-    const cmdId = sessionCommandBus.dispatchDialogue(updated);
-    await sessionCommandBus.waitForResult(cmdId, 5000);
-  };
-
-  const handleSetCameraTransform = async (camera: CameraTransform, durationMs: number = 800) => {
+  const handleSetCameraTransform = async (camera: any, durationMs: number = 800) => {
     updateDisplay((prev) => ({ ...prev, camera }), `Cámara: Zoom ${camera.zoom.toFixed(1)}x`, true);
     const cmdId = sessionCommandBus.dispatchCameraTransform(camera, durationMs);
     await sessionCommandBus.waitForResult(cmdId, 5000);
@@ -1303,6 +684,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   // Director Overlay Handlers Hook
   const {
     handleDirectorUpdateCharacter,
+    handleDirectorAddCharacter,
+    handleDirectorLiveDragMove,
     handleDirectorUpdateMultiplePositions,
     handleDirectorFocusCamera,
     handleSaveCameraPreset,
@@ -1324,420 +707,110 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     handleSetCameraTransform,
   });
 
-  const handleRevealCharacterAppearance = async (instanceId: string) => {
-    const updatedChars = liveState.characters.map((c) =>
-      c.id === instanceId && c.revelation
-        ? {
-            ...c,
-            revelation: {
-              ...c.revelation,
-              isAppearanceRevealed: true,
-            },
-          }
-        : c
-    );
-    updateDisplay((prev) => ({ ...prev, characters: updatedChars }), 'Rostro de personaje revelado', true);
+  // Combat Coordinator Hook
+  const {
+    handleNextCombatTurn,
+    handlePrevCombatTurn,
+    handleToggleCombatTimer,
+    handleAddCombatTimerSeconds,
+    handleResetCombatTimer,
+    handleToggleCombatTimerVisibility,
+    handleFocusCombatant,
+    handleToggleCombatTrackingMode,
+    handleToggleDmSpeakingDucked,
+    handleSelectDuckingPreset,
+  } = useCombatCoordinator({
+    liveState,
+    updateDisplay,
+    handleSetCameraTransform,
+  });
 
-    if (campaign) {
-      const existing = campaign.knowledgeEntries || [];
-      const target = liveState.characters.find((c) => c.id === instanceId);
-      const entryId = `know-app-${instanceId}`;
-      if (!existing.some((k) => k.id === entryId)) {
-        const newEntry: CampaignKnowledgeEntry = {
-          id: entryId,
-          type: 'npc_appearance',
-          title: `Rostro de ${target?.name || 'Personaje'} revelado`,
-          description: `Los jugadores vieron por primera vez la apariencia real de ${target?.name || 'este personaje'}.`,
-          targetId: instanceId,
-          revealedAt: Date.now(),
-          source: 'auto_interaction',
-        };
-        const updatedCamp: Campaign = {
-          ...campaign,
-          knowledgeEntries: [newEntry, ...existing],
-          updatedAt: Date.now(),
-        };
-        await db.campaigns.put(updatedCamp);
-        setCampaign(updatedCamp);
-      }
+  // Session Scene Handlers Hook
+  const {
+    executedActionLineIds,
+    selectedChoiceIds,
+    setSelectedChoiceIds,
+    executingInteractionId,
+    handleSelectSceneVariant,
+    handleSelectSituation,
+    handleApplySoundtrack,
+    handleSaveBiomeProfiles,
+    handleApplyLightingPreset,
+    handleSaveLightingPreset,
+    handleUpdateSceneLights,
+    handleUpdateZoneEmitters,
+    handleSaveCompositorCharacters,
+    handleSaveCompositionPreset,
+    handleUpdateCampaignCharacter,
+    handlePublishDialogue,
+    handleRepeatDialogueActions,
+    handleDismissDialogue,
+    handleCompleteDialogueText,
+    handleSaveConversation,
+    handleTriggerInteraction,
+    handleApplySessionPrepDraft,
+    handleSaveSessionPrepDraft,
+    handleProjectHandout,
+    handleDismissHandout,
+    handleProjectRecap,
+    handleDismissRecap,
+    handleSaveRecap,
+    handleRevealCharacterAppearance,
+    handleRevealCharacterIdentity,
+  } = useSessionSceneHandlers({
+    campaign,
+    setCampaign,
+    liveState,
+    activeDisplay,
+    sessionRevision,
+    updateDisplay,
+    setOperationMode,
+    handleExecuteMacro,
+    handleSetCameraTransform,
+    handleResetCamera,
+  });
+
+  // Campaign Management Hook
+  const {
+    diceLog,
+    handleSwitchCampaign,
+    handleDuplicateCampaign,
+    handleDeleteCampaign,
+    openEditSceneModal,
+    openEditCharModal,
+    summonCharacter,
+    dismissCharacter,
+    dismissCharacters,
+    toggleSpeaking,
+    changeCharacterPosition,
+    changeCharacterExpression,
+    rollDice,
+    handleResetDemo,
+    exportCampaignJSON,
+    importCampaignJSON,
+  } = useCampaignManagement({
+    campaign,
+    setCampaign,
+    campaignList,
+    setCampaignList,
+    setCheckpointsList,
+    setEncountersList,
+    activeDisplay,
+    updateDisplay,
+    selectScene,
+    setShowCampaignPickerModal,
+    setShowSummonModal,
+    setEditingScene,
+    setShowNewSceneModal,
+    setEditingChar,
+    setShowNewCharModal,
+  });
+
+  const handleAmbientVolumeChange = (vol: number) => {
+    updateDisplay((prev) => ({ ...prev, ambientVolume: vol }), `Volumen Música: ${Math.round(vol * 100)}%`);
+    if (operationMode === 'live' && activeDisplay.ambientAudioUrl) {
+      soundEngine.setAmbient(activeDisplay.ambientAudioUrl, activeDisplay.ambientPlaying, vol, false);
     }
-  };
-
-  const handleRevealCharacterIdentity = async (instanceId: string) => {
-    const updatedChars = liveState.characters.map((c) =>
-      c.id === instanceId && c.revelation
-        ? {
-            ...c,
-            revelation: {
-              ...c.revelation,
-              isIdentityRevealed: true,
-            },
-          }
-        : c
-    );
-    updateDisplay((prev) => ({ ...prev, characters: updatedChars }), 'Identidad de personaje revelada', true);
-
-    if (campaign) {
-      const existing = campaign.knowledgeEntries || [];
-      const target = liveState.characters.find((c) => c.id === instanceId);
-      const entryId = `know-id-${instanceId}`;
-      if (!existing.some((k) => k.id === entryId)) {
-        const newEntry: CampaignKnowledgeEntry = {
-          id: entryId,
-          type: 'npc_identity',
-          title: `Identidad de ${target?.name || 'Personaje'} revelada`,
-          description: `Se reveló el verdadero nombre e identidad de ${target?.name || 'este personaje'}.`,
-          targetId: instanceId,
-          revealedAt: Date.now(),
-          source: 'auto_interaction',
-        };
-        const updatedCamp: Campaign = {
-          ...campaign,
-          knowledgeEntries: [newEntry, ...existing],
-          updatedAt: Date.now(),
-        };
-        await db.campaigns.put(updatedCamp);
-        setCampaign(updatedCamp);
-      }
-    }
-  };
-
-  const handleSaveConversation = async (conversationToSave: SavedConversation) => {
-    if (!campaign) return;
-    const existing = campaign.savedConversations || [];
-    const updatedConversations = [
-      ...existing.filter((c) => c.id !== conversationToSave.id),
-      conversationToSave,
-    ];
-    const updatedCampaign: Campaign = {
-      ...campaign,
-      savedConversations: updatedConversations,
-      updatedAt: Date.now(),
-    };
-    await db.campaigns.put(updatedCampaign);
-    setCampaign(updatedCampaign);
-  };
-
-  const handleUpdateSceneLights = async (lights: SceneLight[]) => {
-    updateDisplay((prev) => ({ ...prev, lights }), `Luces de escena actualizadas (${lights.length})`, true);
-    const cmdId = sessionCommandBus.dispatchSceneLights(lights);
-    await sessionCommandBus.waitForResult(cmdId, 5000);
-  };
-
-  const handleUpdateZoneEmitters = async (emitters: SceneZoneEmitter[]) => {
-    updateDisplay(
-      (prev) => ({ ...prev, emitters }),
-      `Emisores de ambiente actualizados (${emitters.length})`,
-      true
-    );
-    const cmdId = sessionCommandBus.dispatchZoneEmitters(emitters);
-    await sessionCommandBus.waitForResult(cmdId, 5000);
-  };
-
-  const handleTriggerInteraction = async (
-    interaction: SceneInteraction,
-    transition: SceneInteractionTransition
-  ) => {
-    if (executingInteractionId) return;
-    setExecutingInteractionId(transition.id);
-
-    try {
-      // 1. Update interactions list with new currentState
-      const updatedInteractions = (liveState.interactions || []).map((i) =>
-        i.id === interaction.id ? { ...i, currentState: transition.toState } : i
-      );
-
-      // 2. Update target prop visualStateId if specified
-      let updatedProps = liveState.props || [];
-      if (transition.visualStateId && interaction.targetInstanceId) {
-        updatedProps = updatedProps.map((p) =>
-          p.id === interaction.targetInstanceId
-            ? { ...p, visualStateId: transition.visualStateId }
-            : p
-        );
-      }
-
-      // 3. Update linked light visibility if specified
-      let updatedLights = liveState.lights || [];
-      if (transition.lightId) {
-        updatedLights = updatedLights.map((l) =>
-          l.id === transition.lightId
-            ? { ...l, visible: transition.toState === 'lit' || transition.toState === 'open' }
-            : l
-        );
-      }
-
-      // 4. Update linked emitter if specified
-      let updatedEmitters = liveState.emitters || [];
-      if (transition.emitterId) {
-        updatedEmitters = updatedEmitters.map((e) =>
-          e.id === transition.emitterId
-            ? { ...e, enabled: transition.toState === 'lit' || transition.toState === 'open' }
-            : e
-        );
-      }
-
-      // 5. Persist to campaign if scope is 'session' or 'campaign'
-      if ((interaction.scope === 'session' || interaction.scope === 'campaign') && campaign) {
-        const existingStates = campaign.interactionStates || {};
-        const existingWorld = campaign.worldStateEntries || [];
-        const updatedWorld: CampaignWorldStateEntry[] = [
-          ...existingWorld.filter((w) => w.id !== interaction.targetInstanceId),
-          {
-            id: interaction.targetInstanceId,
-            targetName: interaction.name,
-            state: transition.toState,
-            scope: interaction.scope,
-            lastModifiedAt: Date.now(),
-          },
-        ];
-        const updatedCampaign: Campaign = {
-          ...campaign,
-          interactionStates: {
-            ...existingStates,
-            [interaction.targetInstanceId]: transition.toState,
-          },
-          worldStateEntries: updatedWorld,
-          updatedAt: Date.now(),
-        };
-        await db.campaigns.put(updatedCampaign);
-        setCampaign(updatedCampaign);
-      }
-
-      // 6. Update display and dispatch full state with real ACK
-      const nextDisplay: DisplayState = {
-        ...liveState,
-        props: updatedProps,
-        lights: updatedLights,
-        emitters: updatedEmitters,
-        interactions: updatedInteractions,
-      };
-
-      updateDisplay(
-        () => nextDisplay,
-        `Interacción: ${interaction.name} -> ${transition.label}`,
-        true
-      );
-      const cmdId = sessionCommandBus.dispatchFullState(nextDisplay);
-      await sessionCommandBus.waitForResult(cmdId, 5000);
-
-      // 7. Ephemeral SFX dispatch (deduplicated, non-blocking)
-      if (transition.sfxPreset || transition.sfxAudioUrl) {
-        sessionCommandBus.dispatchSfx(
-          transition.sfxPreset || 'interaction',
-          transition.sfxAudioUrl,
-          transition.label
-        );
-      }
-    } catch (err) {
-      console.error('[SceneInteraction] Error executing interaction:', err);
-    } finally {
-      setExecutingInteractionId(null);
-    }
-  };
-
-  const handleApplySessionPrepDraft = async (
-    draft: SessionPrepDraft,
-    preparedState: DisplayState
-  ) => {
-    setOperationMode('staging');
-    updateDisplay(() => preparedState, 'Borrador de sesión preparado en Staging', false);
-
-    if (campaign) {
-      const updatedCampaign: Campaign = {
-        ...campaign,
-        sessionPrepDraft: {
-          ...draft,
-          status: 'applied',
-          updatedAt: Date.now(),
-        },
-        updatedAt: Date.now(),
-      };
-      await db.campaigns.put(updatedCampaign);
-      setCampaign(updatedCampaign);
-    }
-  };
-
-  const handleSaveSessionPrepDraft = async (draft: SessionPrepDraft) => {
-    if (campaign) {
-      const updatedCampaign: Campaign = {
-        ...campaign,
-        sessionPrepDraft: draft,
-        updatedAt: Date.now(),
-      };
-      await db.campaigns.put(updatedCampaign);
-      setCampaign(updatedCampaign);
-    }
-  };
-
-  const handleProjectHandout = async (handout: HandoutState) => {
-    updateDisplay((prev) => ({ ...prev, activeHandout: handout }), `Handout: "${handout.title}" proyectado`, true);
-    const cmdId = sessionCommandBus.dispatchActiveHandout(handout);
-    await sessionCommandBus.waitForResult(cmdId, 5000);
-  };
-
-  const handleDismissHandout = async () => {
-    updateDisplay((prev) => ({ ...prev, activeHandout: null }), 'Handout retirado de la Mesa', true);
-    const cmdId = sessionCommandBus.dispatchActiveHandout(null);
-    await sessionCommandBus.waitForResult(cmdId, 5000);
-  };
-
-  const handleProjectRecap = async (recap: CampaignRecap) => {
-    updateDisplay(
-      (prev) => ({ ...prev, activeRecap: recap }),
-      `Crónica de apertura proyectada (Diapositiva ${recap.currentSlideIndex + 1})`,
-      true
-    );
-    const cmdId = sessionCommandBus.dispatchActiveRecap(recap);
-    await sessionCommandBus.waitForResult(cmdId, 5000);
-  };
-
-  const handleDismissRecap = async () => {
-    updateDisplay((prev) => ({ ...prev, activeRecap: null }), 'Crónica de apertura cerrada', true);
-    const cmdId = sessionCommandBus.dispatchActiveRecap(null);
-    await sessionCommandBus.waitForResult(cmdId, 5000);
-  };
-
-  const handleSaveRecap = async (recap: CampaignRecap) => {
-    if (campaign) {
-      const updatedCampaign: Campaign = {
-        ...campaign,
-        savedRecap: recap,
-        updatedAt: Date.now(),
-      };
-      await db.campaigns.put(updatedCampaign);
-      setCampaign(updatedCampaign);
-    }
-  };
-
-  const handleSelectSceneVariant = async (variant: SceneVariant) => {
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        backgroundUrl: variant.backgroundUrl,
-        activeVariantId: variant.id,
-        fitMode: variant.fitMode || prev.fitMode,
-        focalPoint: variant.focalPoint || prev.focalPoint,
-        zoom: variant.zoom !== undefined ? variant.zoom : prev.zoom,
-        lighting: variant.lighting || prev.lighting,
-        weather: variant.weather || prev.weather,
-        weatherIntensity: variant.weatherIntensity !== undefined ? variant.weatherIntensity : prev.weatherIntensity,
-        ambientAudioUrl: variant.ambientAudioUrl || prev.ambientAudioUrl,
-        occlusionRegions: variant.occlusionRegions !== undefined ? variant.occlusionRegions : prev.occlusionRegions,
-        waypoints: variant.waypoints !== undefined ? variant.waypoints : prev.waypoints,
-      }),
-      `Variante: "${variant.name}"`,
-      true
-    );
-
-    const cmdId = sessionCommandBus.dispatchFullState(
-      {
-        ...activeDisplay,
-        backgroundUrl: variant.backgroundUrl,
-        activeVariantId: variant.id,
-        fitMode: variant.fitMode,
-        focalPoint: variant.focalPoint,
-        zoom: variant.zoom,
-        lighting: variant.lighting || activeDisplay.lighting,
-        weather: variant.weather || activeDisplay.weather,
-        weatherIntensity: variant.weatherIntensity ?? activeDisplay.weatherIntensity,
-        ambientAudioUrl: variant.ambientAudioUrl || activeDisplay.ambientAudioUrl,
-        occlusionRegions: variant.occlusionRegions !== undefined ? variant.occlusionRegions : activeDisplay.occlusionRegions,
-        waypoints: variant.waypoints !== undefined ? variant.waypoints : activeDisplay.waypoints,
-      },
-      sessionRevision + 1
-    );
-    await sessionCommandBus.waitForResult(cmdId, 5000);
-  };
-
-  const handleSelectSituation = async (situation: SceneSituation) => {
-    const activeScene = campaign?.scenes?.find((s) => s.id === liveState.currentSceneId);
-    const profile = findBiomeProfile(
-      campaign?.biomeProfiles,
-      activeScene?.biomeProfileId || activeScene?.name?.toLowerCase() || 'tavern'
-    );
-    if (!profile) return;
-
-    const targetLayer = resolveBiomeTrackLayer(profile, situation);
-    const plan = resolveAudioTransitionPlan(
-      {
-        url: liveState.ambientAudioUrl,
-        volume: liveState.ambientVolume,
-        playing: liveState.ambientPlaying,
-      },
-      targetLayer
-    );
-
-    if (plan.url) {
-      updateDisplay(
-        (prev) => ({
-          ...prev,
-          ambientAudioUrl: plan.url,
-          ambientVolume: plan.volume,
-          ambientPlaying: true,
-          currentSituation: situation,
-        }),
-        `Tono: ${situation}`
-      );
-      soundEngine.setAmbient(plan.url, true, plan.volume, plan.crossfade);
-    } else {
-      updateDisplay(
-        (prev) => ({
-          ...prev,
-          currentSituation: situation,
-        }),
-        `Tono: ${situation}`
-      );
-    }
-  };
-
-  const handleApplySoundtrack = async (url: string, volume: number, crossfade: boolean) => {
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        ambientAudioUrl: url,
-        ambientVolume: volume,
-        ambientPlaying: true,
-      }),
-      'Banda Sonora Aplicada'
-    );
-    soundEngine.setAmbient(url, true, volume, crossfade);
-  };
-
-  const handleSaveBiomeProfiles = async (newProfiles: BiomeSoundProfile[]) => {
-    if (!campaign) return;
-    const updatedCampaign: Campaign = {
-      ...campaign,
-      biomeProfiles: newProfiles,
-    };
-    await db.campaigns.put(updatedCampaign);
-    setCampaign(updatedCampaign);
-  };
-
-  const handleApplyLightingPreset = async (
-    preset: SceneLightingPreset,
-    mode: LightingApplyMode,
-    newLights: SceneLight[]
-  ) => {
-    updateDisplay(
-      (prev) => ({
-        ...prev,
-        lights: newLights,
-        lighting: preset.lightingFilter || prev.lighting,
-      }),
-      `Preset Luz: ${preset.name} (${mode === 'replace' ? 'Reemplazado' : 'Combinado'})`
-    );
-    sessionCommandBus.dispatchSceneLights(newLights);
-  };
-
-  const handleSaveLightingPreset = async (newPreset: SceneLightingPreset) => {
-    if (!campaign) return;
-    const updatedCampaign: Campaign = {
-      ...campaign,
-      lightingPresets: [...(campaign.lightingPresets || []), newPreset],
-    };
-    await db.campaigns.put(updatedCampaign);
-    setCampaign(updatedCampaign);
   };
 
   const handleLoadSessionFromLibrary = (loadedSession: GameSession, mode: 'live' | 'staged') => {
@@ -1747,7 +820,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     } else {
       const targetState = loadedSession.stagedState || loadedSession.liveState;
       if (targetState) {
-        // Cargar exclusivamente en Preparación (Staging) sin alterar la Mesa de los jugadores
         setStagedStateOnly(targetState);
       }
     }
@@ -1789,402 +861,68 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const joinUrl = `${window.location.origin}${window.location.pathname}#join=${roomCode}${pairingSecret ? `&secret=${pairingSecret}` : ''}`;
 
   return (
-    <div className="master-controller-root">
-      {/* Top Header */}
-      <header className="master-header">
-        <div className="header-top">
-          <div className="brand-group" onClick={() => setShowCampaignPickerModal(true)} style={{ cursor: 'pointer' }}>
-            <h1 className="app-title">{campaign?.title || 'Visual Player'}</h1>
-            <span className="app-badge">Cambiar</span>
-          </div>
+    <div className={`master-controller-root ${partyMode ? 'party-mode-active' : ''} ${!partyControlsVisible ? 'party-controls-hidden' : ''}`}>
+      {/* HEADER SECTION (Modularized) */}
+      <MasterHeader
+        campaign={campaign}
+        roomCode={roomCode}
+        pairingSecret={pairingSecret}
+        connectionStatus={connectionStatus}
+        latencyMs={latencyMs}
+        pastEvents={pastEvents}
+        futureEvents={futureEvents}
+        undo={undo}
+        redo={redo}
+        onExitToLobby={onExitToLobby}
+        connectToRoom={connectToRoom}
+        versionCompatibility={versionCompatibility}
+        runningMacro={runningMacro}
+        cancelMacro={cancelMacro}
+        restoreSnapshot={restoreSnapshot}
+        operationMode={operationMode}
+        pendingChangesCount={pendingChangesCount}
+        onToggleOperationMode={handleToggleOperationMode}
+        previewTab={previewTab}
+        setPreviewTab={setPreviewTab}
+        liveState={liveState}
+        stagedState={stagedState}
+        activeDisplay={activeDisplay}
+        currentScene={currentScene}
+        mesaTelemetry={mesaTelemetry}
+        pendingCommandsCount={pendingCommandsCount}
+        publishAllStaged={publishAllStaged}
+        discardStaged={discardStaged}
+        toggleBlackout={toggleBlackout}
+        triggerLightning={triggerLightning}
+        triggerScreenShake={triggerScreenShake}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        sessionViewMode={sessionViewMode}
+        onOpenCampaignPicker={() => setShowCampaignPickerModal(true)}
+        onOpenQuickMoments={() => setShowQuickMoments(true)}
+        onOpenHistory={() => setShowHistoryModal(true)}
+        onOpenCheckpoints={() => setShowCheckpointsModal(true)}
+        onOpenDiagnostics={() => setShowDiagnosticsModal(true)}
+        onOpenFullScreenPreview={() => setShowFullScreenPreview(true)}
+        onOpenSelectivePublish={() => setShowSelectivePublishModal(true)}
+        onSaveCameraPreset={handleSaveCameraPreset}
+        onSaveWaypoint={handleDirectorSaveWaypoint}
+        onSaveOcclusionRegion={handleDirectorSaveOcclusionRegion}
+        onDeleteWaypoint={handleDirectorDeleteWaypoint}
+        onDeleteOcclusionRegion={handleDirectorDeleteOcclusionRegion}
+        onUpdateCharacter={handleDirectorUpdateCharacter}
+        onUpdateProp={handleDirectorUpdateProp}
+        onReorderLayers={handleDirectorReorderLayers}
+        onUpdateCampaignCharacter={handleUpdateCampaignCharacter}
+        onUpdateMultipleCharacterPositions={handleDirectorUpdateMultiplePositions}
+        onFocusCamera={handleDirectorFocusCamera}
+        onOpenCharacterLibrary={() => setShowSummonModal(true)}
+        onRemoveCharacters={dismissCharacters}
+        onAddCharacter={handleDirectorAddCharacter}
+        onLiveDragMove={handleDirectorLiveDragMove}
+      />
 
-          <div className="connection-group" style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
-            {/* Quick Moments Button */}
-            <button
-              className="icon-action-btn moments-btn"
-              onClick={() => setShowQuickMoments(true)}
-              title="Disparador Rápido de Momentos / Macros"
-            >
-              <Sparkles size={15} className="text-amber-400" />
-            </button>
-
-            {/* Quick Undo / Redo / History / Checkpoint Actions */}
-            <button
-              className="icon-action-btn"
-              onClick={undo}
-              disabled={pastEvents.length === 0}
-              title={pastEvents.length > 0 ? `Deshacer: ${pastEvents[0].description} (Ctrl+Z)` : 'Deshacer (Ctrl+Z)'}
-              style={{ opacity: pastEvents.length === 0 ? 0.4 : 1 }}
-            >
-              <RotateCcw size={15} />
-            </button>
-
-            <button
-              className="icon-action-btn"
-              onClick={redo}
-              disabled={futureEvents.length === 0}
-              title={futureEvents.length > 0 ? `Rehacer: ${futureEvents[0].description} (Ctrl+Y)` : 'Rehacer (Ctrl+Y)'}
-              style={{ opacity: futureEvents.length === 0 ? 0.4 : 1 }}
-            >
-              <RotateCw size={15} />
-            </button>
-
-            <button
-              className="icon-action-btn"
-              onClick={() => setShowHistoryModal(true)}
-              title="Ver Historial de Acciones"
-            >
-              <History size={15} />
-            </button>
-
-            <button
-              className="icon-action-btn"
-              onClick={() => setShowCheckpointsModal(true)}
-              title="Puntos de Restauración (Checkpoints)"
-            >
-              <Bookmark size={15} />
-            </button>
-
-            <button
-              className="icon-action-btn diagnostics-btn"
-              onClick={() => setShowDiagnosticsModal(true)}
-              title="Diagnóstico de Red & Modo Caos (DEV)"
-            >
-              <Activity size={15} className={peerService.isChaosActive() ? 'text-rose-400 animate-pulse' : 'text-slate-400'} />
-            </button>
-
-            {/* Transport Status Chip - replaces plain status-chip button */}
-            {
-              (() => {
-                const transportStatus: TransportStatusState =
-                  connectionStatus === 'connected' ? 'internet'
-                  : connectionStatus === 'connecting' ? 'switching'
-                  : 'disconnected';
-                return (
-                  <TransportStatusChip
-                    status={transportStatus}
-                    transportLabel="Internet"
-                    latencyMs={latencyMs > 0 ? latencyMs : undefined}
-                    role="master"
-                    onOpenDiagnostic={() => setShowDiagnosticsModal(true)}
-                  />
-                );
-              })()
-            }
-            {onExitToLobby && (
-              <button
-                className="status-chip"
-                onClick={() => {
-                  sessionRecoveryService.markCleanExit();
-                  onExitToLobby();
-                }}
-                title="Salir al Lobby"
-              >
-                <LogOut size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* NON-INVASIVE FLOATING RECONNECTION TOAST */}
-        {connectionStatus !== 'connected' && (
-          <div style={{
-            background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.18), rgba(239, 68, 68, 0.18))',
-            borderBottom: '1px solid rgba(245, 158, 11, 0.3)',
-            padding: '6px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontSize: '12px',
-            color: '#fbbf24',
-            backdropFilter: 'blur(8px)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <WifiOff size={14} className="animate-pulse" />
-              <span>
-                {connectionStatus === 'connecting'
-                  ? `Reconectando con la Mesa (${roomCode || '---'})... Los cambios se conservan.`
-                  : `Sin conexión con la Mesa (${roomCode || '---'}). Tus notas y fichas siguen disponibles.`}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => connectToRoom(roomCode, pairingSecret)}
-              style={{
-                background: 'rgba(245, 158, 11, 0.25)',
-                border: '1px solid rgba(245, 158, 11, 0.5)',
-                borderRadius: '6px',
-                color: '#fbbf24',
-                padding: '3px 10px',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Reconectar
-            </button>
-          </div>
-        )}
-
-        {/* PERSISTENT CHAOS SIMULATION WARNING BANNER (DEV) */}
-        {peerService.isChaosActive() && (
-          <div className="chaos-warning-header-banner">
-            <div className="flex-align-gap">
-              <AlertTriangle size={15} className="text-amber-400 animate-bounce" />
-              <span>
-                <strong>MODO CAOS ACTIVO</strong>: {peerService.getChaosConfig().latencyMs}ms latencia • {Math.round(peerService.getChaosConfig().packetLossRate * 100)}% pérdida
-                {peerService.getChaosConfig().isPartitioned && ' • CORTE TOTAL'}
-              </span>
-            </div>
-            <div className="flex-align-gap">
-              <button className="btn-chaos-mini" onClick={() => setShowDiagnosticsModal(true)}>
-                Ajustar
-              </button>
-              <button
-                className="btn-chaos-mini reset"
-                onClick={() => {
-                  peerService.resetChaos();
-                  alert('Red restablecida a condiciones normales (0ms, 0% pérdida).');
-                }}
-              >
-                Restablecer
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* VERSION COMPATIBILITY WARNING BANNER */}
-        {versionCompatibility && versionCompatibility.status !== 'compatible' && (
-          <div
-            style={{
-              padding: '6px 16px',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-              background: versionCompatibility.status === 'incompatible' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.2)',
-              borderBottom: `1px solid ${versionCompatibility.status === 'incompatible' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(245, 158, 11, 0.5)'}`,
-              color: versionCompatibility.status === 'incompatible' ? '#fca5a5' : '#fbbf24',
-              backdropFilter: 'blur(8px)',
-              zIndex: 10,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertTriangle size={15} className={versionCompatibility.status === 'incompatible' ? 'text-red-400 animate-pulse' : 'text-amber-400'} />
-              <span>
-                <strong>{versionCompatibility.status === 'incompatible' ? 'AVISO CRÍTICO DE COMPATIBILIDAD' : 'AVISO DE CAPACIDADES'}</strong>: {versionCompatibility.message}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowDiagnosticsModal(true)}
-              style={{
-                background: versionCompatibility.status === 'incompatible' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.25)',
-                border: `1px solid ${versionCompatibility.status === 'incompatible' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(245, 158, 11, 0.5)'}`,
-                borderRadius: '6px',
-                color: versionCompatibility.status === 'incompatible' ? '#fecaca' : '#fbbf24',
-                padding: '3px 10px',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Diagnóstico
-            </button>
-          </div>
-        )}
-
-        {/* ACTIVE RUNNING MACRO SEQUENCE BAR */}
-        {runningMacro && (
-          <div className="running-macro-banner">
-            <div className="running-macro-info">
-              <Sparkles size={16} className="text-amber-400 animate-spin" />
-              <span>
-                Momento: <strong>{runningMacro.macro.name}</strong> (Paso {runningMacro.currentStepIndex + 1}/{runningMacro.totalSteps})
-              </span>
-            </div>
-            <div className="running-macro-actions">
-              <button
-                className="macro-ctrl-btn danger"
-                onClick={() => {
-                  cancelMacro((backup) => {
-                    restoreSnapshot(backup, `Cancelada macro: ${runningMacro.macro.name}`);
-                  });
-                }}
-                title="Cancelar secuencia y restaurar estado anterior"
-              >
-                <X size={14} />
-                <span>Cancelar</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Operation Mode Selector Bar: Live vs Staging */}
-        <div className="operation-mode-switcher-bar">
-          <div className="mode-switch-group">
-            <button
-              className={`mode-switch-btn ${operationMode === 'live' ? 'active-live' : ''}`}
-              onClick={() => handleToggleOperationMode('live')}
-            >
-              <Radio size={14} className={operationMode === 'live' ? 'animate-pulse' : ''} />
-              <span>⚡ EN VIVO</span>
-            </button>
-
-            <button
-              className={`mode-switch-btn ${operationMode === 'staging' ? 'active-staging' : ''}`}
-              onClick={() => handleToggleOperationMode('staging')}
-            >
-              <Layers size={14} />
-              <span>🛠️ PREPARACIÓN</span>
-              {pendingChangesCount > 0 && (
-                <span className="pending-badge-count">{pendingChangesCount}</span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Live Mini Preview Carousel in Header */}
-        <LiveMiniPreview
-          liveState={liveState}
-          stagedState={stagedState}
-          operationMode={operationMode}
-          previewTab={previewTab}
-          onChangePreviewTab={setPreviewTab}
-          onOpenFullScreen={() => setShowFullScreenPreview(true)}
-          mesaTelemetry={mesaTelemetry}
-          isConnected={connectionStatus === 'connected'}
-          pendingCommandsCount={pendingCommandsCount}
-          campaignCharacters={campaign?.characters || []}
-          groundLineY={currentScene?.groundLineY ?? liveState.groundLineY}
-          savedCameraPresets={liveState.savedCameraPresets}
-          props={currentScene?.props || liveState.props}
-          occlusionRegions={currentScene?.occlusionRegions || liveState.occlusionRegions}
-          waypoints={currentScene?.waypoints || liveState.waypoints}
-          camera={liveState.camera}
-          onSaveCameraPreset={handleSaveCameraPreset}
-          onSaveWaypoint={handleDirectorSaveWaypoint}
-          onSaveOcclusionRegion={handleDirectorSaveOcclusionRegion}
-          onDeleteWaypoint={handleDirectorDeleteWaypoint}
-          onDeleteOcclusionRegion={handleDirectorDeleteOcclusionRegion}
-          onUpdateCharacter={handleDirectorUpdateCharacter}
-          onUpdateProp={handleDirectorUpdateProp}
-          onReorderLayers={handleDirectorReorderLayers}
-          onUpdateCampaignCharacter={handleUpdateCampaignCharacter}
-          onUpdateMultipleCharacterPositions={handleDirectorUpdateMultiplePositions}
-          onFocusCamera={handleDirectorFocusCamera}
-          onUndo={undo}
-          canUndo={pastEvents.length > 0}
-        />
-
-        {/* Floating / Sticky Staging Publish Bar when in Staging Mode with changes */}
-        {operationMode === 'staging' && pendingChangesCount > 0 && (
-          <div className="staging-publish-sticky-bar">
-            <div className="staging-info">
-              <span className="staging-badge">BORRADOR</span>
-              <span className="staging-count">{pendingChangesCount} cambios preparados</span>
-            </div>
-            <div className="staging-actions">
-              <button
-                className="btn-discard-staging"
-                onClick={() => {
-                  discardStaged();
-                  setPreviewTab('live');
-                }}
-                title="Descartar borrador"
-              >
-                <RotateCcw size={14} />
-                <span>Descartar</span>
-              </button>
-
-              <button
-                className="btn-review-staging"
-                onClick={() => setShowSelectivePublishModal(true)}
-                title="Revisar diferencias e incoherencias antes de publicar"
-              >
-                <CheckCheck size={14} />
-                <span>Revisar y Publicar</span>
-              </button>
-
-              <button
-                className="btn-send-staging"
-                onClick={() => {
-                  publishAllStaged();
-                  setPreviewTab('live');
-                }}
-                title="Enviar todos los cambios a la Tablet de un golpe"
-              >
-                <Send size={14} />
-                <span>Publicar Todo</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Quick Action Triggers Row */}
-        <div className="quick-actions-bar">
-          <button
-            className={`action-pill ${activeDisplay.isBlackout ? 'blackout-active' : 'blackout-btn'}`}
-            onClick={toggleBlackout}
-          >
-            <EyeOff size={16} />
-            <span>{activeDisplay.isBlackout ? 'Encender Pantalla' : 'Blackout (Pánico)'}</span>
-          </button>
-
-          <button className="action-pill trigger-lightning-btn" onClick={triggerLightning}>
-            <Zap size={16} />
-            <span>Rayo</span>
-          </button>
-
-          <button className="action-pill trigger-shake-btn" onClick={triggerScreenShake}>
-            <Activity size={16} />
-            <span>Temblor</span>
-          </button>
-        </div>
-
-        {/* Navigation Tabs (5 Tabs) */}
-        <nav className="tab-navigation five-tabs">
-          <button
-            className={`nav-tab ${activeTab === 'live' ? 'active' : ''}`}
-            onClick={() => setActiveTab('live')}
-          >
-            <Sliders size={16} />
-            <span>{sessionViewMode === 'session' ? 'Sesión' : 'En Vivo'}</span>
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'moments' ? 'active' : ''}`}
-            onClick={() => setActiveTab('moments')}
-          >
-            <Sparkles size={16} />
-            <span>Momentos</span>
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'combat' ? 'active' : ''}`}
-            onClick={() => setActiveTab('combat')}
-          >
-            <Swords size={16} />
-            <span>Combate</span>
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'notes' ? 'active' : ''}`}
-            onClick={() => setActiveTab('notes')}
-          >
-            <BookOpen size={16} />
-            <span>Notas DM</span>
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'library' ? 'active' : ''}`}
-            onClick={() => setActiveTab('library')}
-          >
-            <FolderOpen size={16} />
-            <span>Campañas</span>
-          </button>
-        </nav>
-      </header>
-
-      {/* Main Tab Content */}
+      {/* MAIN CONTENT AREA */}
       <main className="master-content">
         {/* TAB 1: LIVE STAGE / SESSION PANEL */}
         {activeTab === 'live' && sessionViewMode === 'session' && (
@@ -2203,6 +941,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
             onOpenSelectivePublish={() => setShowSelectivePublishModal(true)}
             onDiscardStaged={discardStaged}
             onToggleOperationMode={handleToggleOperationMode}
+            onUndo={undo}
             onTriggerLightning={triggerLightning}
             onTriggerShake={triggerScreenShake}
             onToggleBlackout={toggleBlackout}
@@ -2238,7 +977,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
             onRepeatActions={handleRepeatDialogueActions}
             executedActionLineIds={executedActionLineIds}
             selectedChoiceIds={selectedChoiceIds}
-            onSelectBranchChoice={(choice: DialogueBranchChoice) => {
+            onSelectBranchChoice={(choice) => {
               setSelectedChoiceIds((prev) => ({ ...prev, [choice.id]: choice.id }));
             }}
             onUpdateSceneLights={handleUpdateSceneLights}
@@ -2324,309 +1063,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         />
       </main>
 
-      {/* SELECTIVE PUBLISH MODAL */}
-      {showSelectivePublishModal && (
-        <SelectivePublishModal
-          liveState={liveState}
-          stagedState={stagedState}
-          campaign={campaign}
-          onPublishSelective={(keys) => {
-            publishSelectiveStaged(keys);
-            setPreviewTab('live');
-          }}
-          onPublishAll={() => {
-            publishAllStaged();
-            setPreviewTab('live');
-          }}
-          onClose={() => setShowSelectivePublishModal(false)}
-        />
-      )}
-
-      {/* FULL SCREEN PREVIEW MODAL */}
-      {showFullScreenPreview && (
-        <FullScreenPreviewModal
-          liveState={liveState}
-          stagedState={stagedState}
-          operationMode={operationMode}
-          previewTab={previewTab}
-          hasPendingChanges={pendingChangesCount > 0}
-          onChangePreviewTab={setPreviewTab}
-          onSendToScreen={() => {
-            publishAllStaged();
-            setPreviewTab('live');
-          }}
-          onClose={() => setShowFullScreenPreview(false)}
-          mesaTelemetry={mesaTelemetry}
-          pendingCommandsCount={pendingCommandsCount}
-          campaignCharacters={campaign?.characters || []}
-          groundLineY={currentScene?.groundLineY ?? liveState.groundLineY}
-          savedCameraPresets={liveState.savedCameraPresets}
-          props={currentScene?.props || liveState.props}
-          occlusionRegions={currentScene?.occlusionRegions || liveState.occlusionRegions}
-          waypoints={currentScene?.waypoints || liveState.waypoints}
-          camera={liveState.camera}
-          onSaveCameraPreset={handleSaveCameraPreset}
-          onSaveWaypoint={handleDirectorSaveWaypoint}
-          onSaveOcclusionRegion={handleDirectorSaveOcclusionRegion}
-          onDeleteWaypoint={handleDirectorDeleteWaypoint}
-          onDeleteOcclusionRegion={handleDirectorDeleteOcclusionRegion}
-          onUpdateCharacter={handleDirectorUpdateCharacter}
-          onUpdateProp={handleDirectorUpdateProp}
-          onReorderLayers={handleDirectorReorderLayers}
-          onUpdateCampaignCharacter={handleUpdateCampaignCharacter}
-          onUpdateMultipleCharacterPositions={handleDirectorUpdateMultiplePositions}
-          onFocusCamera={handleDirectorFocusCamera}
-          onUndo={undo}
-          canUndo={pastEvents.length > 0}
-        />
-      )}
-
-      {/* CONNECTION DIAGNOSTIC & MESA AUDIT/RESYNC MODAL */}
-      <ConnectionDiagnosticModal
-        isOpen={showDiagnosticsModal}
-        onClose={() => setShowDiagnosticsModal(false)}
-        liveState={liveState}
-        onResyncMesa={() => {
-          broadcastFullState(liveState);
-        }}
-      />
-
-      {/* QUICK MOMENTS DROPDOWN */}
-      {showQuickMoments && (
-        <QuickMomentsDropdown
-          macros={campaign?.macros || []}
-          onExecuteMacro={handleExecuteMacro}
-          onLoadMacroToStaging={handleLoadMacroToStaging}
-          onClose={() => setShowQuickMoments(false)}
-        />
-      )}
-
-      {/* HISTORY MODAL */}
-      {showHistoryModal && (
-        <HistoryModal
-          pastEvents={pastEvents}
-          onRestoreEvent={handleRestoreFromHistory}
-          onClose={() => setShowHistoryModal(false)}
-        />
-      )}
-
-      {/* CHECKPOINTS MODAL */}
-      {showCheckpointsModal && (
-        <CheckpointsModal
-          checkpoints={checkpointsList}
-          onSaveManualCheckpoint={handleSaveManualCheckpoint}
-          onRestoreCheckpoint={handleRestoreCheckpoint}
-          onDeleteCheckpoint={handleDeleteCheckpoint}
-          onClose={() => setShowCheckpointsModal(false)}
-        />
-      )}
-
-      {/* DIALOG: UNSAVED STAGING CHANGES WHEN SWITCHING TO LIVE */}
-      {showUnsavedStagingDialog && (
-        <div className="modal-overlay" onClick={() => setShowUnsavedStagingDialog(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Cambios Pendientes en Borrador</h2>
-            </div>
-            <p className="modal-dialog-text">
-              Tienes <strong>{pendingChangesCount} cambios preparados</strong> que aún no se han enviado a la pantalla. ¿Qué deseas hacer al volver al modo En Vivo?
-            </p>
-            <div className="modal-dialog-actions-vertical">
-              <button
-                className="btn-primary full"
-                onClick={() => {
-                  publishAllStaged();
-                  setOperationMode('live');
-                  setShowUnsavedStagingDialog(false);
-                }}
-              >
-                <Send size={16} />
-                <span>Publicar y Enviar a Pantalla</span>
-              </button>
-
-              <button
-                className="btn-secondary full"
-                onClick={() => {
-                  setOperationMode('live');
-                  setShowUnsavedStagingDialog(false);
-                }}
-              >
-                <span>Conservar como Borrador (Sin Publicar)</span>
-              </button>
-
-              <button
-                className="btn-danger full"
-                onClick={() => {
-                  discardStaged();
-                  setOperationMode('live');
-                  setShowUnsavedStagingDialog(false);
-                }}
-              >
-                <Trash2 size={16} />
-                <span>Descartar Borrador</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: CAMPAIGN PICKER & MANAGER */}
-      <CampaignPickerModal
-        isOpen={showCampaignPickerModal}
-        campaigns={campaignList}
-        activeCampaignId={campaign?.id}
-        onSelectCampaign={handleSwitchCampaign}
-        onCreateCampaign={async (title, desc) => {
-          const newCamp: Campaign = {
-            id: `camp-${Date.now()}`,
-            title,
-            description: desc,
-            scenes: DEMO_SCENES,
-            characters: DEMO_CHARACTERS,
-            macros: DEMO_MACROS,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          };
-          await createCampaign(newCamp);
-          const list = await getAllCampaigns();
-          setCampaignList(list);
-          setCampaign(newCamp);
-          await setActiveCampaignId(newCamp.id);
-          selectScene(newCamp.scenes[0]);
-          setShowCampaignPickerModal(false);
-        }}
-        onDuplicateCampaign={handleDuplicateCampaign}
-        onDeleteCampaign={(campId) => handleDeleteCampaign(campId, '')}
-        onClose={() => setShowCampaignPickerModal(false)}
-      />
-
-      {/* MODAL: EDIT / CREATE SCENE */}
-      <SceneEditModal
-        isOpen={showNewSceneModal}
-        sceneToEdit={editingScene}
-        onSave={async (sceneData) => {
-          if (!sceneData.name || !sceneData.backgroundUrl || !campaign) return;
-          if (editingScene) {
-            const updatedScene: Scene = {
-              ...editingScene,
-              name: sceneData.name,
-              backgroundUrl: sceneData.backgroundUrl,
-              locationBanner: sceneData.locationBanner || sceneData.name,
-              subtitle: sceneData.subtitle || '',
-              weather: sceneData.weather || 'none',
-              lighting: sceneData.lighting || 'normal',
-              ambientAudioUrl: sceneData.ambientAudioUrl || '',
-              ambientAudioName: sceneData.ambientAudioName || '',
-              dmNotes: sceneData.dmNotes || '',
-            };
-            const updatedScenes = campaign.scenes.map((s) => (s.id === updatedScene.id ? updatedScene : s));
-            const updatedCamp = { ...campaign, scenes: updatedScenes };
-            await updateCampaign(updatedCamp);
-            setCampaign(updatedCamp);
-            if (activeDisplay.currentSceneId === updatedScene.id) {
-              selectScene(updatedScene);
-            }
-          } else {
-            const newScene: Scene = {
-              id: `scene-${Date.now()}`,
-              name: sceneData.name,
-              backgroundUrl: sceneData.backgroundUrl,
-              locationBanner: sceneData.locationBanner || sceneData.name,
-              subtitle: sceneData.subtitle || '',
-              weather: sceneData.weather || 'none',
-              lighting: sceneData.lighting || 'normal',
-              ambientAudioUrl: sceneData.ambientAudioUrl || '',
-              ambientAudioName: sceneData.ambientAudioName || '',
-              dmNotes: sceneData.dmNotes || '',
-            };
-            const updatedScenes = [...campaign.scenes, newScene];
-            const updatedCamp = { ...campaign, scenes: updatedScenes };
-            await updateCampaign(updatedCamp);
-            setCampaign(updatedCamp);
-          }
-          setEditingScene(null);
-        }}
-        onClose={() => {
-          setShowNewSceneModal(false);
-          setEditingScene(null);
-        }}
-      />
-
-      {/* MODAL: EDIT / CREATE CHARACTER */}
-      <CharacterEditModal
-        isOpen={showNewCharModal}
-        charToEdit={editingChar}
-        onSave={async (charData) => {
-          if (!charData.name || !charData.defaultAvatarUrl || !campaign) return;
-          if (editingChar) {
-            const updatedChar: Character = {
-              ...editingChar,
-              name: charData.name,
-              roleOrTitle: charData.roleOrTitle || 'Aventurero',
-              defaultAvatarUrl: charData.defaultAvatarUrl,
-              bio: charData.bio || '',
-              maxHp: charData.maxHp || 30,
-            };
-            const updatedChars = campaign.characters.map((c) => (c.id === updatedChar.id ? updatedChar : c));
-            const updatedCamp = { ...campaign, characters: updatedChars };
-            await updateCampaign(updatedCamp);
-            setCampaign(updatedCamp);
-          } else {
-            const newChar: Character = {
-              id: `char-${Date.now()}`,
-              name: charData.name,
-              roleOrTitle: charData.roleOrTitle || 'Aventurero',
-              defaultAvatarUrl: charData.defaultAvatarUrl,
-              bio: charData.bio || '',
-              maxHp: charData.maxHp || 30,
-            };
-            const updatedChars = [...campaign.characters, newChar];
-            const updatedCamp = { ...campaign, characters: updatedChars };
-            await updateCampaign(updatedCamp);
-            setCampaign(updatedCamp);
-          }
-          setEditingChar(null);
-        }}
-        onClose={() => {
-          setShowNewCharModal(false);
-          setEditingChar(null);
-        }}
-      />
-
-      {/* MODAL: SUMMON NPC */}
-      <SummonCharacterModal
-        isOpen={showSummonModal}
-        characters={campaign?.characters || []}
-        onSummon={summonCharacter}
-        onClose={() => setShowSummonModal(false)}
-      />
-
-      {/* MODAL: QR & CONNECTION */}
-      <MasterQRModal
-        isOpen={showQRModal}
-        joinUrl={joinUrl}
-        roomCode={roomCode}
-        latencyMs={latencyMs}
-        onReconnect={() => connectToRoom(roomCode)}
-        onClose={() => setShowQRModal(false)}
-      />
-
-      {/* MODAL: NETWORK DIAGNOSTICS & CHAOS */}
-      {showDiagnosticsModal && (
-        <NetworkDiagnosticsModal
-          roomCode={roomCode}
-          connectionStatus={connectionStatus}
-          latencyMs={latencyMs}
-          liveState={liveState}
-          onForceResync={() => {
-            broadcastFullState(liveState);
-            soundEngine.playSynth('magic_spell');
-            alert('¡Estado completo (FULL_STATE) transmitido a la Tablet!');
-          }}
-          onClose={() => setShowDiagnosticsModal(false)}
-        />
-      )}
-
       {/* EMERGENCY DOCK (PERMANENT & ACCESSIBLE) */}
       <EmergencyDock
         isBlackout={activeDisplay.isBlackout}
@@ -2641,6 +1077,159 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         checkpointReceipt={checkpointReceipt}
         muteReceipt={muteReceipt}
         blackoutReceipt={blackoutReceipt}
+      />
+
+      <aside className={`party-mode-control ${partyMenuOpen ? 'open' : ''}`} aria-label="Modo Partida">
+        {partyMenuOpen && (
+          <div className="party-mode-menu" role="dialog" aria-label="Opciones del Modo Partida">
+            <div className="party-mode-menu-header">
+              <div>
+                <span className="party-mode-eyebrow">Android / Mesa</span>
+                <strong>Modo Partida</strong>
+              </div>
+              <button type="button" className="party-mode-close" onClick={() => setPartyMenuOpen(false)} aria-label="Cerrar menú del Modo Partida">
+                <X size={17} />
+              </button>
+            </div>
+            <button
+              type="button"
+              className={`party-mode-option ${partyKeepAwake ? 'active' : ''}`}
+              onClick={() => setPartyKeepAwake((current) => !current)}
+            >
+              {partyKeepAwake ? <Sun size={18} /> : <Moon size={18} />}
+              <span>Pantalla activa</span>
+              <small>{partyKeepAwake ? 'Activada' : 'Apagada'}</small>
+            </button>
+            <button
+              type="button"
+              className={`party-mode-option ${partyImmersive ? 'active' : ''}`}
+              onClick={() => setPartyImmersive((current) => !current)}
+            >
+              <Monitor size={18} />
+              <span>Pantalla completa</span>
+              <small>{partyImmersive ? 'Activada' : 'Apagada'}</small>
+            </button>
+            <button
+              type="button"
+              className={`party-mode-option ${!partyControlsVisible ? 'active' : ''}`}
+              onClick={() => setPartyControlsVisible((current) => !current)}
+            >
+              <Smartphone size={18} />
+              <span>{partyControlsVisible ? 'Ocultar controles' : 'Mostrar controles'}</span>
+              <small>{partyControlsVisible ? 'Consola visible' : 'Solo escena'}</small>
+            </button>
+            <button
+              type="button"
+              className="party-mode-exit"
+              onClick={() => {
+                setPartyMode(false);
+                setPartyMenuOpen(false);
+                setPartyControlsVisible(true);
+              }}
+            >
+              Salir del Modo Partida
+            </button>
+          </div>
+        )}
+        <button
+          type="button"
+          className={`party-mode-trigger ${partyMode ? 'active' : ''}`}
+          onClick={() => {
+            if (!partyMode) setPartyMode(true);
+            setPartyMenuOpen((current) => !current);
+          }}
+          aria-expanded={partyMenuOpen}
+          aria-label={partyMode ? 'Abrir opciones del Modo Partida' : 'Activar Modo Partida'}
+        >
+          <Monitor size={17} />
+          <span>{partyMode ? 'Mesa' : 'Modo mesa'}</span>
+        </button>
+      </aside>
+
+      {/* PRIMARY MODALS LAYER (Modularized) */}
+      <MasterPrimaryModals
+        campaign={campaign}
+        campaignList={campaignList}
+        setCampaign={setCampaign}
+        setCampaignList={setCampaignList}
+        liveState={liveState}
+        stagedState={stagedState}
+        activeDisplay={activeDisplay}
+        operationMode={operationMode}
+        previewTab={previewTab}
+        setPreviewTab={setPreviewTab}
+        setOperationMode={setOperationMode}
+        pendingChangesCount={pendingChangesCount}
+        currentScene={currentScene}
+        mesaTelemetry={mesaTelemetry}
+        pendingCommandsCount={pendingCommandsCount}
+        pastEvents={pastEvents}
+        checkpointsList={checkpointsList}
+        roomCode={roomCode}
+        pairingSecret={pairingSecret}
+        connectionStatus={connectionStatus}
+        latencyMs={latencyMs}
+        joinUrl={joinUrl}
+        showSelectivePublishModal={showSelectivePublishModal}
+        setShowSelectivePublishModal={setShowSelectivePublishModal}
+        showFullScreenPreview={showFullScreenPreview}
+        setShowFullScreenPreview={setShowFullScreenPreview}
+        showDiagnosticsModal={showDiagnosticsModal}
+        setShowDiagnosticsModal={setShowDiagnosticsModal}
+        showQuickMoments={showQuickMoments}
+        setShowQuickMoments={setShowQuickMoments}
+        showHistoryModal={showHistoryModal}
+        setShowHistoryModal={setShowHistoryModal}
+        showCheckpointsModal={showCheckpointsModal}
+        setShowCheckpointsModal={setShowCheckpointsModal}
+        showUnsavedStagingDialog={showUnsavedStagingDialog}
+        setShowUnsavedStagingDialog={setShowUnsavedStagingDialog}
+        showCampaignPickerModal={showCampaignPickerModal}
+        setShowCampaignPickerModal={setShowCampaignPickerModal}
+        showNewSceneModal={showNewSceneModal}
+        setShowNewSceneModal={setShowNewSceneModal}
+        editingScene={editingScene}
+        setEditingScene={setEditingScene}
+        showNewCharModal={showNewCharModal}
+        setShowNewCharModal={setShowNewCharModal}
+        editingChar={editingChar}
+        setEditingChar={setEditingChar}
+        showSummonModal={showSummonModal}
+        setShowSummonModal={setShowSummonModal}
+        showQRModal={showQRModal}
+        setShowQRModal={setShowQRModal}
+        publishAllStaged={publishAllStaged}
+        publishSelectiveStaged={publishSelectiveStaged}
+        discardStaged={discardStaged}
+        broadcastFullState={broadcastFullState}
+        connectToRoom={connectToRoom}
+        handleExecuteMacro={handleExecuteMacro}
+        handleLoadMacroToStaging={handleLoadMacroToStaging}
+        handleRestoreFromHistory={handleRestoreFromHistory}
+        handleSaveManualCheckpoint={handleSaveManualCheckpoint}
+        handleRestoreCheckpoint={handleRestoreCheckpoint}
+        handleDeleteCheckpoint={handleDeleteCheckpoint}
+        handleSwitchCampaign={handleSwitchCampaign}
+        handleDuplicateCampaign={handleDuplicateCampaign}
+        handleDeleteCampaign={handleDeleteCampaign}
+        selectScene={selectScene}
+        summonCharacter={summonCharacter}
+        undo={undo}
+        onSaveCameraPreset={handleSaveCameraPreset}
+        onSaveWaypoint={handleDirectorSaveWaypoint}
+        onSaveOcclusionRegion={handleDirectorSaveOcclusionRegion}
+        onDeleteWaypoint={handleDirectorDeleteWaypoint}
+        onDeleteOcclusionRegion={handleDirectorDeleteOcclusionRegion}
+        onUpdateCharacter={handleDirectorUpdateCharacter}
+        onUpdateProp={handleDirectorUpdateProp}
+        onReorderLayers={handleDirectorReorderLayers}
+        onUpdateCampaignCharacter={handleUpdateCampaignCharacter}
+        onUpdateMultipleCharacterPositions={handleDirectorUpdateMultiplePositions}
+        onFocusCamera={handleDirectorFocusCamera}
+        onOpenCharacterLibrary={() => setShowSummonModal(true)}
+        onRemoveCharacters={dismissCharacters}
+        onAddCharacter={handleDirectorAddCharacter}
+        onLiveDragMove={handleDirectorLiveDragMove}
       />
 
       {/* AUXILIARY CREATIVE & SESSION MODALS LAYER */}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload } from 'lucide-react';
+import { X, Image as ImageIcon } from 'lucide-react';
 import type { Scene, WeatherType, LightingFilter } from '../../../types';
+import { AssetPickerModal } from '../../common/AssetPickerModal';
 
 interface SceneEditModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export const SceneEditModal: React.FC<SceneEditModalProps> = ({
   onSave,
   onClose,
 }) => {
+  const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [form, setForm] = useState({
     name: '',
     backgroundUrl: '',
@@ -57,17 +59,6 @@ export const SceneEditModal: React.FC<SceneEditModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setForm((prev) => ({ ...prev, backgroundUrl: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.backgroundUrl) return;
@@ -96,21 +87,48 @@ export const SceneEditModal: React.FC<SceneEditModalProps> = ({
             className="master-input"
           />
 
-          <label>Imagen de Fondo (URL o Subir Archivo)</label>
-          <div className="flex-gap">
-            <input
-              type="url"
-              required
-              value={form.backgroundUrl}
-              onChange={(e) => setForm({ ...form, backgroundUrl: e.target.value })}
-              placeholder="https://images.unsplash.com/..."
-              className="master-input flex-1"
-            />
-            <label className="btn-file-upload">
-              <Upload size={16} />
-              <span>Subir</span>
-              <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
-            </label>
+          <label>Imagen de Fondo de la Escena</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+            <div
+              style={{
+                width: '100px',
+                height: '56px',
+                borderRadius: '8px',
+                background: '#090d16',
+                border: '1px solid rgba(255,255,255,0.15)',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {form.backgroundUrl ? (
+                <img src={form.backgroundUrl} alt="Fondo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <ImageIcon size={20} className="text-amber-400" />
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowAssetPicker(true)}
+              style={{
+                background: 'linear-gradient(135deg, #d97706, #b45309)',
+                border: 'none',
+                color: '#fff',
+                borderRadius: '8px',
+                padding: '10px 16px',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+              }}
+            >
+              <ImageIcon size={16} />
+              <span>{form.backgroundUrl ? 'Cambiar Imagen' : 'Elegir Imagen (Fotos / Biblioteca)'}</span>
+            </button>
           </div>
 
           <div className="form-grid-2">
@@ -193,6 +211,22 @@ export const SceneEditModal: React.FC<SceneEditModalProps> = ({
             {sceneToEdit ? 'Guardar Cambios' : 'Crear Escena'}
           </button>
         </form>
+
+        <AssetPickerModal
+          isOpen={showAssetPicker}
+          mode="background"
+          currentUrl={form.backgroundUrl}
+          onSelectAsset={(asset) => {
+            setForm((prev) => ({
+              ...prev,
+              backgroundUrl: asset.url,
+              name: prev.name || asset.name,
+              locationBanner: prev.locationBanner || asset.name,
+            }));
+            setShowAssetPicker(false);
+          }}
+          onClose={() => setShowAssetPicker(false)}
+        />
       </div>
     </div>
   );

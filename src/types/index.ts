@@ -1,4 +1,4 @@
-export type Role = 'lobby' | 'display' | 'master';
+export type Role = 'lobby' | 'display' | 'master' | 'workshop';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
@@ -462,6 +462,7 @@ export interface Scene {
   groundLineY?: number; // Visual ground line level (0-50%, default 0)
   occlusionRegions?: SceneOcclusionRegion[];
   waypoints?: StageWaypoint[];
+  activeCharacters?: CharacterOnScreen[];
 }
 
 export interface SFXTrack {

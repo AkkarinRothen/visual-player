@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Tv, Smartphone, Sparkles, ArrowRight, Camera, X, RefreshCw, Trash2, Image, ShieldAlert } from 'lucide-react';
+import { Tv, Smartphone, Sparkles, ArrowRight, Camera, X, RefreshCw, Trash2, Image, ShieldAlert, Compass } from 'lucide-react';
 import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
 import { sessionRecoveryService, type RecoverySnapshot } from '../../services/sessionRecovery';
+import type { Role } from '../../types';
 
 interface LobbyProps {
-  onSelectRole: (role: 'display' | 'master', roomCode?: string) => void;
+  onSelectRole: (role: Role, roomCode?: string) => void;
 }
 
 export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
@@ -267,6 +268,26 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
                   <span>Escanear Código QR</span>
                 </button>
               </form>
+            </div>
+          </div>
+
+          {/* Card 3: Taller de Preparación & Biblioteca */}
+          <div className="role-card workshop-card" onClick={() => onSelectRole('workshop')} style={{ cursor: 'pointer' }}>
+            <div className="role-card-inner">
+              <div className="role-icon-box workshop-icon-box" style={{ color: '#fbbf24', background: 'rgba(245, 158, 11, 0.15)' }}>
+                <Compass size={36} />
+              </div>
+              <div className="role-badge" style={{ color: '#fbbf24', background: 'rgba(245, 158, 11, 0.15)' }}>
+                Crear sin conectar Mesa
+              </div>
+              <h2 className="role-title">Preparar Escenas</h2>
+              <p className="role-desc">
+                Crea escenarios, importa fotos locales de tu celular, organiza personajes y ten tus campañas listas sin necesidad de conectar una Mesa.
+              </p>
+              <button className="role-btn btn-workshop" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)', color: '#fff', border: 'none' }}>
+                <span>Abrir Taller de Preparación</span>
+                <ArrowRight size={16} />
+              </button>
             </div>
           </div>
         </div>

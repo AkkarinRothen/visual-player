@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload } from 'lucide-react';
+import { X, Image as ImageIcon } from 'lucide-react';
 import type { Character } from '../../../types';
+import { AssetPickerModal } from '../../common/AssetPickerModal';
 
 interface CharacterEditModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
   onSave,
   onClose,
 }) => {
+  const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [form, setForm] = useState({
     name: '',
     roleOrTitle: '',
@@ -44,17 +46,6 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
   }, [charToEdit, isOpen]);
 
   if (!isOpen) return null;
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setForm((prev) => ({ ...prev, defaultAvatarUrl: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,21 +99,49 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
             </div>
           </div>
 
-          <label>Avatar / Retrato (URL o Archivo)</label>
-          <div className="flex-gap">
-            <input
-              type="url"
-              required
-              value={form.defaultAvatarUrl}
-              onChange={(e) => setForm({ ...form, defaultAvatarUrl: e.target.value })}
-              placeholder="https://..."
-              className="master-input flex-1"
-            />
-            <label className="btn-file-upload">
-              <Upload size={16} />
-              <span>Subir</span>
-              <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
-            </label>
+          <label>Avatar / Retrato del Personaje</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: '#090d16',
+                border: '2px solid rgba(245, 158, 11, 0.4)',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              {form.defaultAvatarUrl ? (
+                <img src={form.defaultAvatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <ImageIcon size={22} className="text-amber-400" />
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowAssetPicker(true)}
+              style={{
+                background: 'linear-gradient(135deg, #d97706, #b45309)',
+                border: 'none',
+                color: '#fff',
+                borderRadius: '8px',
+                padding: '10px 16px',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+              }}
+            >
+              <ImageIcon size={16} />
+              <span>{form.defaultAvatarUrl ? 'Cambiar Retrato' : 'Elegir Retrato (Fotos / Biblioteca)'}</span>
+            </button>
           </div>
 
           <label>Biografía o Notas</label>
@@ -138,6 +157,21 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
             {charToEdit ? 'Guardar Cambios' : 'Crear Ficha de NPC'}
           </button>
         </form>
+
+        <AssetPickerModal
+          isOpen={showAssetPicker}
+          mode="character"
+          currentUrl={form.defaultAvatarUrl}
+          onSelectAsset={(asset) => {
+            setForm((prev) => ({
+              ...prev,
+              defaultAvatarUrl: asset.url,
+              name: prev.name || asset.name,
+            }));
+            setShowAssetPicker(false);
+          }}
+          onClose={() => setShowAssetPicker(false)}
+        />
       </div>
     </div>
   );

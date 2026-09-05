@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import type {
   Campaign,
   CharacterOnScreen,
@@ -39,32 +39,35 @@ export function useDirectorHandlers({
   updateDisplay,
   handleSetCameraTransform,
 }: UseDirectorHandlersOptions) {
+  const latestLiveStateRef = useRef(liveState);
+
+  useEffect(() => {
+    latestLiveStateRef.current = liveState;
+  }, [liveState]);
+
+  const dispatchLiveDirectorState = (nextState: DisplayState, description: string) => {
+    latestLiveStateRef.current = nextState;
+    updateDisplay(() => nextState, description, false);
+    sessionCommandBus.dispatchFullState(nextState, sessionRevision + 1);
+  };
+
   const handleDirectorUpdateCharacter = async (
     characterId: string,
     updates: Partial<CharacterOnScreen>,
     description: string
   ) => {
     const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
-    updateDisplay(
-      (prev) => ({
+    const applyUpdate = (prev: DisplayState): DisplayState => ({
         ...prev,
         characters: prev.characters.map((c) =>
           c.id === characterId ? { ...c, ...updates } : c
         ),
-      }),
-      description,
-      !isTargetStaged
-    );
+      });
 
-    if (!isTargetStaged) {
-      const nextCharacters = liveState.characters.map((c) =>
-        c.id === characterId ? { ...c, ...updates } : c
-      );
-      const cmdId = sessionCommandBus.dispatchFullState(
-        { ...liveState, characters: nextCharacters },
-        sessionRevision + 1
-      );
-      await sessionCommandBus.waitForResult(cmdId, 5000);
+    if (isTargetStaged) {
+      updateDisplay(applyUpdate, description, false);
+    } else {
+      dispatchLiveDirectorState(applyUpdate(latestLiveStateRef.current), description);
     }
   };
 
@@ -75,28 +78,58 @@ export function useDirectorHandlers({
     const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
     const updatesMap = new Map(updates.map((u) => [u.id, u]));
 
-    updateDisplay(
-      (prev) => ({
+    const applyUpdates = (prev: DisplayState): DisplayState => ({
         ...prev,
         characters: prev.characters.map((c) => {
           const u = updatesMap.get(c.id);
           return u ? { ...c, normalizedX: u.normalizedX, normalizedY: u.normalizedY } : c;
         }),
-      }),
-      description,
-      !isTargetStaged
-    );
+      });
 
-    if (!isTargetStaged) {
-      const nextCharacters = liveState.characters.map((c) => {
+    if (isTargetStaged) {
+      updateDisplay(applyUpdates, description, false);
+    } else {
+      dispatchLiveDirectorState(applyUpdates(latestLiveStateRef.current), description);
+    }
+  };
+
+  const handleDirectorAddCharacter = async (
+    character: CharacterOnScreen,
+    description: string
+  ) => {
+    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
+    const applyAdd = (prev: DisplayState): DisplayState => ({
+      ...prev,
+      characters: [...prev.characters, character],
+    });
+
+    if (isTargetStaged) {
+      updateDisplay(applyAdd, description, false);
+    } else {
+      dispatchLiveDirectorState(applyAdd(latestLiveStateRef.current), description);
+    }
+  };
+
+  const handleDirectorLiveDragMove = (
+    updates: { id: string; normalizedX: number; normalizedY: number }[]
+  ) => {
+    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
+    const updatesMap = new Map(updates.map((u) => [u.id, u]));
+
+    const applyUpdates = (prev: DisplayState): DisplayState => ({
+      ...prev,
+      characters: prev.characters.map((c) => {
         const u = updatesMap.get(c.id);
         return u ? { ...c, normalizedX: u.normalizedX, normalizedY: u.normalizedY } : c;
-      });
-      const cmdId = sessionCommandBus.dispatchFullState(
-        { ...liveState, characters: nextCharacters },
-        sessionRevision + 1
-      );
-      await sessionCommandBus.waitForResult(cmdId, 5000);
+      }),
+    });
+
+    if (isTargetStaged) {
+      updateDisplay(applyUpdates, 'Arrastre en vivo', false);
+    } else {
+      const nextState = applyUpdates(latestLiveStateRef.current);
+      latestLiveStateRef.current = nextState;
+      sessionCommandBus.dispatchFullState(nextState, sessionRevision);
     }
   };
 
@@ -354,6 +387,8 @@ export function useDirectorHandlers({
 
   return {
     handleDirectorUpdateCharacter,
+    handleDirectorAddCharacter,
+    handleDirectorLiveDragMove,
     handleDirectorUpdateMultiplePositions,
     handleDirectorFocusCamera,
     handleSaveCameraPreset,

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { CharacterOnScreen, CameraTransform } from '../../../types';
+import type { FormationType, CustomFormationPreset } from './directorTypes';
 import {
   Move,
   Ruler,
@@ -8,14 +9,25 @@ import {
   ArrowDown,
   Layers,
   RotateCcw,
+  MapPin,
+  Radio,
+  Magnet,
+  Users,
 } from 'lucide-react';
 
 export interface DirectorTopBarProps {
   isStaging: boolean;
   showGuides: boolean;
   setShowGuides: (show: boolean) => void;
+  magneticSnapping?: boolean;
+  setMagneticSnapping?: (val: boolean) => void;
   showCameraPresets: boolean;
   setShowCameraPresets: (show: boolean) => void;
+  showWaypoints?: boolean;
+  setShowWaypoints?: (show: boolean) => void;
+  waypointsCount?: number;
+  followMesaLive?: boolean;
+  setFollowMesaLive?: (follow: boolean) => void;
   onFocusCamera?: (focalX: number, focalY: number) => void;
   primarySelectedChar: CharacterOnScreen | null;
   characters: CharacterOnScreen[];
@@ -28,6 +40,12 @@ export interface DirectorTopBarProps {
     updates: { id: string; normalizedX: number; normalizedY: number }[],
     description: string
   ) => void;
+  onApplyFormation?: (
+    formation: FormationType | 'custom',
+    customOffsets?: { dx: number; dy: number }[]
+  ) => void;
+  customFormations?: CustomFormationPreset[];
+  onOpenSaveFormationModal?: () => void;
   isMultiSelectMode: boolean;
   setIsMultiSelectMode: (val: boolean) => void;
   canUndo?: boolean;
@@ -38,8 +56,15 @@ export const DirectorTopBar: React.FC<DirectorTopBarProps> = ({
   isStaging,
   showGuides,
   setShowGuides,
+  magneticSnapping = true,
+  setMagneticSnapping,
   showCameraPresets,
   setShowCameraPresets,
+  showWaypoints = false,
+  setShowWaypoints,
+  waypointsCount = 0,
+  followMesaLive = false,
+  setFollowMesaLive,
   onFocusCamera,
   primarySelectedChar,
   characters,
@@ -49,11 +74,15 @@ export const DirectorTopBar: React.FC<DirectorTopBarProps> = ({
   selectedIds,
   setSelectedIds,
   onUpdateMultipleCharacterPositions,
+  onApplyFormation,
+  customFormations = [],
+  onOpenSaveFormationModal,
   isMultiSelectMode,
   setIsMultiSelectMode,
   canUndo,
   onUndo,
 }) => {
+  const [showFormationsDropdown, setShowFormationsDropdown] = useState<boolean>(false);
   return (
     <div className="director-ui-element absolute top-2 left-2 right-2 flex flex-wrap items-center justify-between gap-1.5 pointer-events-auto bg-slate-950/85 backdrop-blur-md border border-amber-500/40 rounded-xl px-2.5 py-1 text-xs shadow-2xl">
       <div className="flex items-center gap-2">
@@ -73,6 +102,27 @@ export const DirectorTopBar: React.FC<DirectorTopBarProps> = ({
       </div>
 
       <div className="flex items-center gap-1.5">
+        {/* Follow Mesa Live Toggle (En Vivo Only) */}
+        {!isStaging && setFollowMesaLive && (
+          <button
+            type="button"
+            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors flex items-center gap-1 ${
+              followMesaLive
+                ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400 font-semibold'
+                : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
+            }`}
+            onClick={() => setFollowMesaLive(!followMesaLive)}
+            title={
+              followMesaLive
+                ? 'Seguir en Mesa activo: las figuras se mueven en la Mesa mientras arrastras'
+                : 'Seguir en Mesa apagado: la posición se confirma al soltar'
+            }
+          >
+            <Radio size={11} className={followMesaLive ? 'text-emerald-400 animate-pulse' : 'text-slate-400'} />
+            <span>{followMesaLive ? 'Mesa en vivo' : 'Seguir en Mesa'}</span>
+          </button>
+        )}
+
         {/* Guides Toggle */}
         <button
           type="button"
@@ -87,6 +137,44 @@ export const DirectorTopBar: React.FC<DirectorTopBarProps> = ({
           <Ruler size={11} />
           <span>Guías</span>
         </button>
+
+        {/* Magnet Snapping Toggle */}
+        {setMagneticSnapping && (
+          <button
+            type="button"
+            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors flex items-center gap-1 ${
+              magneticSnapping
+                ? 'bg-rose-500/30 text-rose-200 border border-rose-400 font-semibold'
+                : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
+            }`}
+            onClick={() => setMagneticSnapping(!magneticSnapping)}
+            title={
+              magneticSnapping
+                ? 'Imán activo: ajusta automáticamente a suelo, ejes y puntos'
+                : 'Imán apagado: movimiento libre continuo'
+            }
+          >
+            <Magnet size={11} className={magneticSnapping ? 'text-rose-400' : 'text-slate-400'} />
+            <span>Imán</span>
+          </button>
+        )}
+
+        {/* Waypoints Toggle */}
+        {setShowWaypoints && (
+          <button
+            type="button"
+            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors flex items-center gap-1 ${
+              showWaypoints
+                ? 'bg-amber-500/30 text-amber-200 border border-amber-400 font-semibold'
+                : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
+            }`}
+            onClick={() => setShowWaypoints(!showWaypoints)}
+            title="Mostrar u ocultar puntos narrativos guardados en el escenario"
+          >
+            <MapPin size={11} className={showWaypoints ? 'text-amber-400' : 'text-slate-400'} />
+            <span>Puntos{waypointsCount > 0 ? ` (${waypointsCount})` : ''}</span>
+          </button>
+        )}
 
         {/* Camera Presets Dropdown */}
         {onFocusCamera && (
@@ -236,7 +324,121 @@ export const DirectorTopBar: React.FC<DirectorTopBarProps> = ({
             >
               <span>Distribuir</span>
             </button>
+
+            {/* Formaciones Tácticas Dropdown */}
+            {onApplyFormation && (
+              <div className="relative">
+                <button
+                  type="button"
+                  className="text-[10px] text-amber-300 hover:text-white flex items-center gap-0.5 font-medium ml-1"
+                  onClick={() => setShowFormationsDropdown(!showFormationsDropdown)}
+                  title="Aplicar formación táctica al grupo de personajes"
+                >
+                  <Users size={11} />
+                  <span>Formación ▾</span>
+                </button>
+                {showFormationsDropdown && (
+                  <div className="director-ui-element absolute top-7 left-0 z-50 bg-slate-950/95 backdrop-blur-md border border-amber-500/50 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 min-w-[160px]">
+                    <span className="text-[9px] font-semibold text-amber-400/80 px-1 uppercase tracking-wider">
+                      Tácticas de grupo
+                    </span>
+                    <button
+                      type="button"
+                      className="text-left text-xs text-slate-200 hover:text-amber-300 px-2 py-1 rounded hover:bg-slate-900 flex items-center justify-between"
+                      onClick={() => {
+                        onApplyFormation('line');
+                        setShowFormationsDropdown(false);
+                      }}
+                    >
+                      <span>Fila horizontal</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="text-left text-xs text-slate-200 hover:text-amber-300 px-2 py-1 rounded hover:bg-slate-900 flex items-center justify-between"
+                      onClick={() => {
+                        onApplyFormation('semicircle');
+                        setShowFormationsDropdown(false);
+                      }}
+                    >
+                      <span>Semicírculo</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="text-left text-xs text-slate-200 hover:text-amber-300 px-2 py-1 rounded hover:bg-slate-900 flex items-center justify-between"
+                      onClick={() => {
+                        onApplyFormation('flanks');
+                        setShowFormationsDropdown(false);
+                      }}
+                    >
+                      <span>Flancos (Alas)</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="text-left text-xs text-slate-200 hover:text-amber-300 px-2 py-1 rounded hover:bg-slate-900 flex items-center justify-between"
+                      onClick={() => {
+                        onApplyFormation('cluster');
+                        setShowFormationsDropdown(false);
+                      }}
+                    >
+                      <span>Racimo (2 filas)</span>
+                    </button>
+
+                    {customFormations && customFormations.length > 0 && (
+                      <div className="border-t border-slate-800 pt-1 flex flex-col gap-0.5">
+                        <span className="text-[9px] font-semibold text-amber-400/80 px-1 uppercase tracking-wider">
+                          Personalizadas
+                        </span>
+                        {customFormations.map((cf) => (
+                          <button
+                            key={cf.id}
+                            type="button"
+                            className="text-left text-xs text-amber-200 hover:text-white px-2 py-1 rounded hover:bg-slate-900 flex items-center justify-between"
+                            onClick={() => {
+                              onApplyFormation('custom', cf.relativeOffsets);
+                              setShowFormationsDropdown(false);
+                            }}
+                          >
+                            <span className="truncate max-w-[120px]">{cf.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {onOpenSaveFormationModal && (
+                      <button
+                        type="button"
+                        className="text-left text-xs text-cyan-300 hover:text-white px-2 py-1 rounded hover:bg-slate-900 flex items-center gap-1 border-t border-slate-800 mt-0.5"
+                        onClick={() => {
+                          setShowFormationsDropdown(false);
+                          onOpenSaveFormationModal();
+                        }}
+                      >
+                        <Plus size={11} />
+                        <span>Guardar formación actual...</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+        )}
+
+        {/* Seleccionar Todos button in Multi-Select Mode */}
+        {isMultiSelectMode && (
+          <button
+            type="button"
+            className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 text-amber-300 hover:text-white border border-amber-500/40 transition-colors"
+            onClick={() => {
+              const onStageIds = characters
+                .filter((c) => c.presence !== 'in_reserve')
+                .map((c) => c.id);
+              setSelectedIds(new Set(onStageIds));
+            }}
+            title="Seleccionar todas las figuras presentes en el escenario"
+          >
+            <span>Seleccionar todos</span>
+          </button>
         )}
 
         <button

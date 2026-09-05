@@ -64,6 +64,12 @@ export interface LiveMiniPreviewProps {
   onFocusCamera?: (focalX: number, focalY: number) => void;
   onUndo?: () => void;
   canUndo?: boolean;
+  onOpenCharacterLibrary?: () => void;
+  onRemoveCharacters?: (ids: string[]) => void;
+  onAddCharacter?: (character: CharacterOnScreen, description: string) => void;
+  onLiveDragMove?: (updates: { id: string; normalizedX: number; normalizedY: number }[]) => void;
+  followMesaLive?: boolean;
+  setFollowMesaLive?: (follow: boolean) => void;
 }
 
 function formatTimeAgo(timestampMs?: number): string {
@@ -106,6 +112,12 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
   onFocusCamera,
   onUndo,
   canUndo = false,
+  onOpenCharacterLibrary,
+  onRemoveCharacters,
+  onAddCharacter,
+  onLiveDragMove,
+  followMesaLive,
+  setFollowMesaLive,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [inspectingPending, setInspectingPending] = useState<boolean>(false);
@@ -273,6 +285,12 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
               onFocusCamera={onFocusCamera}
               onUndo={onUndo}
               canUndo={canUndo}
+              onOpenCharacterLibrary={onOpenCharacterLibrary}
+              onRemoveCharacters={onRemoveCharacters}
+              onAddCharacter={onAddCharacter}
+              onLiveDragMove={onLiveDragMove}
+              followMesaLive={followMesaLive}
+              setFollowMesaLive={setFollowMesaLive}
             />
           )}
 

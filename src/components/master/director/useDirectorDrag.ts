@@ -1,6 +1,13 @@
 import { useRef, useEffect, useState } from 'react';
-import type { CharacterOnScreen, CameraTransform } from '../../../types';
+import type { CharacterOnScreen, CameraTransform, StageWaypoint } from '../../../types';
 import type { DragState } from './directorTypes';
+import { evaluateMagneticSnap } from './formationMath';
+
+const TOUCH_SLOP_PX = 10;
+const POSITION_PRECISION = 10;
+
+const roundStagePosition = (value: number) =>
+  Math.round(value * POSITION_PRECISION) / POSITION_PRECISION;
 
 export interface UseDirectorDragProps {
   characters: CharacterOnScreen[];
@@ -8,11 +15,35 @@ export interface UseDirectorDragProps {
   selectedIds: Set<string>;
   setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   isMultiSelectMode: boolean;
+  followMesaLive?: boolean;
+  magneticSnapping?: boolean;
+  waypoints?: StageWaypoint[];
+  onLiveDragMove?: (
+    updates: { id: string; normalizedX: number; normalizedY: number }[]
+  ) => void;
   onUpdateCharacter: (id: string, updates: Partial<CharacterOnScreen>, description: string) => void;
   onUpdateMultipleCharacterPositions: (
     updates: { id: string; normalizedX: number; normalizedY: number }[],
     description: string
   ) => void;
+  onQuickDrop?: (
+    characterIds: string[],
+    target: 'reserve' | 'hide' | 'remove'
+  ) => void;
+}
+
+function resolveQuickDropTarget(
+  rect: DOMRect,
+  clientX: number,
+  clientY: number
+): DragState['quickDropTarget'] {
+  const railWidth = Math.min(104, rect.width * 0.22);
+  if (clientX < rect.right - railWidth || clientX > rect.right) return null;
+  if (clientY < rect.top || clientY > rect.bottom) return null;
+  const segment = (clientY - rect.top) / rect.height;
+  if (segment < 1 / 3) return 'reserve';
+  if (segment < 2 / 3) return 'hide';
+  return 'remove';
 }
 
 export function useDirectorDrag({
@@ -21,13 +52,20 @@ export function useDirectorDrag({
   selectedIds,
   setSelectedIds,
   isMultiSelectMode,
+  followMesaLive = false,
+  magneticSnapping = true,
+  waypoints = [],
+  onLiveDragMove,
   onUpdateCharacter,
   onUpdateMultipleCharacterPositions,
+  onQuickDrop,
 }: UseDirectorDragProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const prevCameraRef = useRef<CameraTransform | undefined>(camera);
-  const [, setForceRender] = useState({});
+  const lastLiveMoveTimeRef = useRef<number>(0);
+  const lastSnappedKeyRef = useRef<string | null>(null);
+  const [dragPreview, setDragPreview] = useState<DragState | null>(null);
 
   // Cancel dragging if camera changes during gesture
   useEffect(() => {
@@ -38,7 +76,7 @@ export function useDirectorDrag({
         camera.focalPoint?.y !== prevCameraRef.current.focalPoint?.y
       ) {
         dragRef.current = null;
-        setForceRender({});
+        setDragPreview(null);
       }
     }
     prevCameraRef.current = camera;
@@ -61,7 +99,7 @@ export function useDirectorDrag({
     if (!container) return;
 
     try {
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      container.setPointerCapture(e.pointerId);
     } catch {}
 
     const initialMap = new Map<string, { x: number; y: number }>();
@@ -81,8 +119,12 @@ export function useDirectorDrag({
     const currentX = char.normalizedX ?? 50;
     const currentY = char.normalizedY ?? 0;
 
-    dragRef.current = {
+    const dragState: DragState = {
       isDragging: true,
+      hasPassedTouchSlop: false,
+      pointerClientX: e.clientX,
+      pointerClientY: e.clientY,
+      quickDropTarget: null,
       anchorId: char.id,
       startX: currentX,
       startY: currentY,
@@ -92,8 +134,8 @@ export function useDirectorDrag({
       currentY,
       initialPositions: initialMap,
     };
-
-    setForceRender({});
+    dragRef.current = dragState;
+    setDragPreview(dragState);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -103,6 +145,11 @@ export function useDirectorDrag({
     const rect = containerRef.current.getBoundingClientRect();
     const deltaPixelX = e.clientX - drag.pointerStartX;
     const deltaPixelY = e.clientY - drag.pointerStartY;
+
+    if (!drag.hasPassedTouchSlop) {
+      if (Math.hypot(deltaPixelX, deltaPixelY) < TOUCH_SLOP_PX) return;
+      drag.hasPassedTouchSlop = true;
+    }
 
     const deltaPercentX = (deltaPixelX / rect.width) * 100;
     const deltaPercentY = -(deltaPixelY / rect.height) * 100; // Inverted Y: 0 is ground line
@@ -141,10 +188,69 @@ export function useDirectorDrag({
     const clampedDeltaX = Math.max(minAllowedDeltaX, Math.min(maxAllowedDeltaX, deltaPercentX));
     const clampedDeltaY = Math.max(minAllowedDeltaY, Math.min(maxAllowedDeltaY, deltaPercentY));
 
-    drag.currentX = Math.round(drag.startX + clampedDeltaX);
-    drag.currentY = Math.round(drag.startY + clampedDeltaY);
+    let candidateX = roundStagePosition(drag.startX + clampedDeltaX);
+    let candidateY = roundStagePosition(drag.startY + clampedDeltaY);
 
-    setForceRender({});
+    if (magneticSnapping) {
+      const snapResult = evaluateMagneticSnap(candidateX, candidateY, {
+        groundLineY: 0,
+        waypoints,
+        snapToCenter: true,
+        snapToThirds: true,
+        snapThreshold: 2.2,
+      });
+      candidateX = snapResult.snappedX;
+      candidateY = snapResult.snappedY;
+      drag.snapGuideLines = snapResult.guideLines.length > 0 ? snapResult.guideLines : undefined;
+
+      if (snapResult.guideLines.length > 0) {
+        const snapKey = snapResult.guideLines.map((g) => `${g.axis}-${g.position}`).join('|');
+        if (lastSnappedKeyRef.current !== snapKey) {
+          lastSnappedKeyRef.current = snapKey;
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try {
+              navigator.vibrate(10);
+            } catch {}
+          }
+        }
+      } else {
+        lastSnappedKeyRef.current = null;
+      }
+    } else {
+      drag.snapGuideLines = undefined;
+      lastSnappedKeyRef.current = null;
+    }
+
+    drag.currentX = candidateX;
+    drag.currentY = candidateY;
+    drag.pointerClientX = e.clientX;
+    drag.pointerClientY = e.clientY;
+    drag.quickDropTarget = resolveQuickDropTarget(rect, e.clientX, e.clientY);
+
+    if (followMesaLive && onLiveDragMove) {
+      const now = Date.now();
+      if (now - lastLiveMoveTimeRef.current >= 60) {
+        lastLiveMoveTimeRef.current = now;
+        const deltaX = drag.currentX - drag.startX;
+        const deltaY = drag.currentY - drag.startY;
+        const liveUpdates: { id: string; normalizedX: number; normalizedY: number }[] = [];
+        drag.initialPositions.forEach((initial, id) => {
+          const char = characters.find((c) => c.id === id);
+          if (char && !char.isLocked) {
+            liveUpdates.push({
+              id,
+              normalizedX: roundStagePosition(initial.x + deltaX),
+              normalizedY: roundStagePosition(initial.y + deltaY),
+            });
+          }
+        });
+        if (liveUpdates.length > 0) {
+          onLiveDragMove(liveUpdates);
+        }
+      }
+    }
+
+    setDragPreview({ ...drag });
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -152,20 +258,28 @@ export function useDirectorDrag({
     if (!drag || !drag.isDragging) return;
 
     try {
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      containerRef.current?.releasePointerCapture(e.pointerId);
     } catch {}
 
     const deltaX = drag.currentX - drag.startX;
     const deltaY = drag.currentY - drag.startY;
 
-    if (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0) {
+    if (drag.hasPassedTouchSlop && drag.quickDropTarget) {
+      onQuickDrop?.(Array.from(drag.initialPositions.keys()), drag.quickDropTarget);
+      dragRef.current = null;
+      lastSnappedKeyRef.current = null;
+      setDragPreview(null);
+      return;
+    }
+
+    if (drag.hasPassedTouchSlop && (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0)) {
       const updates: { id: string; normalizedX: number; normalizedY: number }[] = [];
 
       drag.initialPositions.forEach((initial, id) => {
         const char = characters.find((c) => c.id === id);
         if (char && !char.isLocked) {
-          const nextX = Math.round(initial.x + deltaX);
-          const nextY = Math.round(initial.y + deltaY);
+          const nextX = roundStagePosition(initial.x + deltaX);
+          const nextY = roundStagePosition(initial.y + deltaY);
           updates.push({ id, normalizedX: nextX, normalizedY: nextY });
         }
       });
@@ -187,24 +301,27 @@ export function useDirectorDrag({
     }
 
     dragRef.current = null;
-    setForceRender({});
+    lastSnappedKeyRef.current = null;
+    setDragPreview(null);
   };
 
   const handlePointerLeave = (e: React.PointerEvent) => {
     if (dragRef.current?.isDragging && e.buttons === 0) {
       dragRef.current = null;
-      setForceRender({});
+      lastSnappedKeyRef.current = null;
+      setDragPreview(null);
     }
   };
 
   const handlePointerCancel = () => {
     dragRef.current = null;
-    setForceRender({});
+    lastSnappedKeyRef.current = null;
+    setDragPreview(null);
   };
 
   return {
     containerRef,
-    dragRef,
+    dragPreview,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Tv, Swords, Sparkles, BookOpen } from 'lucide-react';
+import React, { useState } from 'react';
+import { Tv, Swords, Sparkles, MoreHorizontal, BookOpen, FolderOpen } from 'lucide-react';
 
 export interface MasterBottomNavProps {
   activeTab: string;
@@ -12,12 +12,60 @@ export const MasterBottomNav: React.FC<MasterBottomNavProps> = ({
   sessionViewMode,
   onSelectTab,
 }) => {
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const isSecondaryTabActive = activeTab === 'notes' || activeTab === 'library';
+
+  const selectTab = (tab: string) => {
+    setIsMoreOpen(false);
+    onSelectTab(tab);
+  };
+
   return (
-    <nav className="mobile-bottom-nav" aria-label="Navegación Móvil del Master">
+    <>
+      {isMoreOpen && (
+        <div
+          className="mobile-more-overlay"
+          role="presentation"
+          onClick={() => setIsMoreOpen(false)}
+        >
+          <section
+            className="mobile-more-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-more-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mobile-more-handle" aria-hidden="true" />
+            <div className="mobile-more-header">
+              <h2 id="mobile-more-title">Más herramientas</h2>
+              <button
+                type="button"
+                className="mobile-more-close"
+                onClick={() => setIsMoreOpen(false)}
+                aria-label="Cerrar más herramientas"
+              >
+                ×
+              </button>
+            </div>
+            <div className="mobile-more-actions">
+              <button type="button" onClick={() => selectTab('notes')}>
+                <BookOpen size={21} />
+                <span>Notas y dados</span>
+              </button>
+              <button type="button" onClick={() => selectTab('library')}>
+                <FolderOpen size={21} />
+                <span>Campaña y biblioteca</span>
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      <nav className="mobile-bottom-nav" aria-label="Navegación Móvil del Master">
       <button
         type="button"
         className={`mobile-nav-item ${activeTab === 'live' ? 'active' : ''}`}
-        onClick={() => onSelectTab('live')}
+        onClick={() => selectTab('live')}
       >
         <Tv size={20} />
         <span>{sessionViewMode === 'session' ? 'Sesión' : 'En Vivo'}</span>
@@ -26,7 +74,7 @@ export const MasterBottomNav: React.FC<MasterBottomNavProps> = ({
       <button
         type="button"
         className={`mobile-nav-item ${activeTab === 'combat' ? 'active' : ''}`}
-        onClick={() => onSelectTab('combat')}
+        onClick={() => selectTab('combat')}
       >
         <Swords size={20} />
         <span>Combate</span>
@@ -35,7 +83,7 @@ export const MasterBottomNav: React.FC<MasterBottomNavProps> = ({
       <button
         type="button"
         className={`mobile-nav-item ${activeTab === 'moments' ? 'active' : ''}`}
-        onClick={() => onSelectTab('moments')}
+        onClick={() => selectTab('moments')}
       >
         <Sparkles size={20} />
         <span>Momentos</span>
@@ -43,12 +91,14 @@ export const MasterBottomNav: React.FC<MasterBottomNavProps> = ({
 
       <button
         type="button"
-        className={`mobile-nav-item ${activeTab === 'notes' || activeTab === 'library' ? 'active' : ''}`}
-        onClick={() => onSelectTab('notes')}
+        className={`mobile-nav-item ${isSecondaryTabActive ? 'active' : ''}`}
+        onClick={() => setIsMoreOpen(true)}
+        aria-expanded={isMoreOpen}
       >
-        <BookOpen size={20} />
-        <span>Notas</span>
+        <MoreHorizontal size={20} />
+        <span>Más</span>
       </button>
-    </nav>
+      </nav>
+    </>
   );
 };

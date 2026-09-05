@@ -14,6 +14,12 @@ export interface StoredAsset {
   name: string;
   type: 'image' | 'audio';
   dataUrl: string;
+  thumbnailUrl?: string;
+  originalDataUrl?: string;
+  originalSize?: number;
+  optimizedSize?: number;
+  sha256?: string;
+  dimensions?: { width: number; height: number };
   createdAt: number;
   originUrl?: string;
   refCount?: number;
@@ -50,6 +56,61 @@ export async function registerImmutableAsset(
     type,
     dataUrl,
     originUrl,
+    refCount: 1,
+    createdAt: Date.now(),
+  };
+  await db.assets.put(asset);
+  return asset;
+}
+
+/**
+ * Registra o reutiliza un asset optimizado con soporte para miniaturas, hash SHA-256 y deduplicación.
+ */
+export async function registerOptimizedAsset(params: {
+  name: string;
+  type: 'image' | 'audio';
+  dataUrl: string;
+  thumbnailUrl?: string;
+  originalDataUrl?: string;
+  originalSize?: number;
+  optimizedSize?: number;
+  sha256?: string;
+  dimensions?: { width: number; height: number };
+  originUrl?: string;
+}): Promise<StoredAsset> {
+  const existing = await db.assets
+    .filter(
+      (a) =>
+        (!!params.sha256 && a.sha256 === params.sha256) ||
+        a.dataUrl === params.dataUrl ||
+        (!!params.originUrl && a.originUrl === params.originUrl)
+    )
+    .first();
+
+  if (existing) {
+    const updated: StoredAsset = {
+      ...existing,
+      refCount: (existing.refCount || 1) + 1,
+      thumbnailUrl: existing.thumbnailUrl || params.thumbnailUrl,
+      sha256: existing.sha256 || params.sha256,
+      dimensions: existing.dimensions || params.dimensions,
+    };
+    await db.assets.put(updated);
+    return updated;
+  }
+
+  const asset: StoredAsset = {
+    id: generateId('asset'),
+    name: params.name,
+    type: params.type,
+    dataUrl: params.dataUrl,
+    thumbnailUrl: params.thumbnailUrl,
+    originalDataUrl: params.originalDataUrl,
+    originalSize: params.originalSize,
+    optimizedSize: params.optimizedSize,
+    sha256: params.sha256,
+    dimensions: params.dimensions,
+    originUrl: params.originUrl,
     refCount: 1,
     createdAt: Date.now(),
   };

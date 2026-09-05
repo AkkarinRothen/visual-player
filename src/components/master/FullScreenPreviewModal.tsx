@@ -63,6 +63,12 @@ export interface FullScreenPreviewModalProps {
   onFocusCamera?: (focalX: number, focalY: number) => void;
   onUndo?: () => void;
   canUndo?: boolean;
+  onOpenCharacterLibrary?: () => void;
+  onRemoveCharacters?: (ids: string[]) => void;
+  onAddCharacter?: (character: CharacterOnScreen, description: string) => void;
+  onLiveDragMove?: (updates: { id: string; normalizedX: number; normalizedY: number }[]) => void;
+  followMesaLive?: boolean;
+  setFollowMesaLive?: (follow: boolean) => void;
 }
 
 export const FullScreenPreviewModal: React.FC<FullScreenPreviewModalProps> = ({
@@ -96,6 +102,12 @@ export const FullScreenPreviewModal: React.FC<FullScreenPreviewModalProps> = ({
   onFocusCamera,
   onUndo,
   canUndo = false,
+  onOpenCharacterLibrary,
+  onRemoveCharacters,
+  onAddCharacter,
+  onLiveDragMove,
+  followMesaLive,
+  setFollowMesaLive,
 }) => {
   const [inspectingPending, setInspectingPending] = useState<boolean>(false);
   const [isDirectorMode, setIsDirectorMode] = useState<boolean>(false);
@@ -261,6 +273,12 @@ export const FullScreenPreviewModal: React.FC<FullScreenPreviewModalProps> = ({
               onFocusCamera={onFocusCamera}
               onUndo={onUndo}
               canUndo={canUndo}
+              onOpenCharacterLibrary={onOpenCharacterLibrary}
+              onRemoveCharacters={onRemoveCharacters}
+              onAddCharacter={onAddCharacter}
+              onLiveDragMove={onLiveDragMove}
+              followMesaLive={followMesaLive}
+              setFollowMesaLive={setFollowMesaLive}
             />
           )}
 

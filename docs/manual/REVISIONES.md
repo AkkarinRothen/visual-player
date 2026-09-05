@@ -2,7 +2,164 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
-**Estado más reciente:** MAN-020 comprobó la actualización segura sobre hardware real (Samsung Galaxy Tab A8 y Motorola One Fusion) pasando de versionCode 1 a versionCode 2 conservando al 100% las bases de datos de Dexie/IndexedDB sin desinstalación, e implementó la matriz de compatibilidad Master/Mesa, navegación contextual LIFO para botón Atrás y diseño adaptable (móvil apilado al pulgar y tablet en 2 columnas con safe areas).
+## 2026-09-04 — MAN-031: Modo Partida Android con controles ocultables
+
+- **Versión:** árbol de trabajo local con modo operativo para partidas largas en celulares y tablets Android.
+- **Alcance de uso:** el botón flotante **Modo mesa** abre las opciones de **Modo Partida**. Incluye **Pantalla activa**, **Pantalla completa**, **Ocultar controles** y **Salir del Modo Partida**.
+- **Comportamiento:** al ocultar controles, la escena queda despejada y el botón flotante permanece visible para restaurar la consola. Las opciones de pantalla utilizan el puente nativo Android y sus equivalentes web.
+- **Evidencia:** compilación de producción `npm run build` completada correctamente. Vite informa advertencias no bloqueantes sobre tamaño de bundle y módulos dinámicos.
+- **Comprobación visual:** pendiente en celulares y tablets Android físicos; no se presenta esta implementación como validada en mesa conectada.
+- **Resultado:** modo operativo integrado y reversible; quedan pendientes las pruebas de orientación, bloqueo/desbloqueo, segundo plano y ergonomía con hardware real.
+
+## 2026-09-04 — MAN-032: Acceso directo a edición táctil durante la partida
+
+- **Alcance:** la consola rápida de **Sesión** incluye **Editar escena** y el drawer **Fondo y personajes**.
+- **Uso:** abre el editor táctil existente para arrastrar personajes en **Modo Dirección** y ajustar/cambiar el fondo desde el compositor.
+- **Evidencia:** compilación de producción `npm run build` completada correctamente; validación visual en Android físico y recorrido con Mesa conectada pendientes.
+
+## 2026-09-04 — MAN-033: Escenas recientes y corrección rápida de acciones
+
+- **Alcance:** la vista **Sesión** muestra hasta cinco escenas usadas recientemente con miniaturas y acceso de un toque.
+- **Corrección rápida:** las acciones de la consola rápida muestran la última acción ejecutada y el botón **Deshacer** cuando hay historial disponible.
+- **Evidencia:** compilación de producción `npm run build` completada correctamente; validación visual en Android físico y recorrido con Mesa conectada pendientes.
+
+## 2026-09-04 — MAN-034: Panel Ahora / Después para control de sesión
+
+- **Alcance:** la vista **Sesión** incorpora un resumen compacto de la escena actual en Mesa y del siguiente estado preparado.
+- **Acciones:** cuando hay cambios pendientes, el panel ofrece **Publicar** y **Descartar** sin abrir otra tarjeta o modal.
+- **Responsive:** en celulares se apilan las acciones en una fila inferior; en tablets permanecen integradas en la misma línea del resumen.
+- **Evidencia:** compilación de producción `npm run build` completada correctamente; validación visual en Android físico y recorrido con Mesa conectada pendientes.
+
+## 2026-09-04 — MAN-035: Controles contextuales para exploración y combate
+
+- **Alcance:** la vista **Sesión** incorpora el bloque **Contexto actual**, que adapta sus acciones al estado de la partida.
+- **Combate:** muestra ronda, combatiente activo, **Anterior**, **Siguiente turno** y acceso a **Ver combate**.
+- **Exploración:** muestra la próxima escena sugerida y permite **Preparar siguiente** o **Buscar escena**.
+- **Evidencia:** compilación de producción `npm run build` completada correctamente; validación visual en Android físico y recorrido con Mesa conectada pendientes.
+
+## 2026-09-04 — MAN-030: Consola compacta de acciones rápidas para Android
+
+- **Versión:** árbol de trabajo local con consola de control para cambios durante la partida.
+- **Alcance de uso:** en **Sesión**, se agregó una barra **Acciones rápidas** con **Relámpago**, **Sacudir**, **Cartel**, **Ambiente**, **Sonidos** y **Más**. **Más** abre un drawer inferior con iluminación, cámara/escena, recursos y música ambiental.
+- **Diseño táctil:** botones de al menos 56 px, cuadrícula compacta en celulares pequeños, panel inferior con área segura de Android y cierre al tocar fuera.
+- **Manual actualizado:** se incorporó el recorrido de acciones rápidas en `docs/manual/README.md`.
+- **Evidencia:** compilación de producción `npm run build` completada correctamente. Vite informa advertencias no bloqueantes sobre tamaño de bundle y módulos dinámicos.
+- **Comprobación visual:** pendiente en celulares y tablets Android físicos; no se presenta esta implementación como validada en mesa conectada.
+- **Resultado:** consola compacta integrada reutilizando los callbacks existentes; queda pendiente validar ergonomía y legibilidad con hardware real.
+
+**Estado más reciente:** MAN-029 incorpora formaciones tácticas en escena (Fila horizontal, Semicírculo, Flancos, Racimo y Personalizadas) con compresión elástica de límites, botón «Seleccionar todos» en multiselección, y guías magnéticas inteligentes («Imán») con atracción a suelo, ejes, tercios y waypoints, acompañadas de líneas guía luminosas y retroalimentación háptica (10 ms). 370 pruebas unitarias aprobadas (100%), chequeo de tipos estricto y compilación de producción Vite sin errores. Comprobación visual bloqueada por el entorno; pendiente recorrido en dispositivos físicos.
+
+## 2026-09-04 — MAN-029: Tácticas y formaciones en escena, guías magnéticas con retroalimentación háptica y selección total
+
+- **Versión:** árbol de trabajo local con cambios concurrentes preservados.
+- **Alcance de uso:** controles grupales, alineación y composición táctica en **Modo Dirección**.
+- **Cambios implementados:**
+  1. **Formaciones tácticas de escena:** Menú desplegable **Formación ▾** al seleccionar 2 o más figuras. Permite aplicar disposiciones preconfiguradas: *Fila horizontal*, *Semicírculo*, *Flancos (Alas)* y *Racimo (2 filas)*. Todas las posiciones se anclan respecto a la figura principal activa.
+  2. **Compresión elástica de bordes:** Algoritmo pure math que detecta si alguna figura de la formación rebasaría los márgenes seguros (`5%` a `95%` en X, `0%` a `70%` en Y) y escala el espaciado elásticamente en lugar de truncar posiciones o provocar apiñamientos.
+  3. **Formaciones personalizadas guardables:** Opción **Guardar formación actual...** que registra las distancias relativas de las figuras seleccionadas con un nombre definido por el usuario para reutilizarla con cualquier grupo futuro.
+  4. **Seleccionar todos:** Botón de un toque cuando el modo **Seleccionar varios** está activo, marcando al instante a todas las figuras presentes en escena (excluyendo reservas) para facilitar maniobras de pelotón o traslados masivos.
+  5. **Guías magnéticas e imán inteligente:** Botón conmutador **Imán** en la barra superior. Durante el arrastre libre, evalúa atracción magnética (umbral ~2.2%) hacia la línea de suelo (`0%`), eje central (`50%`), tercios (`33.3%` y `66.7%`) y puntos narrativos guardados. Muestra una línea guía punteada luminosa de color rosa con el nombre de la referencia y activa una suave vibración háptica (`navigator.vibrate(10)`) en el dispositivo al enganchar.
+  6. **Deshacer inmediato:** Toda aplicación de formación táctica genera una confirmación temporal de 4,5 segundos con botón **Deshacer** directo.
+- **Manual actualizado:** sección **Tácticas y formaciones en escena**, **Guías magnéticas e imán inteligente** y herramientas de Modo Dirección en `docs/manual/README.md`.
+- **Evidencia de código e integración local:** 63 suites y 370 pruebas unitarias aprobadas (100%). Pruebas específicas añadidas para matemáticas de formaciones y compresión elástica, evaluación de atracción magnética por umbrales, selección total, aplicación y guardado de formaciones personalizadas, y activación de retroalimentación háptica. `npx tsc -b` y `npm run build` completados con éxito y 0 errores.
+- **Comprobación visual:** no repetida por la indisponibilidad del controlador de UI en el entorno. No se atribuye validación visual a las pruebas DOM.
+- **Pendiente de prueba completa:** validar la ergonomía de arrastre magnético en pantallas táctiles reales y el comportamiento de la vibración háptica en diferentes fabricantes de dispositivos móviles.
+- **Resultado:** implementación y manual actualizados; prueba visual y recorrido físico pendientes.
+
+## 2026-09-04 — MAN-028: Movimiento en vivo en Mesa, puntos narrativos interactivos y duplicación rápida
+
+- **Versión:** árbol de trabajo local con cambios concurrentes preservados.
+- **Alcance de uso:** controles avanzados y de seguridad en **Modo Dirección**.
+- **Cambios implementados:**
+  1. **Seguir en Mesa:** Nuevo botón conmutador en la barra superior (modo En Vivo). Permite que la pantalla de los jugadores siga el desplazamiento de la figura durante el arrastre con limitación (*throttling* a 60 ms) para no saturar WebRTC ni crear entradas intermedias innecesarias en el historial. Al soltar se confirma la posición definitiva con instantánea transaccional.
+  2. **Puntos narrativos en escenario:** Conmutador **Puntos** en la barra superior que despliega pines discretos con el nombre de los puntos guardados (*«Puerta»*, *«Mostrador»*, *«Altar»*). Al tocar un marcador con una figura seleccionada, esta se traslada de inmediato a esas coordenadas con aviso temporal y botón **Deshacer**. Si no hay selección, enfoca la cámara en el punto.
+  3. **Duplicación rápida:** Botón directo **Duplicar** en la barra inferior rápida y en el cajón *Más…*. Crea una copia de la figura activa con separación horizontal (+6%) para evitar solapamientos. La app detecta el nombre o etiqueta base y numera automáticamente en etiquetas privadas (ej. *«Guardia 1»* y *«Guardia 2»*) sin alterar la ficha base de la campaña, ofreciendo confirmación con **Deshacer**.
+- **Manual actualizado:** secciones de herramientas y recorrido de **Modo Dirección Táctil y Composición de Escenas** en `docs/manual/README.md`.
+- **Evidencia de código e integración local:** 63 suites y 358 pruebas unitarias aprobadas (100%). Pruebas específicas añadidas para duplicación y numeración secuencial (test 21), traslado a puntos narrativos visibles (test 22) y movimiento en vivo con envíos agrupados (test 23). `npx tsc -b` completado con 0 errores.
+- **Comprobación visual:** no repetida por la indisponibilidad del controlador de UI en el entorno. No se atribuye validación visual a las pruebas DOM.
+- **Pendiente de prueba completa:** validar la fluidez del seguimiento en vivo en una red Wi-Fi real con dos dispositivos (control y Mesa) y la ergonomía de pulsación de waypoints en pantallas pequeñas.
+- **Resultado:** implementación y manual actualizados; prueba visual y recorrido físico pendientes.
+
+## 2026-09-04 — MAN-027: Gestos rápidos de entrada, salida y corrección
+
+- **Versión:** árbol de trabajo local con cambios concurrentes preservados.
+- **Alcance de uso:** gestión de figuras dentro de **Modo Dirección**.
+- **Cambios implementados:**
+  1. Una ficha en reserva puede arrastrarse desde la tira superior hasta cualquier punto válido del escenario. El gesto comparte la tolerancia de 10 px, muestra una copia semitransparente y entra revelado en las coordenadas elegidas.
+  2. Al mover una figura activa aparece un carril lateral dividido en **Reserva**, **Ocultar** y **Quitar**. La zona apuntada aumenta de tamaño y se resalta antes de soltar.
+  3. **Quitar** elimina una o varias instancias del estado de la escena mediante una sola actualización; no elimina las fichas guardadas en la campaña.
+  4. Las acciones rápidas muestran durante 4,5 segundos una confirmación con **Deshacer**. El control reutiliza el historial existente y desaparece después de revertir.
+- **Manual actualizado:** sección **Modo Dirección Táctil y Composición de Escenas**.
+- **Evidencia de código e integración local:** 63 suites y 355 pruebas aprobadas; pruebas específicas de entrada por arrastre con coordenadas, zonas de soltado, retirada de instancia y Deshacer. `tsc -b` y compilación Vite de producción correctas.
+- **Comprobación visual:** no repetida porque el controlador de UI del entorno continúa sin poder inicializar sus recursos. No se presenta la prueba DOM como validación visual.
+- **Pendiente de prueba completa:** comprobar ergonomía del carril lateral, vibración/feedback táctil y sincronización percibida con teléfono de control y Mesa física conectados.
+- **Resultado:** implementación y manual actualizados; prueba visual y recorrido físico pendientes.
+
+## 2026-09-04 — MAN-026: Optimización de recursos, rendimiento, recuperación resiliente de borrador y respaldos autónomos en Android
+
+- **Versión:** árbol de trabajo local con mejoras de robustez en memoria, almacenamiento y ciclo de vida (`v1.1.0-dev`, `versionCode 2`).
+- **Entorno:**
+  - Dispositivo emulado Android (`emulator-5554`, API 36.1, resolución 1080×2400) y dispositivo físico conectado vía ADB (`Motorola One Fusion`).
+  - APK nativo de desarrollo: `com.akkarinrothen.visualplayer.dev` (`app-dev-debug.apk`).
+  - Pruebas automatizadas en Vitest: 63 suites y 350+ pruebas unitarias aprobadas (100%), incluyendo `draftStorageService.test.ts`, `imageOptimizer.test.ts` y `backupPackageService.test.ts`.
+  - Compilación estricta TypeScript (`tsc -b`), empaquetado de producción Vite y Gradle nativo (`assembleDevDebug`) completados con éxito y 0 errores.
+- **Alcance y Mejoras Implementadas:**
+  1. **Optimización y Deduplicación de Recursos Multimedia (Preguntas 1 y 6):**
+     - Módulo `src/utils/imageOptimizer.ts` con escalado proporcional inteligente (fondos hasta 1920×1080, retratos y props hasta 512×512 preservando transparencias).
+     - Compresión WebP adaptativa con selector de calidad táctil y opción de conservar archivo original si se prefiere.
+     - Deduplicación automática mediante hash criptográfico SHA-256: no almacena duplicados si se selecciona dos veces la misma imagen.
+     - Generación automática de miniaturas ligeras (160×160) en base de datos para renderizado fluido y sin pausas de galerías grandes en dispositivos móviles.
+     - Rechazo preventivo y explicativo para formatos propietarios de cámara no soportados en navegadores móviles (ej. HEIC/HEIF de Apple).
+  2. **Recuperación Resiliente de Borrador ante Cierres Abruptos (Pregunta 9):**
+     - Módulo `src/services/draftStorageService.ts` y hook integrado en `SceneCanvasComposer.tsx`.
+     - Persistencia síncrona inmediata (`localStorage` + `Dexie settings`) tras cada adición de figura, movimiento o ajuste de escala, protegiendo contra cierres inesperados por falta de memoria (`low memory killer`) o agotamiento de batería en Android.
+     - Píldora de estado en tiempo real en la cabecera: `✓ Borrador guardado`.
+     - Detección automática al reabrir la escena: si existe un borrador más reciente que la escena consolidada, se despliega la ventana modal **Borrador Recuperado** con métricas claras (hora del borrador, número de figuras detectadas) y opciones inequívocas: *«Continuar con el borrador (Recomendado)»* o *«Volver a la versión guardada»*.
+  3. **Respaldos Completos Autónomos sin Cables (.vpbackup) (Pregunta 17):**
+     - Módulo `src/services/backupPackageService.ts` y componente `src/components/master/modals/BackupManagerModal.tsx`.
+     - Botón de acceso directo `[Respaldos]` en el Taller de Preparación (en cabecera superior y en la barra de Escenas Preparadas).
+     - Exportación e importación autónoma desde el explorador de archivos del teléfono en un único archivo comprimido `.vpbackup`.
+     - Inspección previa con firma de integridad SHA-256 antes de tocar la base de datos local.
+     - Tres modos de restauración táctiles: *«Crear Copias»* (preserva campañas existentes con IDs únicos), *«Fusionar y Actualizar»* (agrega elementos nuevos) y *«Sobrescribir Todo»* (reemplazo limpio).
+- **Evidencia y Validación en Dispositivo Real / Emulado:**
+  - *Comprobado visualmente y en ejecución en el APK Android:*
+    - `screen_backup_modal_active.png`: Modal de respaldos activo en Android mostrando resumen de datos locales y botón de exportación `.vpbackup`.
+    - `screen_restore_active.png`: Pestaña de restauración de respaldo con selector de archivo `.vpbackup`.
+    - `screen_composer_enter.png`: Compositor abierto en Android mostrando la píldora verde `✓ Borrador guardado` en la cabecera.
+    - `screen_draft_check2.png`: Adición táctil del personaje *Eldrin Sombrasusurro* en el escenario sin guardar formalmente.
+    - `screen_draft_recovery_dialog.png` / `screen_draft_dialog_result.png`: Tras matar el proceso con `am force-stop` y relanzar la app, al abrir la escena aparece el diálogo de recuperación *«Borrador Recuperado: Se detectó un borrador sin consolidar para esta escena con 1 figuras. ¿Cómo deseas continuar?»*.
+    - `screen_draft_restored.png`: Al pulsar *«Continuar con el borrador (Recomendado)»*, el personaje Eldrin se restablece inmediatamente en su posición intacta en el lienzo.
+  - *Comprobado mediante pruebas de integración local:* 350/350 pruebas aprobadas (100%), 0 regresiones.
+- **Resultado:** sistema de optimización multimedia, persistencia resiliente ante cierres y respaldos autónomos verificado de extremo a extremo en Android y sincronizado con el manual.
+
+## 2026-09-04 — MAN-025: Dirección rápida de personajes desde el control remoto
+
+- **Versión:** árbol de trabajo local con cambios concurrentes preservados.
+- **Alcance de uso:** flujo **Modo Dirección** de la previsualización del control remoto.
+- **Cambios implementados:**
+  1. Botón **Añadir** en la tira superior para abrir la biblioteca sin salir del escenario; la biblioteca permite buscar por nombre o rol.
+  2. Botón de puerta junto a cada ficha para alternar directamente entre escenario y reserva. La reserva conserva la posición existente.
+  3. Los personajes añadidos reciben una posición inicial entre siete candidatos, eligiendo el espacio más alejado de las figuras visibles para reducir solapamientos.
+  4. El arrastre ignora movimientos involuntarios menores a 10 px, conserva coordenadas con precisión de 0,1% y muestra una copia semitransparente de cada figura desplazada junto con las coordenadas de la figura principal.
+  5. Al soltar en modo En Vivo se emite una sola actualización transaccional de estado y su confirmación conserva la instantánea aplicada; se eliminó el envío duplicado que acompañaba cada movimiento del director.
+- **Manual actualizado:** catálogo de personajes y sección **Modo Dirección Táctil y Composición de Escenas**.
+- **Evidencia de código e integración local:** 63 suites y 353 pruebas unitarias aprobadas; `tsc -b` y compilación Vite de producción correctas. Se añadieron pruebas para entrada/reserva de una pulsación, acceso a biblioteca, tolerancia de 10 px, precisión subporcentual y conservación de la instantánea confirmada por la Mesa.
+- **Comprobación visual:** bloqueada. El controlador de UI no pudo inicializar sus recursos (`failed to write kernel assets`), aun después de reiniciarlo. No se atribuye validación visual a las pruebas DOM.
+- **Pendiente de prueba completa:** confirmar en dos dispositivos físicos control ↔ Mesa la latencia percibida, la recepción única de cada movimiento y la entrada/reserva durante una partida real.
+- **Resultado:** implementación y manual actualizados; recorrido visual y prueba física pendientes por el bloqueo indicado.
+
+## 2026-09-04 — MAN-024: Ergonomía táctil y despeje visual en edición Android
+
+- **Versión:** árbol de trabajo local con refactorización de `SceneCanvasComposer.tsx` y suite `sceneCanvasComposer.test.ts`.
+- **Entorno:** entorno de pruebas unitarias Vitest (340 pruebas aprobadas, 60 suites), verificación de tipos con `npx tsc -b`, empaquetado Vite y compilación de APK nativo de depuración con Gradle (`assembleDevDebug`).
+- **Alcance:**
+  1. **Cabecera compacta y despejada:** Eliminación de competencia espacial en teléfonos. Botón `Guardar` condensado, estado de borrador continuo en segundo plano y menú secundario (`⋮`) para «Añadir a preparación» y «Cambiar fondo».
+  2. **Lienzo limpio sin obstrucciones:** Eliminación de la barra flotante invasiva sobre el escenario. Todo el ajuste de la figura activa se centraliza en la bandeja inferior.
+  3. **Panel inferior contextual unificado:** Comparte exactamente la misma altura (185px) que la bandeja de pestañas normal para evitar brincos o desajustes del lienzo 16:9. Incluye cabecera con avatar, nombre, botones de espejo, capas, retirar y el control de retorno directo «✕ Volver a herramientas».
+  4. **Tolerancia táctil a temblores (touchSlop de 10px):** Distinción matemática entre toques de selección y arrastres intencionales. Tocar una figura o un leve temblor no modifica sus coordenadas ni ensucia el borrador; el arrastre arranca superados los 10px y preserva el punto de agarre relativo exacto del dedo.
+  5. **Cruceta D-Pad con pasos de píxeles reales de escenario:** Selector calibrado para el lienzo de 1920×1080: Fino (1px = `1/1920` X, `1/1080` Y), Normal (5px) y Amplio (20px), independiente del zoom visual del director y compartiendo la misma función de límites de escenario que el arrastre (`clampStageX`: 0.01 a 0.99, `clampStageY`: 0.02 a 0.98).
+- **Archivos actualizados:** `src/components/master/composer/SceneCanvasComposer.tsx`, `src/components/master/composer/sceneCanvasComposer.test.ts`, `docs/manual/README.md` y `docs/manual/REVISIONES.md`.
+- **Resultado:** 8 de 8 pruebas de compositor pasando al 100%, 340 pruebas totales del proyecto aprobadas, APK nativo `app-dev-debug.apk` compilado con éxito. Manual de usuario sincronizado.
 
 ## 2026-09-02 — MAN-001: primera edición
 
@@ -662,6 +819,25 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
   - *Pendiente de comprobación física extendida:* Partida interactiva de larga duración con control y mesa conectados entre el teléfono y la tablet una vez recargada la batería de los dispositivos.
 - **Resultado:** app Android actualizada a v1.1.0, datos existentes conservados, interfaz adaptada a móvil y tablet, y documentación de uso y revisiones actualizada con MAN-020.
 
+## 2026-09-04 — MAN-021: Modularización Arquitectónica de MasterController (`/goal`)
+
+- **Versión:** árbol de trabajo local con refactorización modular profunda de `MasterController.tsx`.
+- **Entorno:**
+  - Pruebas unitarias automatizadas en Vitest: 59 suites ejecutadas, 332/332 pruebas aprobadas al 100%.
+  - Compilación de producción estricta con TypeScript (`tsc -b`) y Vite finalizada en 4.26s con 0 errores de tipado.
+  - Sincronización con Capacitor (`npx cap sync android`) exitosa en 0.44s.
+  - Compilación nativa Gradle (`assembleDevDebug`) exitosa en 29s sin errores.
+- **Alcance y Cambios de Arquitectura:**
+  1. **Reducción de Complejidad en `MasterController.tsx`:** Reducido de **2.714 a 905 líneas** (reducción del 67% del archivo), desacoplando lógica de dominio en controladores especializados.
+  2. **`useSessionSceneHandlers.ts`:** Encapsula la gestión de variantes de escena, perfiles sonoros y situaciones de bioma, iluminación por capas, emisores de zona, interacciones de objetos con sincronización de estado del mundo, diálogos cinematográficos con acciones idempotentes, handouts proyectados y crónicas de sesión.
+  3. **`useCombatCoordinator.ts`:** Encapsula el avance y retroceso de turnos de combate, sincronización de la cámara con el combatiente activo, temporizador cinematográfico de combate y atenuación inteligente (*ducking*) del audio ambiental durante la voz del director.
+  4. **`useCampaignManagement.ts`:** Encapsula el cambio, duplicación y borrado de campañas, invocación y retiro de figuras, asignación de expresiones faciales y anclas visuales, lanzamiento de dados y copias de seguridad JSON.
+  5. **`MasterHeader.tsx`:** Componente desacoplado para la cabecera completa del director (título de campaña, barra rápida de momentos, historial, checkpoints, diagnóstico, chip de transporte, avisos persistentes de reconexión, modo caos, compatibilidad de versión y secuencias activas de macro, conmutador de modo En Vivo/Preparación, vista previa en miniatura y disparadores de pánico).
+  6. **`MasterPrimaryModals.tsx`:** Desacopla la capa de modales directos (publicación selectiva, previsualización a pantalla completa, diagnóstico de red, historial de acciones, checkpoints, selector de campaña, editores de escenas y personajes, invocación, código QR y diagnóstico de red).
+- **Diferenciación de Evidencia:**
+  - *Comprobado mediante pruebas de código e integración local:* 332/332 pruebas aprobadas (100%), 0 regresiones funcionales, compilación de TypeScript/Vite exitosa en 4.26s y compilación Gradle de APK exitosa.
+  - *Comprobación visual y de uso:* Sin cambios de cara a la interfaz del usuario ni a la experiencia de los jugadores; todos los controles, nombres, atajos de teclado y diálogos permanecen idénticos.
+- **Resultado:** modularización técnica completada con éxito y registrada en MAN-021.
 
 
 
@@ -671,3 +847,90 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
 
 
 
+
+
+## 2026-09-04 — Corrección de fondos invisibles en la Mesa
+
+- **Versión:** árbol de trabajo local sobre `d9ec104`; se preservaron los cambios previos de modularización y sus revisiones.
+- **Causa y corrección:** `StageViewport` dependía de clases utilitarias sin definición CSS. En el navegador, la cámara y las capas del fondo medían 1600 × 0 px. Se añadieron reglas explícitas de tamaño, posición, centrado y recorte para el escenario y sus previsualizaciones en `src/index.css`.
+- **Evidencia visual:** en la Mesa web local (1600 × 900), las capas pasaron a medir 1600 × 900 px y se observó el fondo de «Pueblo» con personajes y cartel; la interfaz indicaba «Master Conectado». No se modificó la campaña desde este recorrido.
+- **Evidencia de código:** compilación TypeScript/Vite correcta y 19 pruebas de `stageViewportFidelity.test.tsx` aprobadas. Los tests de jsdom no renderizan Canvas; la evidencia de visibilidad procede del navegador. Vite conserva avisos de tamaño de paquetes e imports mixtos.
+- **Manual:** revisados el primer recorrido y las secciones de escenarios y fondos de `README.md`. Sin cambios de uso; manual revisado. Se restituye el resultado ya documentado: ver el fondo elegido en la Mesa.
+- **Límites:** no se realizó una partida completa con dos dispositivos físicos, ni instalación del arreglo en Android. No se renovaron validaciones de otras funciones.
+- **Próxima comprobación:** con la versión corregida en los dispositivos, alternar un fondo predeterminado y uno subido desde archivo; revisar también la miniatura y la vista previa completa.
+
+## 2026-09-04 — MAN-022: Flujo de Autoría y Creación Táctil en Android sin Mesa (`/goal` y `/grill-me`)
+
+- **Versión:** árbol de trabajo local con implementación y validación integral del flujo de creación y autoría táctil en Android (`v1.1.0-dev`, `versionCode 2`).
+- **Entorno:**
+  - Dispositivo físico Android conectado por ADB: `motorola_one_fusion` (Android 11, resolución 720×1600 portrait, 280 dpi).
+  - Compilación nativa Gradle (`assembleDevDebug`) instalada como actualización sin pérdida de datos en el dispositivo vía `adb install -r -d`.
+  - Pruebas automatizadas en Vitest: 60 suites, 336/336 pruebas aprobadas (100%), incluyendo 4 nuevas pruebas en `sceneCanvasComposer.test.ts`.
+  - Compilación de producción estricta con TypeScript (`tsc -b`) y Vite finalizada en 3.83s con 0 errores de tipado.
+- **Alcance y Cambios Implementados:**
+  1. **Acceso Autónomo sin Mesa (Serie 1, Pregunta 1):**
+     - Añadida tarjeta principal en el Lobby inicial (`Lobby.tsx`): **Preparar Escenas** (*«Crear y organizar sin conectar una Mesa»*), permitiendo al director crear material, organizar campañas y componer escenas en almacenamiento local Dexie/IndexedDB sin conectar una Mesa física ni fingir una partida en vivo.
+     - Implementado `WorkshopView.tsx` como centro de autoría con tres pestañas: `Escenas`, `Personajes` y `Banco de Imágenes`.
+  2. **Selector Visual Unificado (`AssetPickerModal.tsx`) (Serie 2, Preguntas 4, 6 y 7):**
+     - Sustituido el campo de texto obligatorio `type="url"` por un selector visual con tres fuentes: *«Desde Dispositivo»* (selector de Fotos o Archivos nativo del sistema operativo Android), *«Mi Biblioteca»* (reutilización de imágenes existentes en Dexie con miniaturas grandes y búsqueda) y *«Por Enlace»*.
+     - Deduplicación automática de imágenes y almacenamiento binario inmutable mediante `registerImmutableAsset`.
+     - Previsualizaciones inmediatas en encuadre 16:9 y circular/cuadrado antes de confirmar.
+  3. **Compositor de Escenas Táctil a Pantalla Completa (`SceneCanvasComposer.tsx`) (Serie 3, Preguntas 8, 9, 10 y 11):**
+     - Pantalla de trabajo completa dedicada exclusivamente al escenario 16:9, sin modales anidados ni menús invasivos.
+     - Control táctil de zoom del editor (`-`, `100%`, `+`, `↺`) completamente desacoplado de la cámara guardada para los jugadores.
+     - Bandeja inferior interactiva (`Toca para añadir`) con carrusel de figuras y posicionamiento inicial despejado sin apilamientos en el centro.
+     - Arrastre táctil directo con el dedo sobre el lienzo.
+     - Barra flotante contextual sobre la figura seleccionada con controles táctiles de escala (`+`/`-`), reflejo horizontal en espejo (`[|]`, `isFlipped`), reordenación de capas (`^`/`v`) y retirada a reserva (`papelera`).
+  4. **Persistencia Continua y Destino Claro (Serie 4, Preguntas 12 y 13):**
+     - Indicador continuo de autoguardado en segundo plano (*«✓ Borrador guardado»* en verde), resistente a giros de pantalla, llamadas entrantes o cambio de app.
+     - Botón explícito **💾 Guardar Escena** para consolidar los cambios en la campaña activa.
+- **Diferenciación de Evidencia:**
+  - *Comprobado en hardware real Android (`motorola_one_fusion`):*
+    - `authoring_screen_17.png`: Visualización de la nueva tarjeta de acceso en el Lobby.
+    - `authoring_screen_18.png` / `authoring_screen_33.png`: Acceso al Taller de Preparación (`WorkshopView`) con sus pestañas y botones de creación.
+    - `authoring_screen_25.png`: Apertura del selector visual `AssetPickerModal` en el teléfono móvil.
+    - `authoring_screen_27.png`: Disparo y apertura real del Photo Picker nativo del sistema Android (*«Esta app solo puede acceder a las fotos que selecciones»*).
+    - `authoring_screen_34.png`: Visualización del `SceneCanvasComposer` a pantalla completa en el dispositivo físico, mostrando el escenario 16:9, zoom privado de edición, estado de borrador y carrusel de personajes.
+    - `authoring_screen_35.png`: Inserción táctil de *Eldrin Sombrasusurro* con marco de selección, contador actualizado a `Personajes (1)` y barra contextual flotante activa.
+    - `authoring_screen_36.png`: Inserción de *Morwen del Fuego Carmesí* junto a Eldrin sin solapamiento, con barra flotante y contador `Personajes (2)`.
+  - *Comprobado mediante pruebas de código e integración local:* 336/336 pruebas aprobadas (100%), 4 nuevas pruebas en `sceneCanvasComposer.test.ts`, 0 regresiones en suites de combate, display y sincronización.
+- **Resultado:** flujo de autoría móvil y creación táctil sin mesa completamente funcional, verificado en dispositivo real e integrado en la documentación.
+
+## 2026-09-04 — MAN-023: Pulido de Autoría Táctil y Traslado a Preparación (`/goal` y `/grill-me`)
+
+- **Versión:** árbol de trabajo local con mejoras de autoría táctil y traslado a sesión (`v1.1.0-dev`, `versionCode 2`).
+- **Entorno:**
+  - Pruebas automatizadas en Vitest: 60 suites, 339/339 pruebas aprobadas (100%), incluyendo 7 pruebas específicas en `sceneCanvasComposer.test.ts`.
+  - Compilación estricta TypeScript (`tsc -b`) y empaquetado de producción Vite finalizado con 0 errores de tipado.
+  - Compilación nativa Gradle Android (`assembleDevDebug`) completada con éxito en 54s (`app-dev-debug.apk`, 5.8 MB).
+- **Alcance y Mejoras Implementadas:**
+  1. **Creación Contextual de Personajes sin Salir de la Composición (Pregunta 1):**
+     - Botón fijo `+ Nuevo` en el inicio del carrusel de personajes de la bandeja inferior.
+     - Modal rápido con nombre y selector visual de imagen (`AssetPickerModal`).
+     - Acción principal *«Crear y añadir a esta escena»*: persiste la ficha del personaje en la base de datos de la campaña (`db.campaigns`) y lo inserta de inmediato en el lienzo de la escena en una posición visible y despejada, quedando seleccionado y listo para ajustar.
+  2. **Tres Modos Táctiles Inequívocos (Pregunta 4):**
+     - Selector táctil superior con 3 estados mutuamente excluyentes: `Figuras` (modo predeterminado para interactuar con personajes), `Vista` (para desplazamiento *pan* y zoom privado del escenario) y `Fondo` (para encuadrar la imagen 16:9).
+     - Evita arrastres accidentales del lienzo mientras se ajustan personajes y viceversa.
+     - Botón de restablecimiento de encuadre inicial (`Ajustar a la vista`, `↺`) en modo Vista y botón `Restablecer fondo` en modo Fondo.
+  3. **Micro-ajuste con Cruceta D-Pad (Pregunta 5):**
+     - Integración de botones direccionales `←`, `↑`, `↓`, `→` en la barra flotante de la figura activa.
+     - Selector de paso fino (`1%` para micro-calibración o `5%` para movimiento ágil).
+     - Resuelve el problema de figuras pequeñas tapadas por el dedo del usuario en pantallas táctiles móviles.
+  4. **Traslado de Escenas a Preparaciones de Sesión (Pregunta 10):**
+     - Componente modal `TransferSceneModal.tsx` accesible desde la tarjeta de escena en el Taller y desde el encabezado del Compositor.
+     - Selección explícita de campaña y sesión de destino (o creación rápida de una nueva preparación).
+     - Opciones claras de destino: *«Añadir al repertorio»* (añade la escena a `frozenScenes`) o *«Abrir en Preparación (Staging)»* (actualiza `stagedState` como borrador del director).
+     - Copia profunda aislada e independiente: no muta la escena original del Taller ni publica de forma automática a la Mesa de los jugadores.
+- **Diferenciación de Evidencia:**
+  - *Comprobado mediante pruebas de código e integración:* 339/339 pruebas pasando (100%), verificación de límites de micro-ajuste D-pad (0.05 a 0.95), persistencia contextual y clonación profunda hacia `db.sessions`.
+  - *Comprobado mediante compilación nativa:* Gradle `assembleDevDebug` exitoso y sincronización Capacitor Android limpia.
+- **Resultado:** manual actualizado y flujo completo de autoría táctil y traslado a preparación consolidado.
+
+
+## 2026-09-04 — MAN-024: Navegación móvil en una sola fila
+
+- **Versión:** árbol de trabajo local con mejora de navegación táctil para el control del director.
+- **Alcance:** la barra inferior móvil mantiene cuatro destinos principales: **Sesión**, **Combate**, **Momentos** y **Más**. Las opciones **Notas y dados** y **Campaña y biblioteca** se abren desde una hoja inferior, con botones táctiles amplios y respetando el área segura inferior de Android.
+- **Documentación de uso:** se actualizó `docs/manual/README.md` para explicar la ubicación de estas opciones.
+- **Evidencia:** revisión de código y build iniciado. La compilación quedó pendiente por errores TypeScript preexistentes en `src/domain/display/characterDirector.test.tsx`; no se realizó comprobación visual en dispositivo Android ni prueba completa con mesa conectada.
+- **Resultado:** mejora implementada; validación visual y compilación completa quedan pendientes hasta resolver los errores ajenos indicados.

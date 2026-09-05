@@ -1,6 +1,5 @@
 import React from 'react';
 import type { CharacterOnScreen, Character } from '../../../types';
-import type { DragState } from './directorTypes';
 import {
   Mic,
   MicOff,
@@ -18,13 +17,14 @@ import {
   Tag,
   X,
   Check,
+  Copy,
 } from 'lucide-react';
 
 export interface DirectorBottomBarProps {
   primarySelectedChar: CharacterOnScreen | null;
   activeCampaignChar: Character | null;
   characters: CharacterOnScreen[];
-  dragRef: React.MutableRefObject<DragState | null>;
+  isDragging: boolean;
   showExpressionsForId: string | null;
   setShowExpressionsForId: (id: string | null) => void;
   editingPrivateLabelId: string | null;
@@ -35,13 +35,14 @@ export interface DirectorBottomBarProps {
   setShowMorePanel: (val: boolean) => void;
   setSelectedIds: (ids: Set<string>) => void;
   onUpdateCharacter: (id: string, updates: Partial<CharacterOnScreen>, description: string) => void;
+  onDuplicateCharacter?: (character: CharacterOnScreen) => void;
 }
 
 export const DirectorBottomBar: React.FC<DirectorBottomBarProps> = ({
   primarySelectedChar,
   activeCampaignChar,
   characters,
-  dragRef,
+  isDragging,
   showExpressionsForId,
   setShowExpressionsForId,
   editingPrivateLabelId,
@@ -52,13 +53,14 @@ export const DirectorBottomBar: React.FC<DirectorBottomBarProps> = ({
   setShowMorePanel,
   setSelectedIds,
   onUpdateCharacter,
+  onDuplicateCharacter,
 }) => {
   if (!primarySelectedChar) return null;
 
   return (
     <>
       {/* ── FLOATING QUICK ACTIONS BAR (On Selected Character) ── */}
-      {!dragRef.current?.isDragging && (
+      {!isDragging && (
         <div className="director-ui-element absolute bottom-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 bg-slate-950/95 backdrop-blur-md border-2 border-amber-500/60 rounded-2xl p-1.5 shadow-2xl pointer-events-auto max-w-[96vw] overflow-x-auto no-scrollbar">
           {/* Avatar & Name Pill */}
           <div className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-amber-300 truncate max-w-[120px] shrink-0">
@@ -156,7 +158,20 @@ export const DirectorBottomBar: React.FC<DirectorBottomBarProps> = ({
             </span>
           </button>
 
-          {/* Primary 5: "Más…" Mobile Bottom Drawer Button */}
+          {/* Primary 5: Quick Duplicate Copy */}
+          {onDuplicateCharacter && (
+            <button
+              type="button"
+              className="p-2 rounded-xl transition-colors flex items-center gap-1 text-xs font-medium shrink-0 bg-slate-900 text-slate-200 hover:text-white hover:bg-slate-800"
+              onClick={() => onDuplicateCharacter(primarySelectedChar)}
+              title="Duplicar figura (añade otra copia con etiqueta privada secuencial)"
+            >
+              <Copy size={15} className="text-cyan-400" />
+              <span>Duplicar</span>
+            </button>
+          )}
+
+          {/* Primary 6: "Más…" Mobile Bottom Drawer Button */}
           <button
             type="button"
             className={`p-2 rounded-xl transition-colors flex items-center gap-1 text-xs font-medium shrink-0 ${

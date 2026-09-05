@@ -194,4 +194,35 @@ describe('SessionCommandBus Suite', () => {
     // Should NOT have been applied
     expect(store.getReceipt(cmdId)?.status).toBe('sent');
   });
+
+  it('9. Conserva como confirmada la instantánea exacta que la Mesa aplicó', () => {
+    const movedState: DisplayState = {
+      ...dummyState,
+      characters: [
+        {
+          id: 'guard-1',
+          name: 'Guardia',
+          avatarUrl: 'https://example.com/guard.png',
+          position: 'center-left',
+          normalizedX: 31.5,
+          normalizedY: 8.2,
+          isSpeaking: false,
+        },
+      ],
+    };
+
+    const cmdId = bus.dispatchFullState(movedState, 6);
+    (bus as any).handleCommandResult({
+      commandId: cmdId,
+      status: 'applied',
+      revision: 6,
+      checksum: 'moved-state',
+      appliedAt: Date.now(),
+      sessionId: 'test-room',
+    });
+
+    expect(bus.getMesaTelemetry()?.lastConfirmedStateSnapshot?.characters[0]).toEqual(
+      expect.objectContaining({ id: 'guard-1', normalizedX: 31.5, normalizedY: 8.2 })
+    );
+  });
 });

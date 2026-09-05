@@ -3,6 +3,7 @@ import type { Role } from './types';
 import { Lobby } from './components/lobby/Lobby';
 import { PlayerDisplay } from './components/display/PlayerDisplay';
 import { MasterController } from './components/master/MasterController';
+import { WorkshopView } from './components/master/workshop/WorkshopView';
 
 export const App: React.FC = () => {
   const [role, setRole] = useState<Role>('lobby');
@@ -43,6 +44,8 @@ export const App: React.FC = () => {
       window.history.replaceState(null, '', window.location.pathname);
     } else if (roleParam === 'display') {
       setRole('display');
+    } else if (roleParam === 'workshop') {
+      setRole('workshop');
     }
   }, []);
 
@@ -68,6 +71,9 @@ export const App: React.FC = () => {
           pairingSecret={pairingSecret}
           onExitToLobby={() => setRole('lobby')}
         />
+      )}
+      {role === 'workshop' && (
+        <WorkshopView onExitToLobby={() => setRole('lobby')} />
       )}
     </div>
   );

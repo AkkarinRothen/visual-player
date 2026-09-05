@@ -16,6 +16,7 @@ import {
   Tag,
   MapPin,
   Move,
+  Copy,
 } from 'lucide-react';
 
 export interface DirectorMoreDrawerProps {
@@ -37,6 +38,7 @@ export interface DirectorMoreDrawerProps {
   setSavingWaypointModalOpen: (val: boolean) => void;
   setMovingToWaypointModalOpen: (val: boolean) => void;
   onUpdateCharacter: (id: string, updates: Partial<CharacterOnScreen>, description: string) => void;
+  onDuplicateCharacter?: (character: CharacterOnScreen) => void;
 }
 
 export const DirectorMoreDrawer: React.FC<DirectorMoreDrawerProps> = ({
@@ -58,6 +60,7 @@ export const DirectorMoreDrawer: React.FC<DirectorMoreDrawerProps> = ({
   setSavingWaypointModalOpen,
   setMovingToWaypointModalOpen,
   onUpdateCharacter,
+  onDuplicateCharacter,
 }) => {
   if (!showMorePanel || !primarySelectedChar) return null;
 
@@ -339,6 +342,21 @@ export const DirectorMoreDrawer: React.FC<DirectorMoreDrawerProps> = ({
                   : 'Asignar etiqueta'}
               </span>
             </button>
+
+            {onDuplicateCharacter && (
+              <button
+                type="button"
+                className="p-1.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-200 border border-cyan-500/50 flex items-center gap-1 text-xs"
+                onClick={() => {
+                  onDuplicateCharacter(primarySelectedChar);
+                  setShowMorePanel(false);
+                }}
+                title="Duplicar figura y asignar etiqueta privada secuencial"
+              >
+                <Copy size={13} className="text-cyan-400" />
+                <span>Duplicar copia</span>
+              </button>
+            )}
 
             {/* Nameplate Position Selector */}
             <div className="flex items-center gap-1 mt-1 w-full bg-slate-950/60 p-1 rounded-lg border border-slate-800">
