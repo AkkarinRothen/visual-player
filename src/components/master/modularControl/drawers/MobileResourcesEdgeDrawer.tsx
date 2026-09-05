@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   X,
   FolderHeart,
@@ -9,8 +9,14 @@ import {
   Bookmark,
   Check,
   Plus,
+  Search,
+  Package,
+  Box,
 } from 'lucide-react';
 import type { Campaign, Scene, Character, DMFavoriteItem } from '../../../../types';
+import { db, type StoredAsset } from '../../../../db';
+
+type QuickResourceFilter = 'all' | 'background' | 'character' | 'token' | 'asset';
 
 export interface MobileResourcesEdgeDrawerProps {
   isOpen: boolean;
@@ -20,6 +26,7 @@ export interface MobileResourcesEdgeDrawerProps {
   onExecuteFavorite?: (item: DMFavoriteItem) => Promise<boolean> | boolean;
   onSelectScene?: (scene: Scene) => void;
   onInvokeCharacter?: (char: Character) => void;
+  onUseResourceAsset?: (asset: StoredAsset) => void;
   onOpenNotes?: () => void;
   onOpenRevelationJournal?: () => void;
   onOpenManageFavorites?: () => void;
@@ -34,12 +41,38 @@ export const MobileResourcesEdgeDrawer: React.FC<MobileResourcesEdgeDrawerProps>
   onExecuteFavorite,
   onSelectScene,
   onInvokeCharacter,
+  onUseResourceAsset,
   onOpenNotes,
   onOpenRevelationJournal,
   onOpenManageFavorites,
   activeSceneId,
 }) => {
-  if (!isOpen) return null;
+  const [packAssets, setPackAssets] = useState<StoredAsset[]>([]);
+  const [resourceSearch, setResourceSearch] = useState('');
+  const [resourceFilter, setResourceFilter] = useState<QuickResourceFilter>('all');
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let cancelled = false;
+    db.assets
+      .where('packId')
+      .above('')
+      .reverse()
+      .sortBy('createdAt')
+      .then((assets) => {
+        if (cancelled) return;
+        setPackAssets(assets.filter((asset) => asset.type === 'image'));
+      })
+      .catch((err) => {
+        console.warn('Error cargando recursos de packs para el control rapido:', err);
+        if (!cancelled) setPackAssets([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   const scenes = campaign?.scenes || [];
   const campaignCharacters = campaign?.characters || [];
@@ -49,6 +82,29 @@ export const MobileResourcesEdgeDrawer: React.FC<MobileResourcesEdgeDrawerProps>
       : campaign?.favorites && campaign.favorites.length > 0
       ? campaign.favorites
       : [];
+
+  const filteredPackAssets = useMemo(() => {
+    const query = resourceSearch.trim().toLowerCase();
+    return packAssets
+      .filter((asset) => {
+        const category = asset.category || 'asset';
+        if (resourceFilter !== 'all') {
+          if (resourceFilter === 'asset' && !['asset', 'prop'].includes(category)) return false;
+          if (resourceFilter !== 'asset' && category !== resourceFilter) return false;
+        }
+
+        if (!query) return true;
+        return [
+          asset.name,
+          asset.packName,
+          asset.category,
+          ...(asset.tags || []),
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query));
+      })
+      .slice(0, 8);
+  }, [packAssets, resourceFilter, resourceSearch]);
 
   const handleSelectScene = (scene: Scene) => {
     onSelectScene?.(scene);
@@ -64,6 +120,27 @@ export const MobileResourcesEdgeDrawer: React.FC<MobileResourcesEdgeDrawerProps>
     onExecuteFavorite?.(fav);
     onClose();
   };
+
+  const handleUseResourceAsset = (asset: StoredAsset) => {
+    onUseResourceAsset?.(asset);
+    onClose();
+  };
+
+  const getResourceActionLabel = (asset: StoredAsset) => {
+    if (asset.category === 'background') return 'Usar fondo';
+    if (asset.category === 'character' || asset.category === 'token') return 'Invocar';
+    return 'Colocar';
+  };
+
+  const getFilterLabel = (filter: QuickResourceFilter) => {
+    if (filter === 'all') return 'Todo';
+    if (filter === 'background') return 'Fondos';
+    if (filter === 'character') return 'Personajes';
+    if (filter === 'token') return 'Tokens';
+    return 'Assets';
+  };
+
+  if (!isOpen) return null;
 
   return (
     <>
@@ -142,7 +219,72 @@ export const MobileResourcesEdgeDrawer: React.FC<MobileResourcesEdgeDrawerProps>
             )}
           </div>
 
-          {/* 2. ESCENAS DE LA CAMPAÑA */}
+          {/* 2. BUSCADOR DE RECURSOS DE PACKS */}
+          <div className="mobile-edge-section">
+            <div className="mobile-edge-section-header">
+              <span className="mobile-edge-section-title">
+                <Package size={14} className="text-amber-400 inline mr-1" />
+                Packs instalados ({packAssets.length})
+              </span>
+            </div>
+
+            <div className="mobile-resource-search">
+              <Search size={14} aria-hidden="true" />
+              <input
+                type="search"
+                value={resourceSearch}
+                onChange={(e) => setResourceSearch(e.target.value)}
+                placeholder="Buscar fondo, token o asset"
+                aria-label="Buscar recursos de packs instalados"
+              />
+            </div>
+
+            <div className="mobile-resource-filters" aria-label="Filtrar recursos por tipo">
+              {(['all', 'background', 'character', 'token', 'asset'] as QuickResourceFilter[]).map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  className={`mobile-resource-filter ${resourceFilter === filter ? 'active' : ''}`}
+                  onClick={() => setResourceFilter(filter)}
+                >
+                  {getFilterLabel(filter)}
+                </button>
+              ))}
+            </div>
+
+            {filteredPackAssets.length > 0 ? (
+              <div className="mobile-pack-resource-list">
+                {filteredPackAssets.map((asset) => (
+                  <button
+                    key={asset.id}
+                    type="button"
+                    className="mobile-pack-resource-item"
+                    onClick={() => handleUseResourceAsset(asset)}
+                    title={`${getResourceActionLabel(asset)}: ${asset.name}`}
+                  >
+                    <div
+                      className={`mobile-pack-resource-thumb ${asset.category === 'background' ? 'wide' : ''}`}
+                      style={{ backgroundImage: `url(${asset.thumbnailUrl || asset.dataUrl})` }}
+                    />
+                    <div className="mobile-pack-resource-info">
+                      <span className="mobile-pack-resource-name">{asset.name}</span>
+                      <span className="mobile-pack-resource-pack">{asset.packName || 'Pack instalado'}</span>
+                    </div>
+                    <span className="mobile-pack-resource-action">
+                      {asset.category === 'background' ? <ImageIcon size={14} /> : asset.category === 'character' || asset.category === 'token' ? <Users size={14} /> : <Box size={14} />}
+                      {getResourceActionLabel(asset)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mobile-edge-empty-text">
+                {packAssets.length === 0 ? 'No hay recursos de packs instalados.' : 'Sin resultados para ese filtro.'}
+              </p>
+            )}
+          </div>
+
+          {/* 3. ESCENAS DE LA CAMPAÑA */}
           <div className="mobile-edge-section">
             <span className="mobile-edge-section-title">
               <ImageIcon size={14} className="text-sky-400 inline mr-1" />
@@ -182,7 +324,7 @@ export const MobileResourcesEdgeDrawer: React.FC<MobileResourcesEdgeDrawerProps>
             )}
           </div>
 
-          {/* 3. INVOCAR NPC DE BIBLIOTECA */}
+          {/* 4. INVOCAR NPC DE BIBLIOTECA */}
           <div className="mobile-edge-section">
             <span className="mobile-edge-section-title">
               <Users size={14} className="text-emerald-400 inline mr-1" />
@@ -223,7 +365,7 @@ export const MobileResourcesEdgeDrawer: React.FC<MobileResourcesEdgeDrawerProps>
             )}
           </div>
 
-          {/* 4. NOTAS Y APUNTES DEL DM */}
+          {/* 5. NOTAS Y APUNTES DEL DM */}
           {(onOpenNotes || onOpenRevelationJournal) && (
             <div className="mobile-edge-section">
               <span className="mobile-edge-section-title">

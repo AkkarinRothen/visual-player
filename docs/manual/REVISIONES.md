@@ -2,6 +2,24 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-05 — MAN-056: Buscador Rápido de Packs en Control y Clasificación Background/Character/Token/Asset
+
+- **Walkthrough y entorno:** revisión en código del flujo de recursos instalados desde packs, verificación estricta de tipos con `npx tsc -b` (0 errores), compilación de producción con `npm run build` correcta y ejecución enfocada de Vitest sobre `MobileResourcesEdgeDrawer.test.tsx` y `resourcePackService.test.ts` (12/12 pruebas aprobadas). Inspección de la carpeta compartida de Google Drive indicada por el usuario, con 12 archivos `.vppack` disponibles; comparación con la carpeta local `packs/`, donde hay 11 archivos `.vppack`. Pendiente comprobación visual en navegador y prueba completa con Mesa conectada.
+- **Funciones y componentes afectados:**
+  1. **Cajón derecho del Panel Modular (`MobileResourcesEdgeDrawer.tsx`, `LiveModularControlPanel.tsx`, `modularControl.css`):**
+     - Nueva sección **Packs instalados** con buscador táctil y filtros **Todo**, **Fondos**, **Personajes**, **Tokens** y **Assets**.
+     - Los recursos instalados desde `.vppack` se cargan desde IndexedDB y muestran miniatura, nombre, pack de origen y acción contextual.
+     - Al tocar un fondo se actualiza el fondo en vivo; al tocar un personaje o token se invoca una figura en la Mesa; al tocar un asset/prop se coloca como objeto visible en la escena.
+  2. **Formato de packs y almacenamiento (`types/index.ts`, `assetDb.ts`):**
+     - Los recursos de pack ahora admiten categorías `background`, `character`, `token`, `asset` y `prop`, con usos sugeridos para escena, invocación o colocación.
+     - Los packs admiten categorías generales `backgrounds`, `characters`, `tokens`, `assets`, `props`, `maps` y `mixed`, preservando compatibilidad con packs anteriores.
+  3. **Generador CLI (`scripts/create-vppack.mjs`):**
+     - Clasificación automática más específica a partir de carpeta/nombre para separar fondos, personajes, tokens y assets.
+     - Cada recurso generado recibe usos sugeridos para que el Control pueda ofrecer acciones rápidas coherentes.
+- **Manual:** actualizadas las secciones «Panel de Control Modular e Inspector (Celular y Tablet)» y «Packs de Recursos Visuales Instalables (.vppack)» en `docs/manual/README.md`.
+- **Evidencia técnica:** `npx vitest run src/components/master/modularControl/drawers/MobileResourcesEdgeDrawer.test.tsx src/services/resourcePackService.test.ts` completó 2 archivos y 12 pruebas aprobadas; `npx tsc -b` completó sin errores; `npm run build` completó correctamente.
+- **Límites:** no se ejecutó walkthrough visual en navegador ni conexión real con Mesa; la acción en vivo se verificó por manejadores y pruebas unitarias, no por observación en dispositivo físico. `npm run lint` sigue bloqueado por errores preexistentes de hooks condicionales en componentes no modificados durante esta revisión.
+
 ## 2026-09-05 — MAN-055: Sincronización Automática Web-Android en Gradle (Hook preBuild de Android Studio)
 
 - **Walkthrough y entorno:** revisión del pipeline de empaquetado de Capacitor y Android Studio. Verificación mediante ejecución de Gradle (`.\gradlew.bat :app:preBuild`) tanto en frío como tras modificaciones de código (`package.json`), comprobando detección de cambios y compilación desatendida. Ejecución completa de Vitest (453/453 pruebas aprobadas en 78 suites), verificación estricta de tipos con `npx tsc -b` (0 errores) y compilación de producción con Vite (`npm run build`). Comprobación de que la tarea Gradle se salta en <50 ms cuando los assets ya están sincronizados y se ejecuta automáticamente cuando hay cambios; pendiente prueba en despliegue a dispositivo Android físico conectado por ADB.
@@ -21,12 +39,13 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
 
 ## 2026-09-05 — MAN-054: Sistema de Packs Instalables de Recursos (.vppack), Generador CLI y Gestor Local
 
-- **Walkthrough y entorno:** revisión y ejecución completa de pruebas unitarias y de integración en Vitest (453/453 pruebas aprobadas en 78 suites, incluyendo 6 pruebas en `resourcePackService.test.ts` y 5 pruebas en `ResourcePacksModal.test.tsx`), verificación estricta de tipos de TypeScript con `npx tsc -b` (0 errores) y compilación de producción con Vite (`npm run build` en 4.35s). Ejecución real del generador CLI `scripts/create-vppack.mjs` con conversión a WebP mediante Sharp procesando colecciones de `I:\TTRPG\Visuales` (>340.000 archivos, ~196 GB) y generando tres paquetes inaugurales de prueba (*Czepeku: Monstruos D&D Vol. 1*, *Mapas de Fantasía: DM Andy Vol. 1* y *Atrezos Navales y Piratas: Limithron*). Comprobación de UI en navegador web local; pendiente validación en dispositivo Android físico.
+- **Walkthrough y entorno:** revisión y ejecución completa de pruebas unitarias y de integración en Vitest (453/453 pruebas aprobadas en 78 suites, incluyendo 6 pruebas en `resourcePackService.test.ts` y 5 pruebas en `ResourcePacksModal.test.tsx`), verificación estricta de tipos de TypeScript con `npx tsc -b` (0 errores) y compilación de producción con Vite (`npm run build` en 4.35s). Ejecución real del generador CLI `scripts/create-vppack.mjs` con conversión a WebP mediante Sharp procesando colecciones de `I:\TTRPG\Visuales` (>340.000 archivos, ~196 GB) y recursos de Fabula Ultima, generando 14 paquetes completos temáticos y equilibrados (*Fabula Ultima: Figuras de Escenario Full Art*, *Fabula Ultima: Retratos Faceset*, *Fabula Ultima: Fondos Elementales 16:9*, *Héroes y Aventureros*, *PNJs y Aldeanos*, *Atrezos de Taberna*, *Monster Manual: Clásicos D&D*, *Forgotten Adventures: Bestiario*, *Crosshead: Héroes y Criaturas*, *Czepeku: Monstruos*, *Tom Cartos: Aldea de Ostenwold*, *Crosshead: Asedios y Asentamientos*, *Mapas de Fantasía: DM Andy* y *Atrezos Navales y Piratas: Limithron*), sincronizados automáticamente con Google Drive. Comprobación de UI en navegador web local; pendiente validación en dispositivo Android físico.
 - **Funciones y componentes afectados:**
   1. **Generador CLI Interactivo y Desatendido (`scripts/create-vppack.mjs`, `package.json`):**
-     - Nuevo comando `npm run pack:create` con soporte interactivo (readline) y por argumentos (`--folder`, `--name`, `--author`, `--category`, `--max-items`, `--max-size`, `--yes`).
+     - Nuevo comando `npm run pack:create` con soporte interactivo (readline) y por argumentos (`--folder`, `--name`, `--author`, `--category`, `--max-items`, `--max-size`, `--no-grid`, `--yes`).
+     - Soporte para discriminación inteligente `--no-grid`: filtra y prioriza mapas limpios sin cuadrícula impresa para que los directores puedan activar y usar la cuadrícula táctica interactiva de Visual Player libremente.
      - Pipeline de optimización de imágenes con `sharp`: compresión y conversión automática a WebP (82% de calidad) y generación de miniaturas livianas de 128 px para previews instantáneos.
-     - Guarda el archivo `.vppack` resultante en `packs/` y copia automática en `I:\TTRPG\Visuales\Packs_VP\`.
+     - Guarda el archivo `.vppack` resultante en `packs/`, copia automática en `I:\TTRPG\Visuales\Packs_VP\` y en la carpeta compartida de Google Drive (`G:\Mi unidad\4.Juegos de Rol\0.Visual player`).
   2. **Persistencia e Indexación en IndexedDB (`assetDb.ts`, `index.ts`, `types/index.ts`):**
      - Nuevas interfaces `VisualResourcePack`, `ResourcePackAsset` e `InstalledResourcePack`.
      - Esquema Dexie v9 con tabla `resourcePacks: 'id, name, category, author, installedAt'` e índice `packId` en `assets`.
@@ -44,7 +63,7 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
      - Distintivo visual dorado *Pack* en las tarjetas de recursos pertenecientes a un paquete instalado.
      - Botón directo *Packs de Recursos* en la barra superior de la biblioteca.
 - **Manual:** actualizada la sección de «Packs de Recursos Visuales Instalables (.vppack)» en `docs/manual/README.md`.
-- **Evidencia técnica:** 78/78 suites pasando (453/453 pruebas en Vitest), `npx tsc -b` con 0 errores y compilación `npm run build` en 4.35s. 3 packs modelo creados y verificados en `packs/` e `I:\TTRPG\Visuales\Packs_VP\`.
+- **Evidencia técnica:** 78/78 suites pasando (453/453 pruebas en Vitest), `npx tsc -b` con 0 errores y compilación `npm run build` en 4.35s. 8 packs curados creados y verificados en `packs/` e `I:\TTRPG\Visuales\Packs_VP\`.
 - **Límites:** comprobado en pruebas automatizadas y en entorno web local; pendiente validación en pantalla táctil capacitiva de teléfono Android físico con APK instalada.
 
 ## 2026-09-05 — MAN-053: Drawers Laterales Duales Táctiles (Edge Drawers) para Herramientas Rápidas en Móvil

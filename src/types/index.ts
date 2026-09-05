@@ -1310,7 +1310,8 @@ export interface ResourcePackAsset {
   id: string;
   name: string;
   type: 'image' | 'video';
-  category: 'token' | 'background' | 'prop';
+  category: 'token' | 'background' | 'prop' | 'character' | 'asset';
+  usage?: Array<'scene-background' | 'invoke-character' | 'place-token' | 'show-asset' | 'place-prop'>;
   dataUrl: string;
   thumbnailUrl?: string;
   dimensions?: { width: number; height: number };
@@ -1326,7 +1327,7 @@ export interface VisualResourcePack {
   type: 'visual_resource_pack';
   id: string;
   name: string;
-  category: 'tokens' | 'maps' | 'props' | 'assets';
+  category: 'tokens' | 'maps' | 'backgrounds' | 'characters' | 'props' | 'assets' | 'mixed';
   author?: string;
   description?: string;
   coverDataUrl?: string;
@@ -1343,7 +1344,7 @@ export interface VisualResourcePack {
 export interface InstalledResourcePack {
   id: string;
   name: string;
-  category: 'tokens' | 'maps' | 'props' | 'assets';
+  category: 'tokens' | 'maps' | 'backgrounds' | 'characters' | 'props' | 'assets' | 'mixed';
   author?: string;
   description?: string;
   coverDataUrl?: string;

@@ -19,6 +19,7 @@ import { AssetPickerModal, type SelectedAssetResult } from '../../common/AssetPi
 import { MobileEdgePullTabs } from './drawers/MobileEdgePullTabs';
 import { MobileFxEdgeDrawer } from './drawers/MobileFxEdgeDrawer';
 import { MobileResourcesEdgeDrawer } from './drawers/MobileResourcesEdgeDrawer';
+import type { StoredAsset } from '../../../db';
 
 export interface LiveModularControlPanelProps {
   campaign: Campaign | null;
@@ -317,6 +318,58 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
     setIsBgPickerOpen(false);
   };
 
+  const handleUseResourceAssetFromDrawer = (asset: StoredAsset) => {
+    const category = asset.category || 'asset';
+
+    if (category === 'background') {
+      onUpdateDisplayField?.('backgroundUrl', asset.dataUrl, `Fondo desde pack: ${asset.name}`);
+      return;
+    }
+
+    if (category === 'character' || category === 'token') {
+      const newId = `${category}_${Date.now()}`;
+      const onScreenChar: CharacterOnScreen = {
+        id: newId,
+        characterId: asset.id,
+        name: asset.name,
+        avatarUrl: asset.dataUrl,
+        position: 'center-right',
+        scale: category === 'token' ? 0.8 : 1.0,
+        zIndex: (liveState.characters.length + 1) * 2,
+        normalizedX: 50,
+        normalizedY: 15,
+        isHidden: false,
+        isSpeaking: false,
+      };
+      onUpdateDisplayField?.(
+        'characters',
+        [...liveState.characters, onScreenChar],
+        `Recurso invocado desde pack: ${asset.name}`
+      );
+      setSelectedCharId(newId);
+      return;
+    }
+
+    const nextProp = {
+      id: `prop_${Date.now()}`,
+      assetId: asset.id,
+      name: asset.name,
+      assetUrl: asset.dataUrl,
+      normalizedX: 50,
+      normalizedY: 50,
+      scale: 1,
+      zIndex: 30,
+      anchor: 'center' as const,
+      visible: true,
+    };
+
+    onUpdateDisplayField?.(
+      'props',
+      [...(liveState.props || []), nextProp],
+      `Asset colocado desde pack: ${asset.name}`
+    );
+  };
+
   const handleLayerChange = (id: string, direction: 'up' | 'down') => {
     const char = liveState.characters.find((c) => c.id === id);
     if (!char) return;
@@ -541,6 +594,7 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
         onExecuteFavorite={onExecuteFavorite}
         onSelectScene={onSelectScene}
         onInvokeCharacter={handleInvokeCharacterFromDrawer}
+        onUseResourceAsset={handleUseResourceAssetFromDrawer}
         onOpenNotes={onOpenNotes}
         onOpenRevelationJournal={onOpenRevelationJournal}
         onOpenManageFavorites={onOpenManageFavorites}

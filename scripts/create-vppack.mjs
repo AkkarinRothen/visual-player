@@ -7,6 +7,7 @@ import sharp from 'sharp';
 const DEFAULT_SOURCE_BASE = 'I:\\TTRPG\\Visuales';
 const DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), 'packs');
 const REPO_PACKS_DIR = 'I:\\TTRPG\\Visuales\\Packs_VP';
+const GOOGLE_DRIVE_VP_DIR = 'G:\\Mi unidad\\4.Juegos de Rol\\0.Visual player';
 
 // Parser de argumentos de línea de comandos
 function parseArgs() {
@@ -55,16 +56,64 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-function findImagesRecursively(dir, max = Infinity) {
+function normalizeSearchText(...parts) {
+  return parts
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function classifyAssetCategory(category, targetFolder) {
+  const text = normalizeSearchText(category, targetFolder);
+
+  if (/(personaje|personajes|character|characters|npc|npcs|pnj|pnjs|heroe|heroes|aldeano|aldeanos|aventurero|aventureros|retrato|retratos|avatar|avatares|faceset|figura|figuras|full art)/.test(text)) {
+    return 'character';
+  }
+
+  if (/(token|tokens|criatura|criaturas|monster|monsters|monstruo|monstruos|bestiario|manual)/.test(text)) {
+    return 'token';
+  }
+
+  if (/(mapa|mapas|maps?|fondo|fondos|background|backgrounds|escena|scene|battlemap|battlemaps)/.test(text)) {
+    return 'background';
+  }
+
+  if (/(prop|props|atrezo|atrezos|asset|assets|objeto|objetos|item|items|furniture|mueble|muebles|barril|barriles|taberna|naval|pirata)/.test(text)) {
+    return 'asset';
+  }
+
+  return 'asset';
+}
+
+function packCategoryFromAssetCategory(assetCategory) {
+  if (assetCategory === 'background') return 'backgrounds';
+  if (assetCategory === 'character') return 'characters';
+  if (assetCategory === 'token') return 'tokens';
+  if (assetCategory === 'prop') return 'props';
+  return 'assets';
+}
+
+function usageFromAssetCategory(assetCategory) {
+  if (assetCategory === 'background') return ['scene-background'];
+  if (assetCategory === 'character') return ['invoke-character'];
+  if (assetCategory === 'token') return ['place-token', 'invoke-character'];
+  if (assetCategory === 'prop') return ['place-prop', 'show-asset'];
+  return ['show-asset', 'place-prop'];
+}
+
+function findImagesRecursively(dir, max = Infinity, options = {}) {
   const results = [];
   const validExts = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+  const preferNoGrid = !!options.preferNoGrid;
 
   function walk(current) {
     if (results.length >= max) return;
     let entries;
     try {
       entries = fs.readdirSync(current, { withFileTypes: true });
-    } catch (_e) {
+    } catch {
       return;
     }
 
@@ -76,6 +125,14 @@ function findImagesRecursively(dir, max = Infinity) {
       } else if (entry.isFile()) {
         const ext = path.extname(entry.name).toLowerCase();
         if (validExts.has(ext)) {
+          if (preferNoGrid) {
+            const lower = entry.name.toLowerCase();
+            const hasGrid = lower.includes('grid');
+            const hasNoGrid = lower.includes('no grid') || lower.includes('no_grid') || lower.includes('nogrid') || lower.includes('ungridded');
+            if (hasGrid && !hasNoGrid) {
+              continue; // Omitir versiones con cuadrícula impresa
+            }
+          }
           results.push(full);
         }
       }
@@ -143,7 +200,7 @@ async function main() {
     }
 
     let targetFolder = '';
-    let category = 'tokens';
+    let category = cliOptions.category ? String(cliOptions.category).toLowerCase() : 'tokens';
     let defaultAuthor = '';
 
     if (cliOptions['folder']) {
@@ -237,9 +294,10 @@ async function main() {
     const description = cliOptions.desc || (await ask(rl, 'Descripción corta', `Colección de ${category} para Visual Player`, autoMode));
     
     // Parámetros de imagen
-    const isMap = category.includes('map') || targetFolder.toLowerCase().includes('mapa');
-    const isProp = category.includes('prop');
-    const assetCategory = isMap ? 'background' : isProp ? 'prop' : 'token';
+    const assetCategory = classifyAssetCategory(category, targetFolder);
+    const packCategory = packCategoryFromAssetCategory(assetCategory);
+    const usage = usageFromAssetCategory(assetCategory);
+    const isMap = assetCategory === 'background';
     const defaultMaxDim = isMap ? '1920' : '512';
     const maxDimStr = cliOptions['max-size'] || (await ask(rl, 'Resolución máxima (px)', defaultMaxDim, autoMode));
     const maxDimension = parseInt(maxDimStr, 10) || (isMap ? 1920 : 512);
@@ -248,8 +306,9 @@ async function main() {
     const limitStr = cliOptions['max-items'] || (await ask(rl, 'Límite de imágenes (0 para todas)', defaultLimit, autoMode));
     const maxItems = parseInt(limitStr, 10) === 0 ? Infinity : parseInt(limitStr, 10) || 50;
 
-    console.log(`\n🔍 Buscando imágenes en ${targetFolder}...`);
-    const files = findImagesRecursively(targetFolder, maxItems);
+    const preferNoGrid = cliOptions['with-grid'] ? false : Boolean(cliOptions['no-grid'] || cliOptions['prefer-no-grid'] || isMap);
+    console.log(`\n🔍 Buscando imágenes en ${targetFolder}...${preferNoGrid ? ' (filtrando mapas sin cuadrícula impresa)' : ''}`);
+    const files = findImagesRecursively(targetFolder, maxItems, { preferNoGrid });
 
     if (files.length === 0) {
       console.error('❌ No se encontraron imágenes válidas (.png, .jpg, .webp) en la carpeta.');
@@ -278,6 +337,7 @@ async function main() {
           name: cleanName,
           type: 'image',
           category: assetCategory,
+          usage,
           dataUrl: processed.dataUrl,
           thumbnailUrl: processed.thumbnailUrl,
           dimensions: { width: processed.width, height: processed.height },
@@ -296,7 +356,7 @@ async function main() {
       type: 'visual_resource_pack',
       id: packId,
       name: packName,
-      category: isMap ? 'maps' : isProp ? 'props' : 'tokens',
+      category: packCategory,
       author,
       description,
       coverDataUrl: assets[0]?.thumbnailUrl || assets[0]?.dataUrl || '',
@@ -322,6 +382,12 @@ async function main() {
       if (!fs.existsSync(REPO_PACKS_DIR)) fs.mkdirSync(REPO_PACKS_DIR, { recursive: true });
       const repoCopyPath = path.join(REPO_PACKS_DIR, outFileName);
       fs.copyFileSync(outFilePath, repoCopyPath);
+    }
+
+    // Guardar también copia en Google Drive (0.Visual player) si está disponible
+    if (fs.existsSync(GOOGLE_DRIVE_VP_DIR)) {
+      const gDriveCopyPath = path.join(GOOGLE_DRIVE_VP_DIR, outFileName);
+      fs.copyFileSync(outFilePath, gDriveCopyPath);
     }
 
     const fileStat = fs.statSync(outFilePath);

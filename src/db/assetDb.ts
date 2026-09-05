@@ -30,7 +30,7 @@ export interface StoredAsset {
   refCount?: number;
   packId?: string;
   packName?: string;
-  category?: 'token' | 'background' | 'prop' | 'character';
+  category?: 'token' | 'background' | 'prop' | 'character' | 'asset';
   tags?: string[];
 }
 
@@ -718,4 +718,3 @@ export async function getInstalledResourcePacks(): Promise<InstalledResourcePack
 export async function getAssetsByPack(packId: string): Promise<StoredAsset[]> {
   return db.assets.where('packId').equals(packId).toArray();
 }
-

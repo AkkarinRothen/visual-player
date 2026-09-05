@@ -59,7 +59,7 @@ Necesitás tener acceso a la app en el dispositivo que usará quien dirige y en 
   4. **Lienzo táctico móvil y medición de distancias:** Al tocar el botón conmutador de **Cuadrícula táctica** en el visor 16:9, las figuras se muestran como fichas circulares tácticas (tokens) con código de bando (verde para aliados, rojo para enemigos, amarillo para neutrales) y se proyecta la cuadrícula de la escena (cuadrada o hexagonal). Al arrastrar un token con el pulgar, una línea elástica punteada y un badge flotante superior muestran la distancia exacta en celdas y pies (`1 celda = 5 ft`) hacia el oponente más cercano; al soltar el dedo, la posición se ajusta automáticamente (*snap*) al centro de la celda. Esta medición es 100% privada para el director.
   5. **Solapas y Cajones Laterales Rápidos (Edge Drawers táctiles con el pulgar):** Dos pestañas semi-translúcidas en los bordes de la pantalla a media altura (al alcance del pulgar) permiten desplegar paneles emergentes instantáneos sin tapar la partida ni requerir menús engorrosos:
      - **Solapa izquierda (⚡ FX):** Abre el cajón de efectos en vivo y dados de mesa. Incluye impactos dramáticos de un toque (**Relámpago**, **Sacudir pantalla**, **Apagón / Luz** con runa de emergencia y **Cartel de escena** narrativo), botonera de **Sonidos Rápidos (SFX)** procedimentales con latencia cero (Espada, Fuego, Hechizo, Trueno, Campana, Rugido, Puerta) y un **Tirador de Dados Rápidos** (**d4**, **d6**, **d8**, **d10**, **d12**, **d20**, **d100**) que reproduce un sonido de dado y muestra el resultado en un badge flotante al instante. Permite encadenar múltiples efectos sin cerrarse y se oculta tocando fuera o en la solapa.
-     - **Solapa derecha (📂 Mesa / Recursos):** Abre el cajón de gestión rápida de la sesión. Brinda acceso directo con un toque a los **Favoritos del DM**, carrusel de **Escenas de campaña** con miniaturas y distintivo de la escena activa en Mesa, lista de **Personajes de biblioteca** para invocarlos al escenario mediante el botón `+`, y accesos a **Notas de sesión** y **Diario de revelaciones**. Al invocar un personaje, cambiar de escena o disparar un favorito, el cajón se repliega automáticamente para devolver al director de inmediato a la acción.
+     - **Solapa derecha (📂 Mesa / Recursos):** Abre el cajón de gestión rápida de la sesión. Brinda acceso directo con un toque a los **Favoritos del DM**, buscador de **Packs instalados**, carrusel de **Escenas de campaña** con miniaturas y distintivo de la escena activa en Mesa, lista de **Personajes de biblioteca** para invocarlos al escenario mediante el botón `+`, y accesos a **Notas de sesión** y **Diario de revelaciones**. En **Packs instalados**, escribí parte del nombre o etiqueta y filtrá por **Todo**, **Fondos**, **Personajes**, **Tokens** o **Assets**. Tocá un resultado para aplicarlo de inmediato: los fondos cambian la escena en vivo, los personajes/tokens se invocan en la Mesa y los assets se colocan como objetos visibles. Al usar un recurso, invocar un personaje, cambiar de escena o disparar un favorito, el cajón se repliega automáticamente para devolver al director de inmediato a la acción.
   6. **Cambios en directo e instantáneos:** Todos los controles aplican sus cambios en tiempo real a la Mesa conectada mediante WebRTC, sin necesidad de pulsar un botón de publicar.
   7. **Alternancia de vista:** Mediante las pestañas **Panel Modular** y **Consola Clásica** situadas en la parte superior de la sesión, podés alternar en cualquier momento entre el panel modular táctil y la consola detallada de preparación y borradores.
 - **Últimas acciones:** El **Centro de Partida** muestra las cuatro acciones más recientes, indicando si fueron **En Vivo** o **Borrador**, la escena relacionada y la hora. Tocá **Ver historial completo** para revisar o restaurar un punto anterior.
@@ -611,12 +611,12 @@ Podés guardar cualquier escena que tengas armada en tu borrador como una pieza 
 
 ### Packs de Recursos Visuales Instalables (.vppack)
 
-Visual Player permite empaquetar, comprimir a WebP e instalar colecciones curadas de imágenes (Tokens tácticos, Mapas de batalla y Props decorativos) para disponer de miles de recursos sin conexión y sin sobrecargar la memoria del dispositivo:
+Visual Player permite empaquetar, comprimir a WebP e instalar colecciones curadas de imágenes (fondos, personajes, tokens tácticos y assets decorativos) para disponer de miles de recursos sin conexión y sin sobrecargar la memoria del dispositivo:
 
 1. **Gestor de Packs de Recursos:**
    - Accesible desde **Herramientas de mesa → Packs de recursos** en el móvil, o tocando el botón **Packs de Recursos** dentro de la biblioteca del selector de imágenes (**AssetPickerModal**).
    - **Instalación táctil o por arrastre:** Arrastrá o seleccioná cualquier archivo `.vppack` (o `.json` de paquete). La app indexa los recursos en segundo plano mostrando una barra de progreso en tiempo real con el porcentaje y conteo de activos procesados.
-   - **Tarjetas de información:** Muestra carátula, autor, categoría (*Tokens*, *Mapas*, *Props*), cantidad de recursos y tamaño en MB.
+   - **Tarjetas de información:** Muestra carátula, autor, categoría (*Fondos*, *Personajes*, *Tokens*, *Props*, *Assets* o mixto), cantidad de recursos y tamaño en MB.
    - **Ver contenido del pack:** Tocá el icono del ojo en cualquier paquete instalado para abrir una cuadrícula con todas sus miniaturas y nombres, permitiendo revisar rápidamente qué criaturas, mapas o atrezos incluye.
    - **Desinstalación limpia con 1 toque:** El botón de la papelera elimina por completo todos los recursos asociados a ese paquete de la base de datos local (IndexedDB) tras confirmación, liberando espacio al instante.
 
@@ -624,9 +624,16 @@ Visual Player permite empaquetar, comprimir a WebP e instalar colecciones curada
    - En la pestaña **Mi Biblioteca** al elegir un fondo de escena, retrato o prop, un menú desplegable permite filtrar entre **Todas las colecciones**, un pack específico instalado (ej. *Czepeku: Monstruos D&D*, *Mapas de Fantasía: DM Andy*) o **Sin pack / Subidos manualmente**.
    - Los recursos pertenecientes a un paquete exhiben un distintivo dorado **Pack** en su miniatura para facilitar su reconocimiento.
 
-3. **Herramienta de Creación de Packs (CLI):**
+3. **Uso rápido durante la sesión:**
+   - En el **Panel Modular**, abrí la solapa derecha **Mesa / Recursos** y buscá en **Packs instalados**.
+   - Usá los filtros **Fondos**, **Personajes**, **Tokens** y **Assets** para reducir la lista mientras dirigís.
+   - Tocá **Usar fondo** para cambiar el fondo de la Mesa, **Invocar** para colocar un personaje o token, o **Colocar** para agregar un asset como objeto en la escena.
+   - Esta acción actúa en vivo desde el Control. Si querés preparar sin mostrar al grupo, hacelo desde el **Taller de Preparación** o desde el modo **Preparación** antes de publicar.
+
+4. **Herramienta de Creación de Packs (CLI):**
    - Desde la terminal de la computadora, ejecutá `npm run pack:create` (o `node scripts/create-vppack.mjs`).
-   - El asistente interactivo te permite explorar tus carpetas locales (por ejemplo `I:\TTRPG\Visuales`), elegir una categoría o autor, ajustar la resolución máxima (ej. 512 px para tokens, 1920 px para mapas) y la compresión WebP, generando automáticamente el archivo `.vppack` optimizado en la carpeta `packs/` y en `I:\TTRPG\Visuales\Packs_VP\`.
+   - El asistente interactivo te permite explorar tus carpetas locales (por ejemplo `I:\TTRPG\Visuales`), elegir una categoría o autor, ajustar la resolución máxima (ej. 512 px para tokens, 1920 px para fondos) y la compresión WebP, generando automáticamente el archivo `.vppack` optimizado en la carpeta `packs/` y en `I:\TTRPG\Visuales\Packs_VP\`.
+   - Los nuevos packs clasifican mejor su contenido según carpeta y nombre: fondos como **background**, figuras de elenco como **character**, criaturas como **token** y objetos decorativos como **asset**. Esa clasificación decide qué acción rápida aparece en el Control.
 
 <a id="continuidad"></a>
 ## Continuar la historia entre partidas
