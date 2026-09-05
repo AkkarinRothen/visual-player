@@ -95,7 +95,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const [editingChar, setEditingChar] = useState<Character | null>(null);
 
   // Session View & Auxiliary Modals State
-  const [sessionViewMode, setSessionViewMode] = useState<'session' | 'classic'>('session');
+  // The classic live editor is the single default control surface.
+  const [sessionViewMode, setSessionViewMode] = useState<'session' | 'classic'>('classic');
   const [showManageFavoritesModal, setShowManageFavoritesModal] = useState<boolean>(false);
   const [showCompositorModal, setShowCompositorModal] = useState<boolean>(false);
   const [showConversationEditor, setShowConversationEditor] = useState<boolean>(false);
@@ -1021,7 +1022,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         <MasterMainTabs
           activeTab={activeTab}
           sessionViewMode={sessionViewMode}
-          setSessionViewMode={setSessionViewMode}
           setActiveTab={setActiveTab}
           campaign={campaign}
           setCampaign={setCampaign}

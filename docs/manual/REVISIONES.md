@@ -44,6 +44,21 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
 - **Responsive:** en celulares las acciones se muestran en dos columnas; en tablets se distribuyen en cuatro bloques compactos.
 - **Evidencia:** compilación de producción `npm run build` completada correctamente; validación visual en Android físico y recorrido con Mesa conectada pendientes.
 
+## 2026-09-04 — MAN-037: Ajuste de viewport y modales para teléfonos Android
+
+- **Problema observado:** la captura de uso mostró cabecera duplicada, navegación superior desbordada, preview demasiado alto y ventanas que podían superar el viewport del teléfono.
+- **Corrección:** en teléfonos se ocultan los controles duplicados de la cabecera, se compacta la previsualización táctil, se limita el ancho del contenido y los modales usan la altura disponible (`100dvh`) con scroll interno.
+- **Evidencia:** compilación de producción `npm run build` completada correctamente.
+- **Comprobación visual:** pendiente repetir la captura en un teléfono Android y probar modales, arrastre de NPCs, teclado, rotación y navegación inferior.
+
+## 2026-09-04 — MAN-038: Editor clásico En Vivo como flujo principal
+
+- **Cambio de flujo:** `En Vivo` inicia directamente el editor clásico de edición.
+- **Simplificación:** se eliminó del recorrido visible el banner para volver a la vista alternativa de Sesión, evitando dos superficies de control superpuestas en Android.
+- **Responsive:** el editor clásico usa tarjetas de ancho completo, grids compactos y scroll interno para listas largas en teléfonos.
+- **Evidencia:** compilación de producción `npm run build` completada correctamente.
+- **Comprobación visual:** pendiente repetir la captura en Android físico para validar que el flujo clásico no presente desbordamientos en modales ni controles.
+
 ## 2026-09-04 — MAN-030: Consola compacta de acciones rápidas para Android
 
 - **Versión:** árbol de trabajo local con consola de control para cambios durante la partida.

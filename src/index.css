@@ -5117,6 +5117,284 @@ body, html {
   }
 }
 
+/* ==========================================================================\n+   ANDROID PHONE HARDENING\n+   Keeps the director surface inside the viewport and avoids duplicated\n+   desktop controls competing with the mobile session panel.\n+   ========================================================================== */
+@media (max-width: 767px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .master-controller-root {
+    min-width: 0;
+    padding-bottom: calc(76px + var(--sab));
+  }
+
+  .master-header {
+    padding: calc(6px + var(--sat)) 8px 6px;
+    max-width: 100vw;
+    overflow: hidden;
+  }
+
+  .master-header .header-top {
+    min-width: 0;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 5px;
+  }
+
+  .master-header .brand-group {
+    min-width: 0;
+    flex: 1 1 auto;
+    gap: 6px;
+  }
+
+  .master-header .app-title {
+    min-width: 0;
+    max-width: calc(100vw - 178px);
+    overflow: hidden;
+    font-size: clamp(0.82rem, 4vw, 1.05rem);
+    line-height: 1.08;
+    letter-spacing: 0.4px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .master-header .app-badge {
+    flex: 0 0 auto;
+    padding: 4px 7px;
+    font-size: 0.62rem;
+  }
+
+  .master-header .connection-group {
+    min-width: 0;
+    flex: 0 0 auto;
+    gap: 3px !important;
+  }
+
+  .master-header .connection-group .icon-action-btn,
+  .master-header .connection-group .status-chip {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px;
+  }
+
+  .master-header .connection-group .icon-action-btn:nth-child(n + 4) {
+    display: none;
+  }
+
+  /* The SessionPanel owns mobile mode, quick actions and tab navigation. */
+  .master-header .operation-mode-switcher-bar,
+  .master-header .quick-actions-bar,
+  .master-header .tab-navigation,
+  .master-header .staging-publish-sticky-bar {
+    display: none;
+  }
+
+  .master-header .mini-preview-root {
+    border-radius: 10px;
+  }
+
+  .master-header .mini-preview-header {
+    padding: 5px 7px;
+    gap: 4px;
+  }
+
+  .master-header .preview-mode-tabs {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .master-header .preview-tab-btn {
+    min-height: 34px;
+    padding: 4px 7px;
+    font-size: 0.68rem;
+  }
+
+  .master-header .preview-header-actions {
+    flex: 0 0 auto;
+  }
+
+  .master-header .preview-header-actions button:not(:first-child) {
+    display: none;
+  }
+
+  .master-header .mini-preview-viewport {
+    height: 156px !important;
+  }
+
+  .master-header .mini-preview-viewport:has(.director-overlay) {
+    height: 190px !important;
+  }
+
+  .master-content {
+    min-width: 0;
+    padding: 8px 8px 0;
+    gap: 10px;
+  }
+
+  .session-panel-root {
+    min-width: 0;
+    width: 100%;
+    gap: 10px;
+    padding: 0 0 calc(118px + var(--sab));
+  }
+
+  .session-status-header {
+    flex-wrap: wrap;
+    padding: 7px 8px;
+    gap: 7px;
+  }
+
+  .session-status-left,
+  .session-status-right {
+    min-width: 0;
+  }
+
+  .session-mode-pill {
+    min-height: 42px;
+    padding: 7px 9px;
+    font-size: 0.68rem;
+  }
+
+  .btn-classic-toggle {
+    min-height: 38px;
+    padding: 6px 9px;
+    font-size: 0.68rem;
+  }
+
+  .session-draft-alert-banner {
+    align-items: stretch;
+    padding: 9px 10px;
+  }
+
+  .draft-alert-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+  }
+
+  .draft-alert-actions button {
+    min-height: 42px;
+    padding: 7px 5px;
+    font-size: 0.68rem;
+  }
+
+  .now-next-strip,
+  .live-quick-console,
+  .contextual-control-panel,
+  .recent-scenes-strip,
+  .session-action-timeline {
+    min-width: 0;
+  }
+
+  .now-next-content strong,
+  .now-next-content span,
+  .contextual-control-heading strong,
+  .contextual-current-info strong {
+    max-width: 31vw;
+  }
+
+  .live-quick-console {
+    padding: 8px;
+  }
+
+  .live-quick-action {
+    min-height: 52px;
+    font-size: 0.66rem;
+  }
+
+  .session-card {
+    min-width: 0;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .session-card .card-header-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .session-card img,
+  .session-card video,
+  .session-card canvas {
+    max-width: 100%;
+  }
+
+  /* Every generic modal stays below the Android viewport and scrolls internally. */
+  .modal-overlay,
+  .preview-modal-overlay,
+  .preview-submodal-overlay,
+  .editor-submodal-overlay,
+  .encounters-modal-overlay,
+  .launch-dialog-overlay,
+  .victory-modal-overlay,
+  .diagnostics-modal-overlay {
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+    align-items: flex-end;
+    padding: var(--sat) 8px var(--sab);
+    overflow: hidden;
+  }
+
+  .modal-content,
+  .preview-modal-shell,
+  .preview-submodal,
+  .encounters-modal,
+  .launch-dialog,
+  .victory-modal,
+  .diagnostics-modal,
+  .macro-editor-modal,
+  .selective-publish-modal,
+  .encounter-editor-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - var(--sat) - var(--sab) - 8px);
+    min-height: 0;
+    border-radius: 16px 16px 10px 10px;
+    padding: 14px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .modal-header,
+  .preview-modal-header {
+    position: sticky;
+    top: -14px;
+    z-index: 2;
+    padding: 4px 0 10px;
+    background: #131622;
+  }
+
+  .modal-header h2 {
+    max-width: calc(100vw - 82px);
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+
+  .modal-close,
+  .preview-modal-header button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .input-with-upload,
+  .modal-footer-actions,
+  .launch-dialog-footer {
+    flex-wrap: wrap;
+  }
+
+  .input-with-upload > *,
+  .modal-footer-actions > button,
+  .launch-dialog-footer > button {
+    min-height: 48px;
+  }
+}
+
 /* Compact live console for on-the-spot Android control. */
 .live-quick-console {
   position: relative;
@@ -7026,3 +7304,213 @@ body, html {
 
 
 /* SESSION IDENTITY HEADER */
+
+/* Classic live editor is the primary Android control surface. */
+.live-panel {
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 767px) {
+  .live-panel {
+    gap: 10px;
+  }
+
+  .live-panel .control-section {
+    min-width: 0;
+    width: 100%;
+    padding: 11px;
+    overflow: hidden;
+  }
+
+  .live-panel .section-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .live-panel .section-title {
+    min-width: 0;
+    font-size: 0.88rem;
+    line-height: 1.2;
+  }
+
+  .live-panel .quick-moments-scroll-row,
+  .live-panel .session-favorites-scroll-row,
+  .live-panel .active-chars-grid,
+  .live-panel .weather-grid,
+  .live-panel .lighting-grid,
+  .live-panel .sfx-grid {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .live-panel .quick-moments-scroll-row,
+  .live-panel .session-favorites-scroll-row {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+  }
+
+  .live-panel .quick-moment-chip,
+  .live-panel .fav-action-tile {
+    flex: 0 0 auto;
+    min-height: 46px;
+  }
+
+  .live-panel .weather-grid,
+  .live-panel .lighting-grid,
+  .live-panel .sfx-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .live-panel .weather-btn,
+  .live-panel .light-btn,
+  .live-panel .sfx-btn {
+    min-width: 0;
+    min-height: 48px;
+    padding: 8px 6px;
+    font-size: 0.72rem;
+  }
+
+  .live-panel .library-list,
+  .live-panel .active-chars-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .live-panel .library-item,
+  .live-panel .char-card-top,
+  .live-panel .char-card-actions {
+    min-width: 0;
+  }
+
+  .live-panel .item-info,
+  .live-panel .char-meta {
+    min-width: 0;
+  }
+
+  .live-panel .item-title,
+  .live-panel .item-subtitle,
+  .live-panel .char-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .live-panel .banner-section textarea,
+  .live-panel .banner-section input,
+  .live-panel textarea,
+  .live-panel input,
+  .live-panel select {
+    max-width: 100%;
+  }
+}
+
+/* Final mobile overrides: keep Android phone layouts inside the viewport. */
+@media (max-width: 767px) {
+  .master-header .operation-mode-switcher-bar,
+  .master-header .quick-actions-bar,
+  .master-header .tab-navigation {
+    display: none !important;
+  }
+
+  .master-header {
+    padding: calc(6px + var(--sat)) 8px 6px;
+    overflow: hidden;
+  }
+
+  .master-header .app-title {
+    max-width: calc(100vw - 175px);
+    overflow: hidden;
+    font-size: clamp(0.82rem, 4vw, 1.05rem);
+    line-height: 1.08;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .master-header .connection-group .icon-action-btn,
+  .master-header .connection-group .status-chip {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px;
+  }
+
+  .master-header .connection-group .icon-action-btn:nth-child(n + 4) {
+    display: none;
+  }
+
+  .master-header .mini-preview-header {
+    padding: 5px 7px;
+  }
+
+  .master-header .preview-tab-btn {
+    min-height: 34px;
+    padding: 4px 7px;
+    font-size: 0.68rem;
+  }
+
+  .master-header .mini-preview-viewport {
+    height: 156px !important;
+  }
+
+  .master-content {
+    min-width: 0;
+    padding: 8px 8px 0;
+  }
+
+  .session-panel-root {
+    width: 100%;
+    min-width: 0;
+    gap: 10px;
+    padding: 0 0 calc(118px + var(--sab));
+  }
+
+  .session-card {
+    min-width: 0;
+    padding: 10px;
+  }
+
+  .modal-overlay,
+  .preview-modal-overlay,
+  .preview-submodal-overlay,
+  .editor-submodal-overlay,
+  .encounters-modal-overlay,
+  .launch-dialog-overlay,
+  .victory-modal-overlay,
+  .diagnostics-modal-overlay {
+    width: 100%;
+    height: 100dvh;
+    padding: var(--sat) 8px var(--sab);
+    align-items: flex-end;
+    overflow: hidden;
+  }
+
+  .modal-content,
+  .preview-modal-shell,
+  .preview-submodal,
+  .encounters-modal,
+  .launch-dialog,
+  .victory-modal,
+  .diagnostics-modal,
+  .macro-editor-modal,
+  .selective-publish-modal,
+  .encounter-editor-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - var(--sat) - var(--sab) - 8px);
+    min-height: 0;
+    padding: 14px;
+    border-radius: 16px 16px 10px 10px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .modal-close,
+  .preview-modal-header button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

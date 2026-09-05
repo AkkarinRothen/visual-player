@@ -43,7 +43,6 @@ import {
 export interface MasterMainTabsProps {
   activeTab: 'live' | 'moments' | 'combat' | 'notes' | 'library';
   sessionViewMode: 'session' | 'classic';
-  setSessionViewMode: (mode: 'session' | 'classic') => void;
   setActiveTab: (tab: 'live' | 'moments' | 'combat' | 'notes' | 'library') => void;
   campaign: Campaign | null;
   setCampaign: React.Dispatch<React.SetStateAction<Campaign | null>>;
@@ -93,7 +92,6 @@ export interface MasterMainTabsProps {
 export const MasterMainTabs: React.FC<MasterMainTabsProps> = ({
   activeTab,
   sessionViewMode,
-  setSessionViewMode,
   setActiveTab,
   campaign,
   setCampaign,
@@ -139,15 +137,6 @@ export const MasterMainTabs: React.FC<MasterMainTabsProps> = ({
     <>
       {activeTab === 'live' && sessionViewMode === 'classic' && (
         <div className="live-panel">
-          <div className="classic-view-return-bar">
-            <span className="classic-view-notice">Modo Clásico de Edición En Vivo</span>
-            <button
-              className="btn-return-session"
-              onClick={() => setSessionViewMode('session')}
-            >
-              Volver a Vista Sesión
-            </button>
-          </div>
           {/* Quick Moments Shortcuts in Live Panel */}
           {campaign?.macros && campaign.macros.length > 0 && (
             <section className="control-section quick-moments-live-section">
