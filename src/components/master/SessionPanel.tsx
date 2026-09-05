@@ -177,6 +177,10 @@ interface SessionPanelProps {
   onDismissCharacter?: (id: string) => void;
   onOpenFullScreenPreview?: () => void;
   canUndo?: boolean;
+  onUpdateCombatantHp?: (combatantId: string, newHp: number) => void;
+  onToggleCombatantCondition?: (combatantId: string, condition: string) => void;
+  onStartCombat?: () => void;
+  onEndCombat?: () => void;
 }
 
 export const SessionPanel: React.FC<SessionPanelProps> = ({
@@ -261,6 +265,10 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
   onOpenInsertScenePreset,
   onSaveInitialBaseline,
   onEvaluateReadiness,
+  onUpdateCombatantHp,
+  onToggleCombatantCondition,
+  onStartCombat,
+  onEndCombat,
 }) => {
   const [publishStatus, setPublishStatus] = useState<ActionExecutionStatus>('idle');
   const [confirmOverwriteStaging, setConfirmOverwriteStaging] = useState<Scene | null>(null);
@@ -496,6 +504,21 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
             onOpenSoundtrack={onOpenBiomeSoundtrack}
             onToggleAmbientAudio={onToggleAmbientAudio}
             onOpenFullScreen={onOpenFullScreenPreview}
+            onNextCombatTurn={onNextCombatTurn}
+            onPrevCombatTurn={onPrevCombatTurn}
+            onUpdateCombatantHp={onUpdateCombatantHp}
+            onToggleCombatantCondition={onToggleCombatantCondition}
+            onStartCombat={onStartCombat}
+            onEndCombat={onEndCombat}
+            onFocusCombatant={
+              onFocusCombatant && currentCombatant
+                ? () => onFocusCombatant(currentCombatant.characterId || currentCombatant.id)
+                : undefined
+            }
+            onOpenCombatTab={() => onSwitchToTab('combat')}
+            combatTimerRemaining={panelCombatRemaining}
+            isTimerRunning={combat?.isTimerRunning}
+            onToggleTimer={onToggleCombatTimer}
           />
           {quickDialogueChar && (
             <ComposerDialogueQuickModal

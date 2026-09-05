@@ -2,6 +2,45 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-05 — MAN-051: Lienzo Táctico Móvil en Visor 16:9 (Tokens, Cuadrícula y Medición de Distancias)
+
+- **Walkthrough y entorno:** revisión y ejecución completa de pruebas unitarias y de integración en Vitest (421/421 pruebas aprobadas, 73 suites, incluyendo suite completa de 6 pruebas en `StageTouchOverlay.test.tsx`), verificación de tipado estricto con `npx tsc -b` (0 errores) y compilación de producción con Vite (`npm run build` en 1.47s). Comprobación visual en navegador emulando pantallas móviles (360 × 780 px a 640 px); pendiente prueba de campo en dispositivo físico Android y con Mesa física conectada.
+- **Funciones y componentes afectados:**
+  1. **Lienzo Táctico Móvil en Visor 16:9 (`StageTouchOverlay.tsx`, `modularControl.css`):**
+     - Botón conmutador flotante (`#stage-tactical-toggle-btn`) situado en la barra de acciones superiores del visor 16:9 para alternar entre vista cinemática estándar y vista táctica con cuadrícula.
+     - Capa SVG adaptable que proyecta la cuadrícula de la escena (cuadrada o hexagonal) respetando la relación de aspecto 16:9 sin desfase visual.
+     - Fichas circulares tácticas (tokens) con código de bando (aliados verdes `#22c55e`, enemigos rojos `#ef4444`, neutrales amarillos `#fbbf24`), avatar centrado, nombre legible y área táctil optimizada para el pulgar (≥44 px).
+  2. **Medición de Distancias Privada y Ajuste Magnético (Snap):**
+     - Al arrastrar un token táctico, la app calcula en tiempo real con Turf.js (`tacticalDistanceInCells`) la distancia al oponente más cercano de bando opuesto.
+     - Proyección de línea punteada elástica interactiva entre ambos tokens y badge HUD flotante en cabecera: `${distancia.toFixed(1)} celdas (${(distancia * 5).toFixed(0)} ft) a ${nombre}`.
+     - Al soltar el dedo, la posición se ajusta automáticamente (*snap*) al centro exacto de la celda de la cuadrícula más cercana.
+     - La medición es estrictamente privada para el director; la Mesa conectada de los jugadores solo recibe las posiciones normalizadas sincronizadas sin mostrar las líneas ni el badge HUD.
+  3. **Integración en Panel Modular (`LiveModularControlPanel.tsx`):**
+     - Gestión de estado `isTacticalModeActive` y enlace con la configuración de cuadrícula de la escena activa (`liveState.tacticalGrid`).
+- **Manual:** actualizada la sección de «Panel de Control Modular e Inspector» en `docs/manual/README.md`.
+- **Evidencia técnica:** 73/73 suites pasando (421/421 pruebas aprobadas en Vitest), `npx tsc -b` con 0 errores y empaquetado de producción completado en 1.47s.
+- **Límites:** comprobado en pruebas automatizadas y en entorno web local; pendiente validar ergonomía de arrastre táctil capacitivo en teléfono Android físico.
+
+## 2026-09-05 — MAN-050: Combate Cinemático Móvil y Auras Elementales en Escenario
+
+- **Walkthrough y entorno:** revisión y ejecución completa de pruebas unitarias y de integración en Vitest (415/415 pruebas aprobadas, 72 suites, incluyendo suite completa de `ModularCombatCard.test.tsx`), verificación de tipado estricto con `npx tsc -b` (0 errores) y compilación de producción con Vite (`npm run build` en 4.46s). Comprobación visual en navegador emulando pantallas móviles (360 × 780 px a 640 px); pendiente prueba de campo en dispositivo físico Android y con Mesa física conectada.
+- **Funciones y componentes afectados:**
+  1. **Auras Elementales y Estado Malherido en Escenario 16:9 (`DisplayCharactersLayer.tsx`, `display.css`):**
+     - Representación perimetral con `drop-shadow` lumínico sobre la silueta transparente del personaje para condiciones activas: *En Llamas* (naranja ígneo oscilante), *Envenenado* (verde esmeralda), *Bendito* (dorado cálido), *Aturdido* (ámbar centelleante) y *Paralizado* (azul cian gélido).
+     - Estado **Malherido (Bloodied)**: cuando los puntos de golpe de un combatiente descienden por debajo del 50%, la figura adquiere un latido rítmico carmesí (*heartbeat pulse*).
+     - Cumple con la regla de diseño de inmersión: **0 números flotantes invasivos de HP en la pantalla de los jugadores**, manteniendo la pureza narrativa.
+  2. **Tarjeta Modular de Combate para el Pulgar (`ModularCombatCard.tsx`, `modularControl.css`):**
+     - Integrada en el Panel Modular móvil (`ModularCardsView.tsx`), disponible tanto en reposo como en batalla.
+     - En combate activo: exhibe el avatar del participante en turno, su iniciativa, barra de salud interactiva con estado Malherido, botones táctiles de impacto rápido para el pulgar (`-1`, `-5`, `-10`, `+5`) y toque directo en el número para edición manual.
+     - Carrusel táctil de estados alterados (En Llamas, Envenenado, Aturdido, Bendito, Ciego, Paralizado, Derribado) con activación/desactivación instantánea.
+     - Botón **Enfocar en mesa** (centra suavemente la cámara sobre el combatiente activo), temporizador de turno sincronizado y botón prominente **Siguiente Turno**.
+     - En reposo (sin combate activo): tarjeta compacta con botón directo **Iniciar Combate**.
+  3. **Coordinación y transmisión en directo (`useCombatCoordinator.ts`, `SessionPanel.tsx`, `MasterController.tsx`):**
+     - Integración de manipuladores `handleUpdateCombatantHp`, `handleToggleCombatantCondition`, `handleStartCombat` y `handleEndCombat` con retroalimentación acústica por sintetizador procedural (`sword_clash`, `heartbeat`, `fanfare_victory`).
+- **Manual:** actualizadas las secciones de «Panel de Control Modular e Inspector» y «Dirigir un combate» en `docs/manual/README.md`.
+- **Evidencia técnica:** 72/72 suites pasando (415/415 pruebas aprobadas en Vitest), `npx tsc -b` con 0 errores y empaquetado de producción completado en 4.46s.
+- **Límites:** comprobado en pruebas automatizadas y en entorno web local; pendiente prueba con dos dispositivos físicos Android conectados en red local.
+
 ## 2026-09-05 — MAN-049: Panel de Control Móvil Unificado (Panel Modular 16:9 + Inspector Contextual de Personajes)
 
 - **Walkthrough y entorno:** revisión y ejecución completa de pruebas unitarias y de integración en Vitest (409/409 pruebas aprobadas, 71 suites), verificación de tipado estricto con `npx tsc -b` (0 errores) y compilación de producción con Vite (`npm run build` en 4.01s). Comprobación visual en navegador emulando pantallas móviles (360 × 780 px a 640 px); pendiente prueba de campo en dispositivo físico Android y con Mesa física conectada.

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Maximize2 } from 'lucide-react';
+import { Maximize2, Grid } from 'lucide-react';
 import type {
   Campaign,
   DisplayState,
@@ -40,6 +40,17 @@ export interface LiveModularControlPanelProps {
   onOpenSoundtrack?: () => void;
   onToggleAmbientAudio?: () => void;
   onOpenFullScreen?: () => void;
+  onNextCombatTurn?: () => void;
+  onPrevCombatTurn?: () => void;
+  onUpdateCombatantHp?: (combatantId: string, newHp: number) => void;
+  onToggleCombatantCondition?: (combatantId: string, condition: string) => void;
+  onStartCombat?: () => void;
+  onEndCombat?: () => void;
+  onFocusCombatant?: (combatantId: string) => void;
+  onOpenCombatTab?: () => void;
+  combatTimerRemaining?: number;
+  isTimerRunning?: boolean;
+  onToggleTimer?: () => void;
 }
 
 export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = ({
@@ -60,8 +71,20 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
   onOpenSoundtrack,
   onToggleAmbientAudio,
   onOpenFullScreen,
+  onNextCombatTurn,
+  onPrevCombatTurn,
+  onUpdateCombatantHp,
+  onToggleCombatantCondition,
+  onStartCombat,
+  onEndCombat,
+  onFocusCombatant,
+  onOpenCombatTab,
+  combatTimerRemaining,
+  isTimerRunning,
+  onToggleTimer,
 }) => {
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
+  const [isTacticalModeActive, setIsTacticalModeActive] = useState(false);
 
   // Find active scene object if available in campaign
   const currentScene = useMemo(() => {
@@ -145,6 +168,21 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
 
         {/* Floating actions */}
         <div className="modular-stage-floating-actions">
+          <button
+            type="button"
+            className={`modular-stage-btn ${isTacticalModeActive ? 'active' : ''}`}
+            onClick={() => setIsTacticalModeActive((prev) => !prev)}
+            title={isTacticalModeActive ? 'Desactivar cuadrícula táctica' : 'Activar cuadrícula táctica'}
+            aria-label="Cuadrícula táctica"
+            id="stage-tactical-toggle-btn"
+            style={{
+              backgroundColor: isTacticalModeActive ? 'rgba(56, 189, 248, 0.25)' : undefined,
+              borderColor: isTacticalModeActive ? '#38bdf8' : undefined,
+              color: isTacticalModeActive ? '#38bdf8' : undefined,
+            }}
+          >
+            <Grid size={18} />
+          </button>
           {onOpenFullScreen && (
             <button
               type="button"
@@ -167,6 +205,8 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
           selectedCharId={selectedCharId}
           onSelectCharacter={(id) => setSelectedCharId(id)}
           onMoveCharacter={handleMoveCharacter}
+          isTacticalMode={isTacticalModeActive}
+          gridConfig={liveState.tacticalGrid}
         />
       </section>
 
@@ -203,6 +243,18 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
           onSelectCharacter={(id) => setSelectedCharId(id)}
           onToggleCharacterVisibility={handleToggleCharacterVisibility}
           onOpenCharacterLibrary={onOpenCharacterLibrary}
+          combatState={liveState.combatState}
+          onNextCombatTurn={onNextCombatTurn}
+          onPrevCombatTurn={onPrevCombatTurn}
+          onUpdateCombatantHp={onUpdateCombatantHp}
+          onToggleCombatantCondition={onToggleCombatantCondition}
+          onStartCombat={onStartCombat}
+          onEndCombat={onEndCombat}
+          onFocusCombatant={onFocusCombatant}
+          onOpenCombatTab={onOpenCombatTab}
+          combatTimerRemaining={combatTimerRemaining}
+          isTimerRunning={isTimerRunning}
+          onToggleTimer={onToggleTimer}
           weather={liveState.weather}
           weatherIntensity={liveState.weatherIntensity}
           lighting={liveState.lighting}

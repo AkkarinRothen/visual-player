@@ -4,6 +4,7 @@ import type {
   CombatTrackingMode,
   DuckingPreset,
   DisplayState,
+  CombatCondition,
 } from '../../../types';
 import { soundEngine, DUCKING_PRESETS } from '../../../services/soundEngine';
 import {
@@ -13,6 +14,10 @@ import {
   addSecondsToCombatTurnTimer,
   resetCombatTurnTimer,
 } from '../../../domain/combat/combatTimerCoordinator';
+import {
+  addConditionToCombatant,
+  removeConditionFromCombatant,
+} from '../../../domain/combat/combatConditionsCatalog';
 
 export interface UseCombatCoordinatorOptions {
   liveState: DisplayState;
@@ -191,6 +196,106 @@ export function useCombatCoordinator({
     );
   };
 
+  const handleUpdateCombatantHp = (combatantId: string, newHp: number) => {
+    const cs = liveState.combatState;
+    if (!cs) return;
+    const target = cs.combatants.find((c) => c.id === combatantId);
+    if (!target) return;
+    const clamped = Math.max(0, Math.min(target.maxHp, newHp));
+    if (clamped === 0 && target.currentHp > 0) {
+      soundEngine.playSynth('sword_clash');
+    }
+    const updatedCombatants = cs.combatants.map((c) =>
+      c.id === combatantId ? { ...c, currentHp: clamped } : c
+    );
+    const updatedCombat: CombatState = {
+      ...cs,
+      combatants: updatedCombatants,
+    };
+    updateDisplay(
+      (prev) => ({ ...prev, combatState: updatedCombat }),
+      `HP de ${target.name}: ${clamped}/${target.maxHp}`
+    );
+  };
+
+  const handleToggleCombatantCondition = (combatantId: string, condition: string) => {
+    const cs = liveState.combatState;
+    if (!cs) return;
+    const target = cs.combatants.find((c) => c.id === combatantId);
+    if (!target) return;
+    const cond = condition as CombatCondition;
+    const updatedCombatants = cs.combatants.map((c) => {
+      if (c.id === combatantId) {
+        const exists = c.conditions.includes(cond);
+        if (exists) {
+          return removeConditionFromCombatant(c, cond);
+        } else {
+          return addConditionToCombatant(c, cond, true, cs.round);
+        }
+      }
+      return c;
+    });
+    const updatedCombat: CombatState = {
+      ...cs,
+      combatants: updatedCombatants,
+    };
+    updateDisplay(
+      (prev) => ({ ...prev, combatState: updatedCombat }),
+      `Condición alterada: ${condition}`
+    );
+  };
+
+  const handleStartCombat = () => {
+    const cs = liveState.combatState;
+    let combatants = cs?.combatants || [];
+    if (combatants.length === 0 && liveState.characters.length > 0) {
+      combatants = liveState.characters.map((ch, idx) => ({
+        id: `comb-${ch.id}-${Date.now() + idx}`,
+        characterId: ch.id,
+        name: ch.name,
+        avatarUrl: ch.avatarUrl,
+        initiative: Math.floor(Math.random() * 20) + 1,
+        currentHp: 45,
+        maxHp: 45,
+        showHpToPlayers: false,
+        conditions: [],
+        isMonster: false,
+        isDeployed: true,
+      })).sort((a, b) => b.initiative - a.initiative);
+    }
+    soundEngine.playSynth('heartbeat');
+    const updatedCombat: CombatState = {
+      ...cs,
+      isActive: true,
+      round: 1,
+      currentTurnIndex: 0,
+      combatants,
+      turnTimerRemainingSeconds: 60,
+      isTimerRunning: false,
+      showTurnTimerToPlayers: cs?.showTurnTimerToPlayers !== false,
+    };
+    updateDisplay(
+      (prev) => ({ ...prev, combatState: updatedCombat }),
+      'Inicio de Combate'
+    );
+  };
+
+  const handleEndCombat = () => {
+    const cs = liveState.combatState;
+    if (!cs) return;
+    soundEngine.playSynth('fanfare_victory');
+    const updatedCombat: CombatState = {
+      ...cs,
+      isActive: false,
+      isTimerRunning: false,
+      turnTimerEndsAt: null,
+    };
+    updateDisplay(
+      (prev) => ({ ...prev, combatState: updatedCombat }),
+      'Fin de Combate'
+    );
+  };
+
   return {
     handleNextCombatTurn,
     handlePrevCombatTurn,
@@ -202,5 +307,9 @@ export function useCombatCoordinator({
     handleToggleCombatTrackingMode,
     handleToggleDmSpeakingDucked,
     handleSelectDuckingPreset,
+    handleUpdateCombatantHp,
+    handleToggleCombatantCondition,
+    handleStartCombat,
+    handleEndCombat,
   };
 }

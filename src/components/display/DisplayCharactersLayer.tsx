@@ -172,14 +172,14 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
           const visualAnchorOffsetY = char.visualAnchorOffsetY || 0;
 
           const combatant = combatState?.combatants?.find(
-            (c) => c.characterId === char.id || c.id === char.id
+            (c) => c.characterId === char.id || c.id === char.id || c.name === char.name
           );
           const activeCombatant = combatState?.isActive
             ? combatState.combatants[combatState.currentTurnIndex]
             : null;
           const isActiveCombatant =
             !!activeCombatant &&
-            (activeCombatant.characterId === char.id || activeCombatant.id === char.id);
+            (activeCombatant.characterId === char.id || activeCombatant.id === char.id || activeCombatant.name === char.name);
 
           const rawConditions =
             (char as any).activeConditions ||
@@ -188,6 +188,11 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
             (isActiveCombatant ? activeCombatant?.conditions : null) ||
             [];
           const hasConditions = Array.isArray(rawConditions) && rawConditions.length > 0;
+
+          const conditionAuraClasses = (Array.isArray(rawConditions) ? rawConditions : [])
+            .map((cond: string) => `aura-${cond.toLowerCase()}`)
+            .join(' ');
+          const isBloodied = !!combatant && !!combatant.maxHp && (combatant.currentHp <= combatant.maxHp * 0.5);
 
           return (
             /* 1. OUTER WRAPPER: Coordinates and displacement */
@@ -230,7 +235,9 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
                 <div
                   className={`character-card ${char.isSpeaking ? 'is-speaking' : ''} ${
                     isDimmed ? 'is-dimmed' : ''
-                  } ${isActiveCombatant ? 'active-combatant-focal ring-2 ring-amber-400/80 rounded-2xl' : ''}`}
+                  } ${isActiveCombatant ? 'active-combatant-focal ring-2 ring-amber-400/80 rounded-2xl' : ''} ${conditionAuraClasses} ${
+                    isBloodied ? 'aura-bloodied' : ''
+                  }`}
                   style={{
                     transformOrigin: 'bottom center',
                     transform: `translate(-50%, ${visualAnchorOffsetY}%) scale(${effectiveScale}) scaleX(${

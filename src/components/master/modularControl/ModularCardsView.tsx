@@ -6,9 +6,11 @@ import type {
   CharacterOnScreen,
   WeatherType,
   LightingFilter,
+  CombatState,
 } from '../../../types';
 import { ModularSceneCard } from './ModularSceneCard';
 import { ModularCharactersCard } from './ModularCharactersCard';
+import { ModularCombatCard } from './ModularCombatCard';
 import { ModularAtmosphereCard } from './ModularAtmosphereCard';
 import { ModularAudioCard } from './ModularAudioCard';
 
@@ -25,6 +27,19 @@ export interface ModularCardsViewProps {
   onSelectCharacter: (id: string) => void;
   onToggleCharacterVisibility: (id: string, currentlyHidden: boolean) => void;
   onOpenCharacterLibrary?: () => void;
+
+  combatState?: CombatState;
+  onNextCombatTurn?: () => void;
+  onPrevCombatTurn?: () => void;
+  onUpdateCombatantHp?: (combatantId: string, newHp: number) => void;
+  onToggleCombatantCondition?: (combatantId: string, condition: string) => void;
+  onStartCombat?: () => void;
+  onEndCombat?: () => void;
+  onFocusCombatant?: (combatantId: string) => void;
+  onOpenCombatTab?: () => void;
+  combatTimerRemaining?: number;
+  isTimerRunning?: boolean;
+  onToggleTimer?: () => void;
 
   weather: WeatherType;
   weatherIntensity: number;
@@ -60,6 +75,18 @@ export const ModularCardsView: React.FC<ModularCardsViewProps> = ({
   onSelectCharacter,
   onToggleCharacterVisibility,
   onOpenCharacterLibrary,
+  combatState,
+  onNextCombatTurn,
+  onPrevCombatTurn,
+  onUpdateCombatantHp,
+  onToggleCombatantCondition,
+  onStartCombat,
+  onEndCombat,
+  onFocusCombatant,
+  onOpenCombatTab,
+  combatTimerRemaining,
+  isTimerRunning,
+  onToggleTimer,
   weather,
   weatherIntensity,
   lighting,
@@ -100,7 +127,25 @@ export const ModularCardsView: React.FC<ModularCardsViewProps> = ({
         onOpenCharacterLibrary={onOpenCharacterLibrary}
       />
 
-      {/* 3. Ambiente */}
+      {/* 3. Combate táctico */}
+      {combatState && (
+        <ModularCombatCard
+          combatState={combatState}
+          onNextCombatTurn={onNextCombatTurn}
+          onPrevCombatTurn={onPrevCombatTurn}
+          onUpdateCombatantHp={onUpdateCombatantHp}
+          onToggleCombatantCondition={onToggleCombatantCondition}
+          onStartCombat={onStartCombat}
+          onEndCombat={onEndCombat}
+          onFocusCombatant={onFocusCombatant}
+          onOpenCombatTab={onOpenCombatTab}
+          combatTimerRemaining={combatTimerRemaining}
+          isTimerRunning={isTimerRunning}
+          onToggleTimer={onToggleTimer}
+        />
+      )}
+
+      {/* 4. Ambiente */}
       <ModularAtmosphereCard
         weather={weather}
         weatherIntensity={weatherIntensity}
@@ -111,7 +156,7 @@ export const ModularCardsView: React.FC<ModularCardsViewProps> = ({
         onOpenAtmospherePresets={onOpenAtmospherePresets}
       />
 
-      {/* 4. Audio */}
+      {/* 5. Audio */}
       <ModularAudioCard
         trackTitle={audioTrackTitle}
         isPlaying={isAudioPlaying}

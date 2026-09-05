@@ -580,6 +580,10 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     handleToggleCombatTrackingMode,
     handleToggleDmSpeakingDucked,
     handleSelectDuckingPreset,
+    handleUpdateCombatantHp,
+    handleToggleCombatantCondition,
+    handleStartCombat,
+    handleEndCombat,
   } = useCombatCoordinator({
     liveState,
     updateDisplay,
@@ -825,6 +829,10 @@ export const MasterController: React.FC<MasterControllerProps> = ({
             onSelectSceneVariant={handleSelectSceneVariant}
             onNextCombatTurn={handleNextCombatTurn}
             onPrevCombatTurn={handlePrevCombatTurn}
+            onUpdateCombatantHp={handleUpdateCombatantHp}
+            onToggleCombatantCondition={handleToggleCombatantCondition}
+            onStartCombat={handleStartCombat}
+            onEndCombat={handleEndCombat}
             onPublishDialogue={handlePublishDialogue}
             onDismissDialogue={handleDismissDialogue}
             onCompleteDialogueText={handleCompleteDialogueText}

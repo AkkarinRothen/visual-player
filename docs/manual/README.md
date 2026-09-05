@@ -48,15 +48,17 @@ Necesitás tener acceso a la app en el dispositivo que usará quien dirige y en 
 - **Añadir NPC desde la escena:** Dentro del editor táctil, la sección **Añadir NPC** muestra personajes de la campaña en una tira horizontal. Tocá uno para incorporarlo y dejarlo seleccionado; después arrastralo al lugar deseado.
 - **Cambiar el fondo desde la escena:** En el editor táctil, tocá **Cambiar Fondo**. Podés elegir un recurso guardado, importar una imagen del dispositivo o usar una URL. En **Cambios en directo** se refleja automáticamente en la Mesa; en **Preparación** queda pendiente hasta publicar el borrador.
 - **Panel de Control Modular e Inspector (Celular y Tablet):** En dispositivos móviles, la vista **Sesión** activa de forma predeterminada el nuevo **Panel Modular**, diseñado para una operación ágil con el pulgar:
-  1. **Escenario 16:9 persistente:** Ubicado en la parte superior sin recortes ni deformaciones, muestra fielmente lo que ve la Mesa. Podés tocar directamente cualquier figura para seleccionarla o arrastrarla suavemente para reubicarla en directo. Arriba a la derecha contás con el botón para **Maximizar / Pantalla completa**.
+  1. **Escenario 16:9 persistente:** Ubicado en la parte superior sin recortes ni deformaciones, muestra fielmente lo que ve la Mesa. Podés tocar directamente cualquier figura para seleccionarla o arrastrarla suavemente para reubicarla en directo. Arriba a la derecha contás con el botón conmutador de **Cuadrícula táctica** y el botón para **Maximizar / Pantalla completa**.
   2. **Módulos simultáneos:**
      - **Escena actual:** Muestra la carátula, nombre y estado; incluye los botones **Cambiar** (para elegir otra escena) y **Transición** (para efectos cinemáticos de cambio).
      - **Personajes en mesa:** Carrusel horizontal de figuras con retrato, nombre y subtítulo. Cada figura tiene un botón con forma de ojo para alternar al instante entre **Visible** y **Oculto**. Al tocar la tarjeta de cualquier figura, la zona inferior pasa fluidamente al **Inspector de personaje**.
      - **Ambiente:** Conmutador para encender o apagar el clima, barra de **Intensidad** (0-100%) y paleta de círculos de color para aplicar tintes lumínicos (*Natural*, *Noche*, *Místico*, *Luna de sangre*, *Antorchas* o *Atardecer*).
      - **Audio:** Mini-reproductor con título de pista, botones de anterior, reproducir/pausar y siguiente, junto con el deslizador de volumen en vivo (0-100%).
+     - **Combate en curso:** Cuando el combate está activo, la tarjeta modular se expande con el avatar del combatiente en turno, su iniciativa, barra de salud interactiva con estado **Malherido** (<50% HP), botones de impacto rápido para el pulgar (`-1`, `-5`, `-10`, `+5`), carrusel de condiciones elementales, temporizador de turno, botón para **Enfocar en mesa** y botón **Siguiente turno**. Si el combate está inactivo, ofrece el botón directo **Iniciar Combate**.
   3. **Inspector contextual de personaje:** Al tocar una figura, los módulos se reemplazan por su ficha de edición rápida: muestra su avatar con anillo luminoso, nombre, interruptor **Visible en mesa**, controles de **Tamaño** (`-`/`+`), **Capa / Orden** (`▲`/`▼`), botón **Hablar…** para abrir de inmediato la ventana de globos de diálogo (JRPG / cinemáticos), botón **Espejo** para reflejar la figura y botón **Volver al panel modular** para regresar.
-  4. **Cambios en directo e instantáneos:** Todos los controles aplican sus cambios en tiempo real a la Mesa conectada mediante WebRTC, sin necesidad de pulsar un botón de publicar.
-  5. **Alternancia de vista:** Mediante las pestañas **Panel Modular** y **Consola Clásica** situadas en la parte superior de la sesión, podés alternar en cualquier momento entre el panel modular táctil y la consola detallada de preparación y borradores.
+  4. **Lienzo táctico móvil y medición de distancias:** Al tocar el botón conmutador de **Cuadrícula táctica** en el visor 16:9, las figuras se muestran como fichas circulares tácticas (tokens) con código de bando (verde para aliados, rojo para enemigos, amarillo para neutrales) y se proyecta la cuadrícula de la escena (cuadrada o hexagonal). Al arrastrar un token con el pulgar, una línea elástica punteada y un badge flotante superior muestran la distancia exacta en celdas y pies (`1 celda = 5 ft`) hacia el oponente más cercano; al soltar el dedo, la posición se ajusta automáticamente (*snap*) al centro de la celda. Esta medición es 100% privada para el director.
+  5. **Cambios en directo e instantáneos:** Todos los controles aplican sus cambios en tiempo real a la Mesa conectada mediante WebRTC, sin necesidad de pulsar un botón de publicar.
+  6. **Alternancia de vista:** Mediante las pestañas **Panel Modular** y **Consola Clásica** situadas en la parte superior de la sesión, podés alternar en cualquier momento entre el panel modular táctil y la consola detallada de preparación y borradores.
 - **Últimas acciones:** El **Centro de Partida** muestra las cuatro acciones más recientes, indicando si fueron **En Vivo** o **Borrador**, la escena relacionada y la hora. Tocá **Ver historial completo** para revisar o restaurar un punto anterior.
 
 Para este primer recorrido, usá conexión a Internet. El funcionamiento sin Internet y la conexión local de Android quedan pendientes de una guía comprobada en dispositivos reales. Si vas a usar imágenes o sonidos mediante enlaces, esos enlaces también deben poder abrirse desde los dispositivos.
@@ -455,6 +457,15 @@ Un *handout* es un material visual que mostrás al grupo, como una carta, un map
 Durante el combate, el temporizador de turno ofrece un anillo luminoso y cuenta regresiva local (sin saturar la conexión de red). Permite iniciar, pausar, sumar **30 segundos**, reiniciar y alternar la visibilidad en la Mesa. Al expirar, muestra una señal visual de tiempo cumplido y un aviso sonoro sutil, sin saltar el turno ni penalizar automáticamente al participante.
 
 La vista de Sesión también ofrece cámara de combate en modo **Sugerir**, **Automática** o **Manual** y un botón **Enfocar**.
+
+#### Auras elementales y estado Malherido en el Escenario (Mesa)
+Para mantener la inmersión narrativa sin ensuciar la pantalla con números flotantes de daño que rompan la ambientación, las figuras de la Mesa proyectan auras perimetrales luminiscentes sobre la silueta transparente del personaje (`drop-shadow`):
+- **En Llamas:** Resplandor ígneo oscilante en tonos fuego anaranjados.
+- **Envenenado:** Halo ácido verde esmeralda.
+- **Bendito:** Fulgor sagrado en dorado cálido.
+- **Aturdido:** Centelleo electro-eléctrico ámbar.
+- **Paralizado:** Cristalización azul cian gélida.
+- **Malherido (Bloodied):** Cuando la salud de un combatiente desciende por debajo del 50% de sus puntos de golpe máximos, su figura emite un latido rítmico carmesí (*heartbeat pulse*) que comunica tensión dramática visual al grupo sin revelar su valor numérico de vida.
 
 <a id="momentos"></a>
 ## Momentos y favoritos

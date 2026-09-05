@@ -467,6 +467,60 @@
   to { transform: translate(-50%, -50%) scale(1.15); opacity: 0.9; }
 }
 
+/* Combat Condition Elemental Auras (Narrative Immersion) */
+.character-card.aura-burning {
+  filter: drop-shadow(0 0 16px rgba(249, 115, 22, 0.85));
+  animation: auraFlamePulse 1.4s infinite alternate ease-in-out;
+}
+
+@keyframes auraFlamePulse {
+  from { filter: drop-shadow(0 0 12px rgba(249, 115, 22, 0.7)); }
+  to { filter: drop-shadow(0 0 24px rgba(239, 68, 68, 0.95)) drop-shadow(0 -4px 10px rgba(251, 146, 60, 0.8)); }
+}
+
+.character-card.aura-poisoned {
+  filter: drop-shadow(0 0 16px rgba(34, 197, 94, 0.8));
+  animation: auraPoisonPulse 2s infinite alternate ease-in-out;
+}
+
+@keyframes auraPoisonPulse {
+  from { filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.6)); }
+  to { filter: drop-shadow(0 0 22px rgba(22, 163, 74, 0.9)) drop-shadow(0 0 8px rgba(74, 222, 128, 0.6)); }
+}
+
+.character-card.aura-blessed {
+  filter: drop-shadow(0 0 20px rgba(251, 191, 36, 0.85));
+  animation: auraBlessedPulse 2.2s infinite alternate ease-in-out;
+}
+
+@keyframes auraBlessedPulse {
+  from { filter: drop-shadow(0 0 14px rgba(251, 191, 36, 0.6)); }
+  to { filter: drop-shadow(0 0 28px rgba(253, 224, 71, 0.95)) drop-shadow(0 0 10px rgba(255, 255, 255, 0.8)); }
+}
+
+.character-card.aura-stunned {
+  filter: drop-shadow(0 0 18px rgba(234, 179, 8, 0.85));
+  animation: auraStunnedPulse 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes auraStunnedPulse {
+  from { filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.6)); }
+  to { filter: drop-shadow(0 0 22px rgba(250, 204, 21, 0.95)); }
+}
+
+.character-card.aura-paralyzed {
+  filter: drop-shadow(0 0 18px rgba(6, 182, 212, 0.85)) brightness(1.1);
+}
+
+.character-card.aura-bloodied {
+  animation: bloodiedHeartbeat 1.6s infinite ease-in-out;
+}
+
+@keyframes bloodiedHeartbeat {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(220, 38, 38, 0.4)); }
+  50% { filter: drop-shadow(0 0 20px rgba(239, 68, 68, 0.85)) saturate(1.2); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .active-combatant-aura {
     animation: none;
