@@ -55,6 +55,7 @@ import { SessionPanel } from './SessionPanel';
 import { EmergencyDock } from './EmergencyDock';
 import { MasterAuxiliaryModals } from './modals/MasterAuxiliaryModals';
 import { MasterBottomNav } from './navigation/MasterBottomNav';
+import { MobileToolsDrawer } from './navigation/MobileToolsDrawer';
 
 interface MasterControllerProps {
   initialRoomCode?: string;
@@ -118,6 +119,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const [partyControlsVisible, setPartyControlsVisible] = useState(true);
   const [partyKeepAwake, setPartyKeepAwake] = useState(false);
   const [partyImmersive, setPartyImmersive] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
 
   // 1. Connection Hook
   const {
@@ -1295,10 +1297,40 @@ export const MasterController: React.FC<MasterControllerProps> = ({
       />
 
       {/* MOBILE ONE-HAND BOTTOM NAVIGATION BAR */}
+      {mobileToolsOpen && (
+        <MobileToolsDrawer
+          operationMode={operationMode}
+          pendingChangesCount={pendingChangesCount}
+          onClose={() => setMobileToolsOpen(false)}
+          onToggleOperationMode={handleToggleOperationMode}
+          onPublish={() => { void handlePublishAllStagedWithAck(); setMobileToolsOpen(false); }}
+          onDiscard={() => { discardStaged(); setMobileToolsOpen(false); }}
+          onSelectivePublish={() => { setShowSelectivePublishModal(true); setMobileToolsOpen(false); }}
+          onOpenCompositor={() => { setShowCompositorModal(true); setMobileToolsOpen(false); }}
+          onOpenFullScreenPreview={() => { setShowFullScreenPreview(true); setMobileToolsOpen(false); }}
+          onOpenLighting={() => { setShowLightingPresetsModal(true); setMobileToolsOpen(false); }}
+          onOpenSoundboard={() => { setShowSoundboardModal(true); setMobileToolsOpen(false); }}
+          onOpenSoundtrack={() => { setShowBiomeSoundtrackModal(true); setMobileToolsOpen(false); }}
+          onOpenHandout={() => { setShowHandoutViewerModal(true); setMobileToolsOpen(false); }}
+          onOpenDialogue={() => { setEditingConversation(null); setShowConversationEditor(true); setMobileToolsOpen(false); }}
+          onOpenPrep={() => { setShowSessionPrepWizardModal(true); setMobileToolsOpen(false); }}
+          onOpenRecap={() => { setShowCampaignRecapModal(true); setMobileToolsOpen(false); }}
+          onOpenHistory={() => { setShowHistoryModal(true); setMobileToolsOpen(false); }}
+          onOpenCheckpoints={() => { setShowCheckpointsModal(true); setMobileToolsOpen(false); }}
+          onOpenDiagnostics={() => { setShowDiagnosticsModal(true); setMobileToolsOpen(false); }}
+          onOpenSessionLibrary={() => { setShowSessionLibraryModal(true); setMobileToolsOpen(false); }}
+          onOpenSavePreset={() => { handleOpenSaveScenePreset(); setMobileToolsOpen(false); }}
+          onOpenInsertPreset={() => { handleOpenInsertScenePreset(); setMobileToolsOpen(false); }}
+          onOpenPartyMode={() => { setPartyMenuOpen(true); setMobileToolsOpen(false); }}
+          onOpenCampaign={() => { setShowCampaignPickerModal(true); setMobileToolsOpen(false); }}
+          onSelectTab={(tab) => { setActiveTab(tab); setMobileToolsOpen(false); }}
+        />
+      )}
       <MasterBottomNav
         activeTab={activeTab}
         sessionViewMode={sessionViewMode}
         onSelectTab={setActiveTab}
+        onOpenTools={() => setMobileToolsOpen(true)}
       />
     </div>
   );

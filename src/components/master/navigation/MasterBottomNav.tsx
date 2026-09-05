@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { Tv, Swords, Sparkles, MoreHorizontal, BookOpen, FolderOpen } from 'lucide-react';
+import { Tv, Swords, Sparkles, MoreHorizontal, BookOpen, FolderOpen, Gamepad2 } from 'lucide-react';
 
 export interface MasterBottomNavProps {
   activeTab: string;
   sessionViewMode: 'session' | 'classic';
   onSelectTab: (tab: any) => void;
+  onOpenTools: () => void;
 }
 
 export const MasterBottomNav: React.FC<MasterBottomNavProps> = ({
   activeTab,
   sessionViewMode,
   onSelectTab,
+  onOpenTools,
 }) => {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const isSecondaryTabActive = activeTab === 'notes' || activeTab === 'library';
@@ -48,6 +50,10 @@ export const MasterBottomNav: React.FC<MasterBottomNavProps> = ({
               </button>
             </div>
             <div className="mobile-more-actions">
+              <button type="button" onClick={() => { setIsMoreOpen(false); onOpenTools(); }}>
+                <Gamepad2 size={21} />
+                <span>Herramientas de mesa</span>
+              </button>
               <button type="button" onClick={() => selectTab('notes')}>
                 <BookOpen size={21} />
                 <span>Notas y dados</span>

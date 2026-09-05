@@ -2,6 +2,41 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-04 — MAN-044: Modularización de DirectorModals en subcomponentes (`director/modals/`)
+
+- **Problema de mantenimiento:** `src/components/master/director/DirectorModals.tsx` concentraba 1,018 líneas albergando 9 modales tácticos y visuales distintos en un único archivo, incrementando la complejidad cognitiva y el riesgo al editar funcionalidades específicas del visor táctil.
+- **Corrección:**
+  1. **Desacoplamiento en subcomponentes aislados:** se crearon 9 componentes en `src/components/master/director/modals/`:
+     - `CalibrateAnchorModal.tsx`: calibración de apoyo al suelo y compensación de transparencias.
+     - `PrepareEntryModal.tsx`: animaciones de entrada desde reserva con precarga.
+     - `SaveCameraPresetModal.tsx`: guardado de encuadres y zoom.
+     - `RelativeLayerModal.tsx`: ordenamiento relativo «Delante de / Detrás de».
+     - `ViewLayersModal.tsx`: gestor jerárquico unificado de capas Z-Index.
+     - `SaveWaypointModal.tsx`: registro de coordenadas de puntos narrativos.
+     - `MoveToWaypointModal.tsx`: selector de destinos narrativos con desplazamiento suave o instantáneo.
+     - `CreateOcclusionModal.tsx`: creación y edición de máscaras de oclusión frontal.
+     - `SaveFormationModal.tsx`: guardado de formaciones tácticas grupales personalizadas.
+  2. **Orquestador limpio:** `DirectorModals.tsx` se redujo de 1,018 a ~150 líneas, conservando la interfaz `DirectorModalsProps` sin alterar las llamadas de `CharacterDirectorOverlay.tsx`.
+- **Evidencia técnica:** compilación TypeScript limpia (`npx tsc -b`), 63 suites de pruebas pasando al 100% (370 de 370 pruebas aprobadas en Vitest, incluyendo las pruebas de regresión de `characterDirector.test.tsx`) y build de producción (`npm run build`) en 742ms.
+- **Comprobación de uso:** sin cambios para el usuario final; se preservan todas las funcionalidades, modales y atajos tácticos del Modo Dirección.
+
+## 2026-09-04 — MAN-043: Modularización de estilos CSS por dominio (`src/styles/`)
+
+- **Problema de mantenimiento:** `src/index.css` contenía un monolito de 7,861 líneas mezclando resets, Lobby, Display, Master Controller, Combate, Modales y optimizaciones móviles de Android, ralentizando el desarrollo y dificultando el mantenimiento de estilos aislados.
+- **Corrección:**
+  1. **Desacoplamiento temático en `src/styles/`:** se extrajeron 8 módulos de estilos independientes preservando la cascada y especificidad original:
+     - `src/styles/base.css`: variables `:root`, importación tipográfica y resets base.
+     - `src/styles/lobby.css`: interfaz de entrada, tarjetas de rol, banner de recuperación y responsive.
+     - `src/styles/display.css`: viewport de escenario, fondo, iluminación, HUD y diálogo cinemático.
+     - `src/styles/master.css`: controlador del DM, barra de herramientas y selector de escenas.
+     - `src/styles/combat.css`: pestaña de combate, iniciativa y temporizadores de turno.
+     - `src/styles/modals.css`: modales de clima, presets, checkpoints, macros, publicación selectiva y diagnóstico.
+     - `src/styles/mobile.css`: navegación inferior a una mano y hardening móvil Android.
+     - `src/styles/sessionPanel.css`: dock de emergencia permanente, tarjetas contextuales y favoritos.
+  2. **Orquestación en `src/index.css`:** se redujo a 10 líneas de `@import` respetando el orden estricto de precedencia.
+- **Evidencia técnica:** compilación TypeScript limpia (`npx tsc -b`), 63 suites pasando (370 de 370 pruebas aprobadas al 100% en Vitest) y empaquetado de producción (`npm run build`) completado en 771ms sin advertencias nuevas.
+- **Comprobación de uso:** sin cambios en la experiencia de usuario ni en las clases CSS consumidas por la interfaz; se mantiene la paridad de estilos y comportamiento previa.
+
 ## 2026-09-04 — MAN-042: Ajuste de Safe Areas y visibilidad en Android (Lobby y Modo Dirección)
 
 - **Problema observado:** en teléfonos Android con muesca (notch), barra de estado del sistema o barra de navegación gestual inferior, el Lobby cortaba la cabecera superior («Visual Player») debido a un desbordamiento vertical negativo por centrado flexbox y a la falta de insets seguros (`env(safe-area-inset-*)`). El banner de sesión interrumpida y el pie de página quedaban solapados por la barra de estado y la píldora gestual.
@@ -26,6 +61,21 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
 - **Corrección:** se agregó **Editar escena en vivo** con el botón **Mover personajes** en la parte superior del control clásico.
 - **Alcance:** el editor permite arrastrar personajes, cambiar el fondo y ajustar el encuadre; en celulares el botón ocupa todo el ancho para facilitar el uso táctil.
 - **Evidencia:** `npm run android:build` y `npm run build` completados correctamente. La comprobación visual en Android físico y el recorrido con Mesa conectada siguen pendientes.
+
+## 2026-09-04 — MAN-042: Compositor táctil sin recorte en Android
+
+- **Problema observado:** al abrir el editor para mover personajes, la cabecera de control quedaba visible por encima y el escenario podía desplazarse o recortarse lateralmente.
+- **Corrección:** el compositor ahora se monta sobre el `body` como superficie independiente y ocupa el viewport completo del teléfono, respetando las áreas seguras y el scroll interno de sus controles.
+- **Evidencia:** `npm run android:build` completado correctamente. Vite mantiene únicamente sus avisos no bloqueantes de bundle grande/importaciones dinámicas.
+- **Comprobación visual:** pendiente repetir el recorrido en Android físico con arrastre de NPCs, cambio de fondo y publicación a Mesa.
+
+## 2026-09-04 — MAN-043: Drawer global de herramientas de mesa
+
+- **Problema observado:** varias funciones importantes quedaban repartidas entre la cabecera, la vista alternativa de Sesión y la versión de escritorio.
+- **Corrección:** **Más** ahora abre **Herramientas de mesa**, disponible también con el modo clásico activo.
+- **Alcance:** incluye publicación, En vivo/Preparación, editor de escena, preview completo, iluminación, audio, recursos, combate, momentos, diálogos, preparación, recap, historial, checkpoints, presets, diagnóstico, biblioteca de sesiones, campaña y Modo Partida.
+- **Evidencia:** `npm run android:build` completado correctamente. Vite mantiene avisos no bloqueantes de bundle grande/importaciones dinámicas.
+- **Comprobación visual:** pendiente en Android físico; debe verificarse el scroll del drawer, la apertura de cada modal y el uso con Mesa conectada.
 
 ## 2026-09-04 — MAN-031: Modo Partida Android con controles ocultables
 

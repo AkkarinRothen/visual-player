@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Sliders, RotateCcw, Check } from 'lucide-react';
 import type {
   Campaign,
@@ -445,7 +446,8 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
     ? campaign?.propAssets?.find((p) => p.id === selectedProp.assetId)
     : null;
 
-  return (
+  return createPortal(
+    (
     <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-md">
       <div className="compositor-modal bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
         {/* HEADER */}
@@ -602,5 +604,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
         handleApplyPreset={handleApplyPreset}
       />
     </div>
+    ),
+    document.body
   );
 };
