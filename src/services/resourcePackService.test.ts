@@ -115,11 +115,15 @@ describe('ResourcePackService', () => {
       id: 'pack-large-batch',
       name: 'Pack de Lotes Grandes',
       category: 'tokens',
+      createdAt: Date.now(),
+      itemCount: 35,
+      totalSizeBytes: 35000,
       assets: Array.from({ length: 35 }, (_, i) => ({
         id: `asset-large-${i}`,
         name: `Token ${i}`,
         dataUrl: `data:image/webp;base64,token${i}`,
         type: 'image' as const,
+        category: 'token' as const,
       })),
     };
 
