@@ -2,6 +2,37 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-05 — MAN-059: Integración Completa de Frameworks Visuales para Overhaul
+
+- **Walkthrough y entorno:** integración técnica de frameworks visuales y compilación de producción con `npm run build` correcta. Lint enfocado sobre archivos modificados sin errores; quedaron advertencias no bloqueantes en patrones existentes de React y refs de Floating UI. No se realizó comprobación visual en navegador, dispositivo Android físico ni Mesa conectada.
+- **Funciones y componentes afectados:**
+  1. **Frameworks instalados:** integrados `@floating-ui/react`, `react-aria-components`, `@ionic/react`, `@ionic/react-router`, `ionicons`, `@mui/material`, `@mui/icons-material`, `@emotion/react`, `@emotion/styled`, `@material/web`, `tailwindcss` y `@tailwindcss/vite`, además de los Radix ya instalados.
+  2. **Proveedores globales (`VisualProviders.tsx`, `main.tsx`, `vite.config.ts`):** la app queda envuelta con tema MUI oscuro propio de Visual Player, proveedor de tooltips Radix, arranque Ionic en modo Material Design y Tailwind v4 como capa de utilities sin preflight para no pisar el CSS existente.
+  3. **Material Web (`materialWeb.ts`):** registrados componentes web de botón, diálogo, switch y tabs para permitir migraciones graduales o prototipos de controles Material sin reescribir pantallas completas.
+  4. **Botones táctiles (`ActionTile.tsx`, `FloatingHint.tsx`):** los accesos de herramientas usan React Aria para interacción accesible, ripple de Ionic para sensación táctil y Floating UI para ayudas que se reposicionan dentro de pantalla.
+  5. **Tooltips (`IconTooltip.tsx`, `MasterHeader.tsx`):** los botones de icono de la cabecera del director ahora tienen tooltips Radix accesibles.
+  6. **Pestañas (`MobileToolsDrawer.tsx`):** **Herramientas de mesa** se reorganiza en pestañas **Publicar**, **Escena**, **Partida** y **Sistema** mediante Radix Tabs.
+  7. **Diálogos (`VisualDialog.tsx`, `CheckpointsModal.tsx`):** los puntos de restauración migran a un diálogo Radix accesible, incluyendo la previsualización de checkpoints como subdiálogo.
+- **Manual:** actualizada la sección «Herramientas de mesa en el celular» en `docs/manual/README.md`.
+- **Evidencia técnica:** `npm run build` completó correctamente. Vite advierte que el bundle principal creció al integrar todos los frameworks y mantiene advertencias previas sobre imports dinámicos inefectivos.
+- **Límites:** pendiente walkthrough visual del nuevo estilo en Android físico, revisar gestos y foco en diálogos, y planificar code splitting antes de extender el overhaul a modales pesados.
+- **Resultado:** base de overhaul visual integrada; siguiente paso recomendado: dividir bundle y migrar modales principales por grupos.
+
+## 2026-09-05 — MAN-058: Base Visual Android con Hojas Inferiores Deslizables
+
+- **Walkthrough y entorno:** revisión en código de la navegación móvil y compilación de producción con `npm run build` correcta. No se realizó comprobación visual en navegador, dispositivo Android físico ni Mesa conectada.
+- **Funciones y componentes afectados:**
+  1. **Sistema visual compartido (`AndroidSheet.tsx`, `ActionTile.tsx`, `ui.css`):** nueva base reusable para hojas inferiores táctiles y botones de acción, preparada para unificar modales, drawers y accesos móviles sin cambiar la identidad visual de Visual Player.
+  2. **Barra inferior móvil (`MasterBottomNav.tsx`):** la opción **Más** ahora abre una hoja inferior deslizable con **Herramientas de mesa**, **Notas y dados** y **Campaña**.
+  3. **Herramientas de mesa (`MobileToolsDrawer.tsx`):** el drawer móvil usa la nueva hoja inferior, mantiene las secciones de **Publicación**, **Escena**, **Partida** y **Sistema y campaña**, y conserva sus accesos existentes.
+  4. **Consola clásica En Vivo (`MasterMainTabs.tsx`, `ToggleSwitch.tsx`, `sessionPanel.css`):** el bloque principal muestra la escena actual como estado de mesa, el botón de edición queda como acción primaria y el cartel usa un interruptor táctil accesible.
+  5. **Cabecera y barra inferior móvil (`mobile.css`):** los botones deshabilitados de la cabecera se ocultan en teléfonos, el destino activo queda más marcado y **Escena** pasa a verse como acción primaria elevada.
+  6. **Dependencias:** incorporadas `vaul` y primitives de Radix para drawers, switches y componentes accesibles en futuras iteraciones.
+- **Manual:** actualizadas las indicaciones de celulares y tablets, cambios rápidos durante la partida y herramientas de mesa en `docs/manual/README.md`.
+- **Evidencia técnica:** `npm run build` completó correctamente. Vite mantiene advertencias no bloqueantes sobre tamaño de bundle e imports dinámicos inefectivos. Durante la verificación apareció un error previo de orden de hooks en `CombatTab.tsx`; se corrigió moviendo la declaración de `showVictoryModal` antes del efecto que lo usa.
+- **Límites:** pendiente comprobar el gesto de arrastre de la hoja inferior en Android físico, revisar capturas mobile y ejecutar una prueba completa con Mesa conectada.
+- **Resultado:** mejora integrada y manual actualizado; validación visual móvil pendiente.
+
 ## 2026-09-05 — MAN-057: Accesos Directos a Packs (.vppack), Clarificación de Sesiones e Ingesta en Lotes de Memoria Protegida
 
 - **Walkthrough y entorno:** comprobación y ejecución completa de la suite de pruebas unitarias y de integración en Vitest (456/456 pruebas aprobadas en 79 suites, incluyendo `SessionIdentityHeader.test.tsx`, `ResourcePacksModal.test.tsx`, `resourcePackService.test.ts` y `LiveModularControlPanel.test.tsx`), verificación de sincronización con Android (`npm run android:verify` con 2 assets web verificados y sincronizados) y comprobación en código de la ingesta de packs pesados. Pendiente comprobación visual en navegador y prueba completa con Mesa conectada.

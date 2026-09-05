@@ -2350,8 +2350,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-color: rgba(59, 130, 246, 0.45);
-  background: linear-gradient(135deg, rgba(30, 64, 175, 0.22), rgba(15, 23, 42, 0.82));
+  border-color: rgba(245, 158, 11, 0.34);
+  background:
+    linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(15, 23, 42, 0.82)),
+    rgba(15, 23, 42, 0.72);
 }
 
 .live-scene-editor-cta-copy {
@@ -2362,18 +2364,22 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #bfdbfe;
+  color: #fde68a;
   font-weight: 800;
 }
 
 .live-scene-editor-cta-title svg {
-  color: #60a5fa;
+  color: #f59e0b;
 }
 
 .live-scene-editor-cta p {
   margin: 5px 0 0;
-  color: #94a3b8;
-  font-size: 0.82rem;
+  color: #cbd5e1;
+  font-size: 0.92rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .live-scene-editor-cta-button {
@@ -2387,7 +2393,8 @@
     align-items: stretch;
     flex-direction: column;
     gap: 12px;
-    padding: 14px;
+    padding: 13px;
+    border-radius: 14px;
   }
 
   .live-scene-editor-cta-button {
@@ -2395,6 +2402,25 @@
     justify-content: center;
     min-height: 52px;
   }
+}
+
+.audio-inline-toggle {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid rgba(16, 185, 129, 0.38);
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #6ee7b7;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.audio-inline-toggle:active {
+  transform: scale(0.98);
 }
 
 /* Stage-first mobile compositor: the canvas stays complete while contextual controls lead. */

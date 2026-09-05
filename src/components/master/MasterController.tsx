@@ -48,6 +48,7 @@ import { MasterAuxiliaryModals } from './modals/MasterAuxiliaryModals';
 import { MasterBottomNav } from './navigation/MasterBottomNav';
 import { MobileToolsDrawer } from './navigation/MobileToolsDrawer';
 import { ResourcePacksModal } from './modals/ResourcePacksModal';
+import { getPlatformBridge } from '../../platform';
 
 export interface MasterControllerProps {
   initialRoomCode?: string;
@@ -60,6 +61,15 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   pairingSecret,
   onExitToLobby,
 }) => {
+  // Keep screen awake during live Master directing
+  useEffect(() => {
+    const bridge = getPlatformBridge();
+    bridge.screen.setKeepAwake(true).catch(() => {});
+    return () => {
+      bridge.screen.setKeepAwake(false).catch(() => {});
+    };
+  }, []);
+
   const [activeTab, setActiveTab] = useState<'live' | 'moments' | 'combat' | 'notes' | 'library'>('live');
   const [showQRModal, setShowQRModal] = useState<boolean>(false);
   const [previewTab, setPreviewTab] = useState<'live' | 'staged'>('live');
@@ -86,8 +96,17 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const [showNewCharModal, setShowNewCharModal] = useState<boolean>(false);
   const [editingChar, setEditingChar] = useState<Character | null>(null);
 
-  // Session View & Auxiliary Modals State
-  const [sessionViewMode, setSessionViewMode] = useState<'session' | 'classic'>('classic');
+  // Session View & Auxiliary Modals State (defaults to 'session' on touch/mobile screens)
+  const [sessionViewMode, setSessionViewMode] = useState<'session' | 'classic'>(() => {
+    if (typeof window !== 'undefined') {
+      const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      const isMobileWidth = window.innerWidth <= 768;
+      if (isTouch || isMobileWidth) {
+        return 'session';
+      }
+    }
+    return 'classic';
+  });
   const [showManageFavoritesModal, setShowManageFavoritesModal] = useState<boolean>(false);
   const [showCompositorModal, setShowCompositorModal] = useState<boolean>(false);
   const [showConversationEditor, setShowConversationEditor] = useState<boolean>(false);

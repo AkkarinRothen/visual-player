@@ -76,8 +76,6 @@ export const CombatTab: React.FC<CombatTabProps> = ({
   );
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [showEncountersModal, setShowEncountersModal] = useState<boolean>(false);
-
-  // Victory summary modal
   const [showVictoryModal, setShowVictoryModal] = useState<boolean>(false);
   const [victorySummary, setVictorySummary] = useState<{
     rounds: number;
@@ -85,6 +83,20 @@ export const CombatTab: React.FC<CombatTabProps> = ({
     survivors: string[];
     rewards: string;
   } | null>(null);
+
+  // Close modals on Escape key
+  useEffect(() => {
+    if (!showAddModal && !showVictoryModal && !showEncountersModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showAddModal) setShowAddModal(false);
+        else if (showVictoryModal) setShowVictoryModal(false);
+        else if (showEncountersModal) setShowEncountersModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showAddModal, showVictoryModal, showEncountersModal]);
 
   const [newCombatant, setNewCombatant] = useState<{
     name: string;

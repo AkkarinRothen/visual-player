@@ -40,6 +40,7 @@ import {
   Trash2,
   Package,
 } from 'lucide-react';
+import { ToggleSwitch } from '../../ui/ToggleSwitch';
 
 export interface MasterMainTabsProps {
   activeTab: 'live' | 'moments' | 'combat' | 'notes' | 'library';
@@ -146,9 +147,9 @@ export const MasterMainTabs: React.FC<MasterMainTabsProps> = ({
             <div className="live-scene-editor-cta-copy">
               <div className="live-scene-editor-cta-title">
                 <Edit size={18} />
-                <span>Editar escena en vivo</span>
+                <span>Escena en mesa</span>
               </div>
-              <p>Arrastrá NPCs directamente, cambiá el fondo y ajustá el encuadre.</p>
+              <p>{currentScene?.name || 'Sin escena seleccionada'}</p>
             </div>
             <button
               type="button"
@@ -157,7 +158,7 @@ export const MasterMainTabs: React.FC<MasterMainTabsProps> = ({
               aria-label="Abrir editor táctil para mover personajes y cambiar el fondo"
             >
               <Edit size={16} />
-              <span>Mover personajes</span>
+              <span>Editar escena</span>
             </button>
           </section>
 
@@ -193,18 +194,18 @@ export const MasterMainTabs: React.FC<MasterMainTabsProps> = ({
           <section className="control-section banner-section">
             <div className="section-header">
               <span className="section-title">Cartel de Ubicación en Pantalla</span>
-              <button
-                className={`mini-toggle ${activeDisplay.locationBanner.visible ? 'on' : 'off'}`}
-                onClick={() => {
-                  const next = !activeDisplay.locationBanner.visible;
+              <ToggleSwitch
+                checked={activeDisplay.locationBanner.visible}
+                checkedLabel="Visible"
+                uncheckedLabel="Oculto"
+                ariaLabel="Mostrar u ocultar cartel de ubicación"
+                onCheckedChange={(next) => {
                   updateDisplay(
                     (prev) => ({ ...prev, locationBanner: { ...prev.locationBanner, visible: next } }),
                     `Cartel: ${next ? 'Visible' : 'Oculto'}`
                   );
                 }}
-              >
-                {activeDisplay.locationBanner.visible ? 'Visible' : 'Oculto'}
-              </button>
+              />
             </div>
             <div className="banner-inputs">
               <input
@@ -287,10 +288,13 @@ export const MasterMainTabs: React.FC<MasterMainTabsProps> = ({
                   </span>
                 </div>
                 <button
-                  className={`mini-toggle ${activeDisplay.ambientPlaying ? 'on' : 'off'}`}
+                  type="button"
+                  className="audio-inline-toggle"
                   onClick={toggleAmbientPlay}
+                  aria-label={activeDisplay.ambientPlaying ? 'Pausar música ambiental' : 'Reproducir música ambiental'}
                 >
-                  {activeDisplay.ambientPlaying ? 'Reproduciendo' : 'Pausado'}
+                  {activeDisplay.ambientPlaying ? <Volume2 size={15} /> : <VolumeX size={15} />}
+                  <span>{activeDisplay.ambientPlaying ? 'Reproduciendo' : 'Pausado'}</span>
                 </button>
               </div>
               <div className="audio-slider-row">

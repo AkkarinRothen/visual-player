@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Tv, Smartphone, Sparkles, ArrowRight, Camera, X, RefreshCw, Trash2, Image, ShieldAlert, Compass } from 'lucide-react';
-import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
 import { sessionRecoveryService, type RecoverySnapshot } from '../../services/sessionRecovery';
 import type { Role } from '../../types';
+import heroImage from '../../assets/hero.png';
+import { VisualDialog } from '../ui/VisualDialog';
+
+import type { Html5Qrcode, Html5QrcodeScanner } from 'html5-qrcode';
 
 interface LobbyProps {
   onSelectRole: (role: Role, roomCode?: string) => void;
@@ -34,7 +37,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
     }
   }, [onSelectRole]);
 
-  const handleScanSuccess = (decodedText: string) => {
+  const handleScanSuccess = useCallback((decodedText: string) => {
     let code = decodedText.trim();
     try {
       if (decodedText.includes('join=')) {
@@ -62,51 +65,59 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
       setShowCameraPrompt(false);
       onSelectRole('master', code.toUpperCase().trim());
     }
-  };
+  }, [onSelectRole]);
 
   // Setup HTML5 QR Scanner
   useEffect(() => {
     if (showScanner) {
       setCameraError(null);
+      let cancelled = false;
       try {
-        const scanner = new Html5QrcodeScanner(
-          'qr-reader-container',
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          false
-        );
-        scannerRef.current = scanner;
+        import('html5-qrcode').then(({ Html5QrcodeScanner }) => {
+          if (cancelled) return;
+          const scanner = new Html5QrcodeScanner(
+            'qr-reader-container',
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            false
+          );
+          scannerRef.current = scanner;
 
-        scanner.render(
-          (decodedText) => {
-            handleScanSuccess(decodedText);
-          },
-          (errorMessage) => {
-            if (errorMessage && errorMessage.includes('NotAllowedError')) {
-              setCameraError('Permiso de cámara denegado. Puedes ingresar el PIN o subir una foto del QR.');
+          scanner.render(
+            (decodedText) => {
+              handleScanSuccess(decodedText);
+            },
+            (errorMessage) => {
+              if (errorMessage && errorMessage.includes('NotAllowedError')) {
+                setCameraError('Permiso de cámara denegado. Puedes ingresar el PIN o subir una foto del QR.');
+              }
             }
-          }
-        );
-      } catch (err: any) {
+          );
+        }).catch(() => {
+          setCameraError('No se pudo acceder a la cámara en este dispositivo.');
+        });
+      } catch {
         setCameraError('No se pudo acceder a la cámara en este dispositivo.');
       }
 
       return () => {
+        cancelled = true;
         if (scannerRef.current) {
           scannerRef.current.clear().catch(() => {});
         }
       };
     }
-  }, [showScanner]);
+  }, [handleScanSuccess, showScanner]);
 
   const handleImageFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
-      const html5QrCode = new Html5Qrcode('qr-reader-container-hidden');
+      const { Html5Qrcode } = await import('html5-qrcode');
+      const html5QrCode: Html5Qrcode = new Html5Qrcode('qr-reader-container-hidden');
       const decodedText = await html5QrCode.scanFile(file, true);
       handleScanSuccess(decodedText);
-    } catch (err) {
+    } catch {
       setCameraError('No se detectó un código QR válido en la imagen seleccionada.');
     }
   };
@@ -124,6 +135,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
 
   return (
     <div className="lobby-root">
+      <img src={heroImage} alt="" className="lobby-hero-art" aria-hidden="true" />
       <div className="lobby-ambient-bg"></div>
 
       <div className="lobby-content">
@@ -180,7 +192,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
         {/* Role Cards Grid */}
         <div className="lobby-cards-grid">
           {/* Card 1: Tablet / Display */}
-          <div className="role-card display-card" onClick={() => onSelectRole('display')}>
+          <div className="role-card display-card">
             <div className="role-card-inner">
               <div className="role-icon-box">
                 <Tv size={36} />
@@ -190,7 +202,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
               <p className="role-desc">
                 Pon esta pantalla en la tablet frente a tus jugadores para mostrar fondos animados, NPCs, lluvia, relámpagos y música ambiental.
               </p>
-              <button className="role-btn btn-display">
+              <button className="role-btn btn-display" onClick={() => onSelectRole('display')}>
                 <span>Abrir en esta Pantalla</span>
                 <ArrowRight size={16} />
               </button>
@@ -216,7 +228,11 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
                     type="text"
                     placeholder="Código PIN (Ej. VP-8492)"
                     value={pinInput}
-                    onChange={(e) => setPinInput(e.target.value)}
+                    onChange={(e) => setPinInput(e.target.value.toUpperCase())}
+                    maxLength={7}
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
                     className="lobby-pin-input"
                   />
                   <button type="submit" className="pin-submit-btn" title="Conectar">
@@ -274,50 +290,33 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
 
       {/* 1. Camera Permission Explanation Pre-Modal */}
       {showCameraPrompt && !showScanner && (
-        <div className="modal-overlay" onClick={() => setShowCameraPrompt(false)}>
-          <div className="modal-content camera-prompt-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px', padding: '24px' }}>
-            <div className="modal-header" style={{ marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60a5fa' }}>
-                  <Camera size={22} />
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Escanear QR de la Mesa</h3>
-                  <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Conexión instantánea de Director</span>
-                </div>
+        <VisualDialog
+          open
+          title="Escanear QR de la Mesa"
+          className="camera-prompt-modal"
+          onOpenChange={(open) => {
+            if (!open) setShowCameraPrompt(false);
+          }}
+        >
+            <div className="camera-dialog-intro">
+              <div className="camera-dialog-icon">
+                <Camera size={22} />
               </div>
-              <button className="modal-close" onClick={() => setShowCameraPrompt(false)}>
-                <X size={20} />
-              </button>
+              <span>Conexión instantánea de Director</span>
             </div>
 
-            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.5', marginBottom: '20px' }}>
+            <p className="camera-dialog-copy">
               Se solicitará permiso para usar la cámara de tu dispositivo y leer el código QR mostrado en la pantalla de la Mesa.
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="camera-dialog-actions">
               <button
                 type="button"
                 onClick={() => {
                   setShowCameraPrompt(false);
                   setShowScanner(true);
                 }}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '10px',
-                  fontWeight: 600,
-                  fontSize: '0.95rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-                }}
+                className="camera-primary-action"
               >
                 <Camera size={18} />
                 <span>Activar Cámara y Escanear</span>
@@ -326,75 +325,44 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  color: '#94a3b8',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  borderRadius: '10px',
-                  fontWeight: 500,
-                  fontSize: '0.9rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  cursor: 'pointer',
-                }}
+                className="camera-secondary-action"
               >
                 <Image size={16} />
                 <span>Subir Foto del Código QR</span>
               </button>
             </div>
-          </div>
-        </div>
+        </VisualDialog>
       )}
 
       {/* 2. QR Scanner Modal */}
       {showScanner && (
-        <div className="modal-overlay" onClick={() => setShowScanner(false)}>
-          <div className="modal-content scanner-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Escanear QR de la Mesa</h2>
-              <button className="modal-close" onClick={() => setShowScanner(false)}>
-                <X size={20} />
-              </button>
-            </div>
-
+        <VisualDialog
+          open
+          title="Escanear QR de la Mesa"
+          className="scanner-modal"
+          onOpenChange={(open) => {
+            if (!open) setShowScanner(false);
+          }}
+        >
             {cameraError ? (
-              <div style={{ padding: '24px 16px', textAlign: 'center' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', margin: '0 auto 16px' }}>
+              <div className="camera-error-panel">
+                <div className="camera-error-icon">
                   <ShieldAlert size={28} />
                 </div>
-                <h3 style={{ fontSize: '1.05rem', color: '#f87171', marginBottom: '8px' }}>Acceso a Cámara no Disponible</h3>
-                <p style={{ fontSize: '0.88rem', color: '#cbd5e1', marginBottom: '20px' }}>{cameraError}</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '300px', margin: '0 auto' }}>
+                <h3>Acceso a Cámara no Disponible</h3>
+                <p>{cameraError}</p>
+                <div className="camera-error-actions">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    style={{
-                      padding: '10px',
-                      background: '#3b82f6',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
+                    className="camera-primary-action"
                   >
                     Subir Imagen del QR
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowScanner(false)}
-                    style={{
-                      padding: '10px',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      color: '#94a3b8',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                    }}
+                    className="camera-secondary-action"
                   >
                     Ingresar PIN Manualmente
                   </button>
@@ -403,22 +371,12 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
             ) : (
               <>
                 <div id="qr-reader-container" className="qr-reader-view"></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', marginTop: '12px' }}>
-                  <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>¿Problemas con la cámara?</span>
+                <div className="scanner-fallback-row">
+                  <span>¿Problemas con la cámara?</span>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#60a5fa',
-                      fontSize: '0.82rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
+                    className="scanner-fallback-button"
                   >
                     <Image size={14} />
                     <span>Subir foto de QR</span>
@@ -426,8 +384,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
                 </div>
               </>
             )}
-          </div>
-        </div>
+        </VisualDialog>
       )}
     </div>
   );

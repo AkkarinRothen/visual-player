@@ -7,14 +7,16 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: calc(64px + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: rgba(15, 18, 30, 0.95);
-  backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  height: calc(68px + env(safe-area-inset-bottom, 0px));
+  padding: 5px 8px env(safe-area-inset-bottom, 0px);
+  background: rgba(8, 13, 24, 0.94);
+  backdrop-filter: blur(18px);
+  border-top: 1px solid rgba(71, 85, 105, 0.55);
+  box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.38);
   z-index: 90;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: center;
+  gap: 3px;
 }
 
 .mobile-more-overlay {
@@ -120,6 +122,7 @@
 }
 
 .mobile-nav-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -129,6 +132,7 @@
   min-height: 48px;
   background: none;
   border: none;
+  border-radius: 14px;
   color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 500;
@@ -138,25 +142,43 @@
 }
 
 .mobile-nav-item.active {
+  background: rgba(245, 158, 11, 0.1);
   color: var(--primary);
-  font-weight: 600;
+  font-weight: 800;
 }
 
 .mobile-nav-item.active svg {
-  transform: scale(1.15);
   color: var(--primary);
 }
 
+.mobile-nav-item.active::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  width: 18px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
 .mobile-nav-item.scene-entry {
-  color: #93c5fd;
+  min-height: 56px;
+  margin-top: -12px;
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  background: linear-gradient(180deg, #f59e0b, #d97706);
+  color: #0b1120;
+  box-shadow: 0 10px 24px rgba(245, 158, 11, 0.26);
+  font-weight: 900;
 }
 
 .mobile-nav-item.scene-entry svg {
-  color: #60a5fa;
+  color: #0b1120;
 }
 
 .mobile-nav-item.scene-entry:active {
-  background: rgba(59, 130, 246, 0.14);
+  transform: translateY(1px) scale(0.99);
+  background: linear-gradient(180deg, #fbbf24, #d97706);
 }
 
 /* Mobile Quick Action Bar */
@@ -361,6 +383,10 @@
     min-width: 36px;
     min-height: 36px;
     padding: 6px;
+  }
+
+  .master-header .connection-group .icon-action-btn:disabled {
+    display: none;
   }
 
   .master-header .connection-group .icon-action-btn:nth-child(n + 4) {

@@ -36,6 +36,7 @@ import {
   BookOpen,
   FolderOpen,
 } from 'lucide-react';
+import { IconTooltip } from '../../ui/IconTooltip';
 
 export interface MasterHeaderProps {
   campaign: Campaign | null;
@@ -172,58 +173,52 @@ export const MasterHeader: React.FC<MasterHeaderProps> = ({
 
         <div className="connection-group" style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
           {/* Quick Moments Button */}
-          <button
-            className="icon-action-btn moments-btn"
-            onClick={onOpenQuickMoments}
-            title="Disparador Rápido de Momentos / Macros"
-          >
-            <Sparkles size={15} className="text-amber-400" />
-          </button>
+          <IconTooltip label="Disparador rápido de momentos">
+            <button className="icon-action-btn moments-btn" onClick={onOpenQuickMoments}>
+              <Sparkles size={15} className="text-amber-400" />
+            </button>
+          </IconTooltip>
 
           {/* Quick Undo / Redo / History / Checkpoint Actions */}
-          <button
-            className="icon-action-btn"
-            onClick={undo}
-            disabled={pastEvents.length === 0}
-            title={pastEvents.length > 0 ? `Deshacer: ${pastEvents[0].description} (Ctrl+Z)` : 'Deshacer (Ctrl+Z)'}
-            style={{ opacity: pastEvents.length === 0 ? 0.4 : 1 }}
-          >
-            <RotateCcw size={15} />
-          </button>
+          <IconTooltip label={pastEvents.length > 0 ? `Deshacer: ${pastEvents[0].description}` : 'Deshacer'}>
+            <button
+              className="icon-action-btn"
+              onClick={undo}
+              disabled={pastEvents.length === 0}
+              style={{ opacity: pastEvents.length === 0 ? 0.4 : 1 }}
+            >
+              <RotateCcw size={15} />
+            </button>
+          </IconTooltip>
 
-          <button
-            className="icon-action-btn"
-            onClick={redo}
-            disabled={futureEvents.length === 0}
-            title={futureEvents.length > 0 ? `Rehacer: ${futureEvents[0].description} (Ctrl+Y)` : 'Rehacer (Ctrl+Y)'}
-            style={{ opacity: futureEvents.length === 0 ? 0.4 : 1 }}
-          >
-            <RotateCw size={15} />
-          </button>
+          <IconTooltip label={futureEvents.length > 0 ? `Rehacer: ${futureEvents[0].description}` : 'Rehacer'}>
+            <button
+              className="icon-action-btn"
+              onClick={redo}
+              disabled={futureEvents.length === 0}
+              style={{ opacity: futureEvents.length === 0 ? 0.4 : 1 }}
+            >
+              <RotateCw size={15} />
+            </button>
+          </IconTooltip>
 
-          <button
-            className="icon-action-btn"
-            onClick={onOpenHistory}
-            title="Ver Historial de Acciones"
-          >
-            <History size={15} />
-          </button>
+          <IconTooltip label="Ver historial de acciones">
+            <button className="icon-action-btn" onClick={onOpenHistory}>
+              <History size={15} />
+            </button>
+          </IconTooltip>
 
-          <button
-            className="icon-action-btn"
-            onClick={onOpenCheckpoints}
-            title="Puntos de Restauración (Checkpoints)"
-          >
-            <Bookmark size={15} />
-          </button>
+          <IconTooltip label="Puntos de restauración">
+            <button className="icon-action-btn" onClick={onOpenCheckpoints}>
+              <Bookmark size={15} />
+            </button>
+          </IconTooltip>
 
-          <button
-            className="icon-action-btn diagnostics-btn"
-            onClick={onOpenDiagnostics}
-            title="Diagnóstico de Red & Modo Caos (DEV)"
-          >
-            <Activity size={15} className={peerService.isChaosActive() ? 'text-rose-400 animate-pulse' : 'text-slate-400'} />
-          </button>
+          <IconTooltip label="Diagnóstico de red">
+            <button className="icon-action-btn diagnostics-btn" onClick={onOpenDiagnostics}>
+              <Activity size={15} className={peerService.isChaosActive() ? 'text-rose-400 animate-pulse' : 'text-slate-400'} />
+            </button>
+          </IconTooltip>
 
           {/* Transport Status Chip */}
           {(() => {

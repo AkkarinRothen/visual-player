@@ -1,9 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import type { Role } from './types';
-import { Lobby } from './components/lobby/Lobby';
-import { PlayerDisplay } from './components/display/PlayerDisplay';
-import { MasterController } from './components/master/MasterController';
-import { WorkshopView } from './components/master/workshop/WorkshopView';
+import { VisualProviders } from './components/ui/VisualProviders';
+
+const Lobby = lazy(() => import('./components/lobby/Lobby').then((module) => ({ default: module.Lobby })));
+const PlayerDisplay = lazy(() => import('./components/display/PlayerDisplay').then((module) => ({ default: module.PlayerDisplay })));
+const MasterController = lazy(() => import('./components/master/MasterController').then((module) => ({ default: module.MasterController })));
+const WorkshopView = lazy(() => import('./components/master/workshop/WorkshopView').then((module) => ({ default: module.WorkshopView })));
+
+const AppLoading: React.FC = () => (
+  <div className="app-loading-screen">
+    <div className="app-loading-mark" />
+    <span>Visual Player</span>
+  </div>
+);
 
 export const App: React.FC = () => {
   const [role, setRole] = useState<Role>('lobby');
@@ -57,25 +66,29 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="visual-player-app" style={{ width: '100%', height: '100%' }}>
-      {role === 'lobby' && <Lobby onSelectRole={handleSelectRole} />}
-      {role === 'display' && (
-        <PlayerDisplay
-          initialRoomCode={roomCode}
-          onExitToLobby={() => setRole('lobby')}
-        />
-      )}
-      {role === 'master' && (
-        <MasterController
-          initialRoomCode={roomCode}
-          pairingSecret={pairingSecret}
-          onExitToLobby={() => setRole('lobby')}
-        />
-      )}
-      {role === 'workshop' && (
-        <WorkshopView onExitToLobby={() => setRole('lobby')} />
-      )}
-    </div>
+    <VisualProviders>
+      <div className="visual-player-app" style={{ width: '100%', height: '100%' }}>
+        <Suspense fallback={<AppLoading />}>
+          {role === 'lobby' && <Lobby onSelectRole={handleSelectRole} />}
+          {role === 'display' && (
+            <PlayerDisplay
+              initialRoomCode={roomCode}
+              onExitToLobby={() => setRole('lobby')}
+            />
+          )}
+          {role === 'master' && (
+            <MasterController
+              initialRoomCode={roomCode}
+              pairingSecret={pairingSecret}
+              onExitToLobby={() => setRole('lobby')}
+            />
+          )}
+          {role === 'workshop' && (
+            <WorkshopView onExitToLobby={() => setRole('lobby')} />
+          )}
+        </Suspense>
+      </div>
+    </VisualProviders>
   );
 };
 

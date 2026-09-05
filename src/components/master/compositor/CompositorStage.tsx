@@ -85,7 +85,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
     <div className="compositor-stage-panel flex-1 flex flex-col items-center">
       <div
         ref={stageRef}
-        className={`stage-viewport relative w-full aspect-video rounded-xl overflow-hidden border-2 border-slate-700 select-none shadow-inner touch-none ${
+        className={`stage-viewport relative w-full aspect-video rounded-xl overflow-hidden border-2 border-slate-700 select-none shadow-inner touch-pan-y ${
           aspectGuide === '16:10' ? 'max-w-[90%]' : aspectGuide === '4:3' ? 'max-w-[75%]' : ''
         }`}
         style={{

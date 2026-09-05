@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Tv, Swords, Sparkles, MoreHorizontal, BookOpen, FolderOpen, Gamepad2, ImagePlus } from 'lucide-react';
+import { AndroidSheet } from '../../ui/AndroidSheet';
+import { ActionTile } from '../../ui/ActionTile';
 
 export interface MasterBottomNavProps {
   activeTab: string;
@@ -26,48 +28,37 @@ export const MasterBottomNav: React.FC<MasterBottomNavProps> = ({
 
   return (
     <>
-      {isMoreOpen && (
-        <div
-          className="mobile-more-overlay"
-          role="presentation"
-          onClick={() => setIsMoreOpen(false)}
-        >
-          <section
-            className="mobile-more-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="mobile-more-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mobile-more-handle" aria-hidden="true" />
-            <div className="mobile-more-header">
-              <h2 id="mobile-more-title">Más herramientas</h2>
-              <button
-                type="button"
-                className="mobile-more-close"
-                onClick={() => setIsMoreOpen(false)}
-                aria-label="Cerrar más herramientas"
-              >
-                ×
-              </button>
-            </div>
-            <div className="mobile-more-actions">
-              <button type="button" onClick={() => { setIsMoreOpen(false); onOpenTools(); }}>
-                <Gamepad2 size={21} />
-                <span>Herramientas de mesa</span>
-              </button>
-              <button type="button" onClick={() => selectTab('notes')}>
-                <BookOpen size={21} />
-                <span>Notas y dados</span>
-              </button>
-              <button type="button" onClick={() => selectTab('library')}>
-                <FolderOpen size={21} />
-                <span>Campaña y biblioteca</span>
-              </button>
-            </div>
-          </section>
+      <AndroidSheet
+        open={isMoreOpen}
+        title="Más herramientas"
+        eyebrow="Navegación"
+        maxWidth={520}
+        onOpenChange={setIsMoreOpen}
+      >
+        <div className="mobile-more-actions">
+          <ActionTile
+            compact
+            icon={<Gamepad2 size={21} />}
+            label="Herramientas de mesa"
+            hint="Publicación y sistema"
+            onClick={() => { setIsMoreOpen(false); onOpenTools(); }}
+          />
+          <ActionTile
+            compact
+            icon={<BookOpen size={21} />}
+            label="Notas y dados"
+            hint="Registro del DM"
+            onClick={() => selectTab('notes')}
+          />
+          <ActionTile
+            compact
+            icon={<FolderOpen size={21} />}
+            label="Campaña"
+            hint="Biblioteca y recursos"
+            onClick={() => selectTab('library')}
+          />
         </div>
-      )}
+      </AndroidSheet>
 
       <nav className="mobile-bottom-nav" aria-label="Navegación Móvil del Master">
       <button

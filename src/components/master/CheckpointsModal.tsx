@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { SessionCheckpoint } from '../../types';
-import { Bookmark, Plus, Trash2, RotateCcw, X, Clock, Eye } from 'lucide-react';
+import { Bookmark, Plus, Trash2, RotateCcw, Clock, Eye } from 'lucide-react';
+import { VisualDialog } from '../ui/VisualDialog';
 
 interface CheckpointsModalProps {
   checkpoints: SessionCheckpoint[];
@@ -35,16 +36,17 @@ export const CheckpointsModal: React.FC<CheckpointsModalProps> = ({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content checkpoints-modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div className="flex-align-gap">
-            <Bookmark size={20} className="text-amber-400" />
-            <h2>Puntos de Restauración (Checkpoints)</h2>
-          </div>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
+    <VisualDialog
+      open
+      title="Puntos de Restauración (Checkpoints)"
+      className="checkpoints-modal-content"
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+        <div className="flex-align-gap checkpoints-dialog-kicker">
+          <Bookmark size={20} className="text-amber-400" />
+          <span>Guardados de seguridad de la sesión</span>
         </div>
 
         {/* Quick Save New Checkpoint Bar */}
@@ -169,15 +171,14 @@ export const CheckpointsModal: React.FC<CheckpointsModalProps> = ({
 
         {/* Checkpoint Preview Confirmation Modal */}
         {previewingCheckpoint && (
-          <div className="modal-overlay preview-submodal-overlay" onClick={() => setPreviewingCheckpoint(null)}>
-            <div className="modal-content preview-submodal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Previsualización: {previewingCheckpoint.name}</h2>
-                <button className="modal-close" onClick={() => setPreviewingCheckpoint(null)}>
-                  <X size={20} />
-                </button>
-              </div>
-
+          <VisualDialog
+            open
+            title={`Previsualización: ${previewingCheckpoint.name}`}
+            className="preview-submodal"
+            onOpenChange={(open) => {
+              if (!open) setPreviewingCheckpoint(null);
+            }}
+          >
               <div
                 className="checkpoint-preview-stage"
                 style={{ backgroundImage: `url(${previewingCheckpoint.state.backgroundUrl})` }}
@@ -219,10 +220,8 @@ export const CheckpointsModal: React.FC<CheckpointsModalProps> = ({
                   <span>Restaurar este Checkpoint Ahora</span>
                 </button>
               </div>
-            </div>
-          </div>
+          </VisualDialog>
         )}
-      </div>
-    </div>
+    </VisualDialog>
   );
 };
