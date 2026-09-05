@@ -2,6 +2,36 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-04 — MAN-046: Modularización de MasterController en hooks y subcomponentes (`controller/`)
+
+- **Problema de mantenimiento:** `src/components/master/MasterController.tsx` concentraba 1,337 líneas como controlador maestro de la aplicación, albergando la gestión del botón nativo «Atrás» de Android con cascada de modales, el menú flotante del Modo Partida (mesa/inmersivo), el despacho de acciones de atmósfera/SFX y la persistencia de checkpoints automáticos y manuales.
+- **Corrección:**
+  1. **Desacoplamiento en subcomponentes y custom hooks especializados:**
+     - `PartyModeControl.tsx`: menú flotante del Modo Partida y sincronización de ciclo de vida de pantalla activa (`setKeepAwake`) y pantalla completa inmersiva (`setImmersive`) mediante el puente nativo de Android.
+     - `useMasterBackButton.ts`: gestión LIFO del botón «Atrás» físico con cierre jerárquico de más de 20 modales y repliegue seguro de pestañas a `'live'`.
+     - `useMasterAtmosphereActions.ts`: acciones de clima, intensidad, iluminación, blackout, relámpagos, temblores de pantalla, cartel de escena y pistas ambientales/SFX.
+     - `useCheckpointManagement.ts`: estado de puntos de restauración, autocheckpoints con descripción, guardado manual y eliminación.
+     - `useVersionTelemetry.ts`: receptor de telemetría WebRTC y evaluador de compatibilidad de protocolos entre Maestro y Mesa.
+  2. **Orquestador limpio:** `MasterController.tsx` se refactorizó integrando estos módulos, preservando 100% la interfaz `MasterControllerProps` y garantizando total compatibilidad con `App.tsx`.
+- **Evidencia técnica:** compilación TypeScript limpia (`npx tsc -b`), 63/63 suites de pruebas pasando al 100% (370/370 pruebas aprobadas en Vitest, incluyendo `SessionPanel.test.tsx` y `backButtonStack.test.ts`) y compilación para producción (`npm run build`) en 1.11s.
+- **Comprobación de uso:** sin cambios para el usuario final; se preservan todas las operaciones del Master Controller, el Modo Partida y los atajos de teclado y táctiles.
+
+## 2026-09-04 — MAN-045: Modularización de SceneCanvasComposer en subcomponentes (`composer/`)
+
+- **Problema de mantenimiento:** `src/components/master/composer/SceneCanvasComposer.tsx` era el componente más extenso del proyecto (2,203 líneas), acumulando cabecera de guardado, barra de modos táctiles, viewport con gestos 16:9, bandeja de edición de figura seleccionada con D-Pad, pestañas inferiores (fondo, personajes, capas, ambiente) y cuatro modales independientes.
+- **Corrección:**
+  1. **Tipos y utilidades compartidas:** se creó `composerTypes.ts` con `TouchMode`, `DpadPreset`, `ComposerBottomTab` y la función `getDpadDeltas(preset)`.
+  2. **Desacoplamiento en subcomponentes:**
+     - `ComposerHeader.tsx`: cabecera táctil, título editable de escena, autoguardado y menú contextual.
+     - `ComposerTouchModeBar.tsx`: barra de alternancia entre modos táctiles (Mover figuras, Panorámica, Ajustar fondo).
+     - `ComposerViewport.tsx`: lienzo 16:9 con soporte multitáctil/ratón, micro-arrastre relativo, encuadre y zoom flotante.
+     - `ComposerSelectedCharPanel.tsx`: panel inferior de figura con escalado porcentual (+/-), espejo horizontal, orden de capas y cruceta micro-D-pad (Fino 1px, Normal 5px, Amplio 20px).
+     - `ComposerBottomTabs.tsx`: pestañas inferiores para selector de fondo, galería rápida de personajes, orden de capas y efectos FX (clima e iluminación).
+     - `ComposerModals.tsx`: contenedor de modales para selector de recursos (fondo/token), alta rápida de personajes, traslado a preparación y recuperación de borradores resiliente de Android.
+  3. **Orquestador limpio:** `SceneCanvasComposer.tsx` se redujo de 2,203 líneas a ~700 líneas, preservando intacta la interfaz `SceneCanvasComposerProps`, el autoguardado atómico debounced y la resiliencia ante interrupciones.
+- **Evidencia técnica:** compilación TypeScript limpia (`npx tsc -b`), 63/63 suites de pruebas pasando al 100% (370/370 pruebas aprobadas en Vitest, incluyendo `sceneCanvasComposer.test.ts`), y compilación para producción (`npm run build`) completada con éxito.
+- **Comprobación de uso:** sin cambios para el usuario final; se mantiene la compatibilidad operativa total del compositor de escenas tanto en escritorio como en dispositivos móviles.
+
 ## 2026-09-04 — MAN-044: Modularización de DirectorModals en subcomponentes (`director/modals/`)
 
 - **Problema de mantenimiento:** `src/components/master/director/DirectorModals.tsx` concentraba 1,018 líneas albergando 9 modales tácticos y visuales distintos en un único archivo, incrementando la complejidad cognitiva y el riesgo al editar funcionalidades específicas del visor táctil.
@@ -76,6 +106,38 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
 - **Alcance:** incluye publicación, En vivo/Preparación, editor de escena, preview completo, iluminación, audio, recursos, combate, momentos, diálogos, preparación, recap, historial, checkpoints, presets, diagnóstico, biblioteca de sesiones, campaña y Modo Partida.
 - **Evidencia:** `npm run android:build` completado correctamente. Vite mantiene avisos no bloqueantes de bundle grande/importaciones dinámicas.
 - **Comprobación visual:** pendiente en Android físico; debe verificarse el scroll del drawer, la apertura de cada modal y el uso con Mesa conectada.
+
+## 2026-09-04 — MAN-044: Verificación de sincronización Web/Android
+
+- **Corrección:** `android:build` ahora valida que `dist/index.html` y los assets copiados a Android sean idénticos y que cada JS/CSS referenciado exista dentro del proyecto Android.
+- **Uso técnico:** `npm run android:verify` comprueba una sincronización existente; `npm run android:build` compila, sincroniza, normaliza Gradle y verifica todo en un solo recorrido.
+- **Resultado esperado:** si Android tiene una versión vieja o falta un asset, el comando falla antes de abrir Android Studio.
+
+## 2026-09-04 — MAN-045: Herramientas centralizadas y compositor móvil estable
+
+- **Funciones:** el drawer **Herramientas de mesa** reúne publicación, escena, combate, recursos, historial, presets, diagnóstico, campaña y Modo Partida.
+- **Compositor:** en teléfonos el editor ahora usa fondo opaco, viewport completo y una distribución estable de encabezado, lienzo limitado y controles con scroll interno.
+- **Evidencia:** `npm run android:build` y `npm run android:verify` completados correctamente; la validación visual en Android físico sigue pendiente.
+
+## 2026-09-04 — MAN-046: Estilos independientes para el compositor Android
+
+- **Problema observado:** en el celular algunos estilos utilitarios no se aplicaban al compositor: botones blancos del navegador, capas fuera del lienzo y escenario sobredimensionado.
+- **Corrección:** se añadieron estilos propios para el modal, lienzo, capas, controles, botones y pie de acciones; el escenario queda recortado dentro de su viewport y los controles usan scroll.
+- **Alcance técnico:** también se corrigió una ruta de tipos que impedía completar el build de la APK.
+- **Evidencia:** `npm run android:build` y `npm run android:verify` completados correctamente. La comprobación visual en Android físico queda pendiente.
+
+## 2026-09-04 — MAN-047: Hardening de composición y Modo Dirección
+
+- **Áreas revisadas:** editor alternativo de escenas y overlay de **Modo Dirección** dentro de la previsualización.
+- **Corrección:** se añadieron estilos de respaldo para contener el lienzo, mantener las barras dentro del viewport, dar tamaño táctil a los botones y evitar desbordes de menús.
+- **Evidencia:** `npm run android:build` y `npm run android:verify` completados correctamente. Vite mantiene avisos no bloqueantes de bundle grande/importaciones dinámicas.
+- **Comprobación visual:** pendiente repetir en Android físico los recorridos de zoom, ajuste de fondo, arrastre, selección múltiple, capas y waypoints.
+
+## 2026-09-04 — MAN-048: Acceso directo al espacio Escena
+
+- **Cambio de flujo:** la barra inferior móvil incorpora **Escena** como acceso de primer nivel, junto a **En Vivo**, **Combate**, **Momentos** y **Más**.
+- **Uso:** **Escena** abre directamente el compositor táctil para mover personajes, cambiar fondos y ajustar la composición sin atravesar drawers secundarios.
+- **Evidencia:** `npm run android:build` y `npm run android:verify` completados correctamente; la validación visual en Android físico queda pendiente.
 
 ## 2026-09-04 — MAN-031: Modo Partida Android con controles ocultables
 

@@ -475,7 +475,7 @@ export const CharacterDirectorOverlay: React.FC<CharacterDirectorOverlayProps> =
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 z-30 select-none overflow-hidden"
+      className="director-overlay absolute inset-0 z-30 select-none overflow-hidden"
       onClick={handleBackgroundClick}
       onPointerMove={(event) => {
         handlePointerMove(event);

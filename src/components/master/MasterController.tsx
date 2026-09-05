@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Monitor, Moon, Smartphone, Sun, X } from 'lucide-react';
 import type {
   Campaign,
   Character,
@@ -7,26 +6,19 @@ import type {
   CharacterPosition,
   CinematicMacro,
   DisplayState,
-  HistoryEvent,
-  LightingFilter,
-  SavedEncounter,
   Scene,
-  SessionCheckpoint,
-  WeatherType,
+  SavedEncounter,
   GameSession,
   SavedConversation,
 } from '../../types';
 import { soundEngine } from '../../services/soundEngine';
-import { getPlatformBridge } from '../../platform';
 import { sessionRecoveryService } from '../../services/sessionRecovery';
-import { backButtonStack } from '../../services/backButtonStack';
 import {
   initDefaultDataIfNeeded,
   getAllCampaigns,
   getCampaignCheckpoints,
-  saveCheckpoint,
-  deleteCheckpoint,
   getCampaignEncounters,
+  saveCheckpoint,
 } from '../../db';
 import { gameSessionService } from '../../services/gameSessionService';
 import { useMasterConnection } from '../../hooks/useMasterConnection';
@@ -35,19 +27,18 @@ import { useMacroSequencer } from '../../hooks/useMacroSequencer';
 import { accumulateMacroToState } from '../../domain/macros/macroEngine';
 import { useEmergencyActions } from '../../hooks/useEmergencyActions';
 import { useFavoritesActions } from '../../hooks/useFavoritesActions';
-import { sessionCommandBus, type MesaTelemetryInfo } from '../../services/sessionCommandBus';
+import { sessionCommandBus } from '../../services/sessionCommandBus';
 import { peerService } from '../../services/peerService';
-import {
-  PROTOCOL_VERSION,
-  APP_CAPABILITIES,
-  evaluateVersionCompatibility,
-  type VersionCompatibilityResult,
-} from '../../version';
 import { useStormCoordinator } from './controller/useStormCoordinator';
 import { useDirectorHandlers } from './controller/useDirectorHandlers';
 import { useSessionSceneHandlers } from './controller/useSessionSceneHandlers';
 import { useCombatCoordinator } from './controller/useCombatCoordinator';
 import { useCampaignManagement } from './controller/useCampaignManagement';
+import { useMasterBackButton } from './controller/useMasterBackButton';
+import { useMasterAtmosphereActions } from './controller/useMasterAtmosphereActions';
+import { useCheckpointManagement } from './controller/useCheckpointManagement';
+import { useVersionTelemetry } from './controller/useVersionTelemetry';
+import { PartyModeControl } from './controller/PartyModeControl';
 import { MasterHeader } from './controller/MasterHeader';
 import { MasterPrimaryModals } from './modals/MasterPrimaryModals';
 import { MasterMainTabs } from './controller/MasterMainTabs';
@@ -57,7 +48,7 @@ import { MasterAuxiliaryModals } from './modals/MasterAuxiliaryModals';
 import { MasterBottomNav } from './navigation/MasterBottomNav';
 import { MobileToolsDrawer } from './navigation/MobileToolsDrawer';
 
-interface MasterControllerProps {
+export interface MasterControllerProps {
   initialRoomCode?: string;
   pairingSecret?: string;
   onExitToLobby?: () => void;
@@ -84,7 +75,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   // Campaigns & DB State
   const [campaignList, setCampaignList] = useState<Campaign[]>([]);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
-  const [checkpointsList, setCheckpointsList] = useState<SessionCheckpoint[]>([]);
   const [encountersList, setEncountersList] = useState<SavedEncounter[]>([]);
   const [showCampaignPickerModal, setShowCampaignPickerModal] = useState<boolean>(false);
 
@@ -96,7 +86,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const [editingChar, setEditingChar] = useState<Character | null>(null);
 
   // Session View & Auxiliary Modals State
-  // The classic live editor is the single default control surface.
   const [sessionViewMode, setSessionViewMode] = useState<'session' | 'classic'>('classic');
   const [showManageFavoritesModal, setShowManageFavoritesModal] = useState<boolean>(false);
   const [showCompositorModal, setShowCompositorModal] = useState<boolean>(false);
@@ -139,46 +128,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     },
   });
 
-  // Helper: Create Auto-Checkpoint in Dexie
-  const createAutoCheckpoint = useCallback(
-    async (triggerName: string, stateToSave: DisplayState) => {
-      if (!campaign) return;
-      const autoCp: SessionCheckpoint = {
-        id: `cp-auto-${Date.now()}`,
-        campaignId: campaign.id,
-        name: `Auto: ${triggerName}`,
-        type: 'auto',
-        trigger: triggerName,
-        createdAt: Date.now(),
-        state: stateToSave,
-      };
-      await saveCheckpoint(autoCp);
-      const updated = await getCampaignCheckpoints(campaign.id);
-      setCheckpointsList(updated);
-    },
-    [campaign]
-  );
-
-  // Version & Feature Capability Matrix Evaluation
-  const [versionCompatibility, setVersionCompatibility] = useState<VersionCompatibilityResult | null>(null);
-
-  useEffect(() => {
-    const unsub = sessionCommandBus.onTelemetry((telemetry: MesaTelemetryInfo | null) => {
-      if (telemetry?.lastAuditReport) {
-        const report = telemetry.lastAuditReport;
-        const result = evaluateVersionCompatibility({
-          localRole: 'master',
-          localProtocolVersion: PROTOCOL_VERSION,
-          remoteProtocolVersion: report.protocolVersion ?? 1,
-          localCapabilities: APP_CAPABILITIES,
-          remoteCapabilities: report.capabilities ?? [],
-          remoteAppVersion: report.appVersion ?? '1.0.0',
-        });
-        setVersionCompatibility(result);
-      }
-    });
-    return unsub;
-  }, []);
+  // Version & Feature Capability Matrix Evaluation Hook
+  const { versionCompatibility } = useVersionTelemetry();
 
   // 2. Display Session Hook (useReducer)
   const {
@@ -207,6 +158,22 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     onCreateAutoCheckpoint: (triggerName, state) => {
       createAutoCheckpoint(triggerName, state);
     },
+  });
+
+  // Checkpoints Management Hook
+  const {
+    checkpointsList,
+    setCheckpointsList,
+    createAutoCheckpoint,
+    handleSaveManualCheckpoint,
+    handleRestoreCheckpoint,
+    handleDeleteCheckpoint,
+    handleRestoreFromHistory,
+  } = useCheckpointManagement({
+    campaign,
+    activeDisplay,
+    liveState,
+    restoreSnapshot,
   });
 
   // Storm Coordinator Hook
@@ -286,91 +253,59 @@ export const MasterController: React.FC<MasterControllerProps> = ({
       }
     };
     loadData();
-  }, [initSessionState]);
+  }, [initSessionState, setCheckpointsList]);
 
-  // Platform Bridge: Native Back Button with LIFO Stack
-  useEffect(() => {
-    const bridge = getPlatformBridge();
-    bridge.screen.setOrientation('unlocked');
-
-    const unbindBack = bridge.lifecycle.onBackButton(() => {
-      const consumedByStack = backButtonStack.dispatchBack();
-      if (consumedByStack) return true;
-
-      if (showQRModal) { setShowQRModal(false); return true; }
-      if (showDiagnosticsModal) { setShowDiagnosticsModal(false); return true; }
-      if (showHistoryModal) { setShowHistoryModal(false); return true; }
-      if (showCheckpointsModal) { setShowCheckpointsModal(false); return true; }
-      if (showQuickMoments) { setShowQuickMoments(false); return true; }
-      if (showSummonModal) { setShowSummonModal(false); return true; }
-      if (showNewSceneModal) { setShowNewSceneModal(false); return true; }
-      if (showNewCharModal) { setShowNewCharModal(false); return true; }
-      if (showCampaignPickerModal) { setShowCampaignPickerModal(false); return true; }
-      if (showSelectivePublishModal) { setShowSelectivePublishModal(false); return true; }
-      if (showCompositorModal) { setShowCompositorModal(false); return true; }
-      if (showConversationEditor) { setShowConversationEditor(false); return true; }
-      if (showSessionLibraryModal) { setShowSessionLibraryModal(false); return true; }
-      if (showManageFavoritesModal) { setShowManageFavoritesModal(false); return true; }
-      if (showRevelationJournalModal) { setShowRevelationJournalModal(false); return true; }
-      if (showSessionPrepWizardModal) { setShowSessionPrepWizardModal(false); return true; }
-      if (showHandoutViewerModal) { setShowHandoutViewerModal(false); return true; }
-      if (showCampaignRecapModal) { setShowCampaignRecapModal(false); return true; }
-      if (showSoundboardModal) { setShowSoundboardModal(false); return true; }
-      if (showLightingPresetsModal) { setShowLightingPresetsModal(false); return true; }
-      if (showChronicleExportModal) { setShowChronicleExportModal(false); return true; }
-      if (showReadinessModal) { setShowReadinessModal(false); return true; }
-
-      if (showFullScreenPreview) { setShowFullScreenPreview(false); return true; }
-
-      if (activeTab !== 'live') {
-        setActiveTab('live');
-        return true;
-      }
-
-      return false;
-    });
-
-    return () => {
-      unbindBack();
-    };
-  }, [
+  // Platform Bridge: Native Back Button with LIFO Stack Hook
+  useMasterBackButton({
     showQRModal,
+    setShowQRModal,
     showDiagnosticsModal,
+    setShowDiagnosticsModal,
     showHistoryModal,
+    setShowHistoryModal,
     showCheckpointsModal,
+    setShowCheckpointsModal,
     showQuickMoments,
+    setShowQuickMoments,
     showSummonModal,
+    setShowSummonModal,
     showNewSceneModal,
+    setShowNewSceneModal,
     showNewCharModal,
+    setShowNewCharModal,
     showCampaignPickerModal,
+    setShowCampaignPickerModal,
     showSelectivePublishModal,
+    setShowSelectivePublishModal,
     showCompositorModal,
+    setShowCompositorModal,
     showConversationEditor,
+    setShowConversationEditor,
     showSessionLibraryModal,
+    setShowSessionLibraryModal,
     showManageFavoritesModal,
+    setShowManageFavoritesModal,
     showRevelationJournalModal,
+    setShowRevelationJournalModal,
     showSessionPrepWizardModal,
+    setShowSessionPrepWizardModal,
     showHandoutViewerModal,
+    setShowHandoutViewerModal,
     showCampaignRecapModal,
+    setShowCampaignRecapModal,
     showSoundboardModal,
+    setShowSoundboardModal,
     showLightingPresetsModal,
+    setShowLightingPresetsModal,
     showChronicleExportModal,
+    setShowChronicleExportModal,
     showReadinessModal,
+    setShowReadinessModal,
     showFullScreenPreview,
+    setShowFullScreenPreview,
     activeTab,
-  ]);
-
-  // Android tabletop mode: keep the control surface awake and optionally immersive.
-  useEffect(() => {
-    const bridge = getPlatformBridge();
-    void bridge.screen.setKeepAwake(partyMode && partyKeepAwake);
-    void bridge.screen.setImmersive(partyMode && partyImmersive);
-
-    return () => {
-      void bridge.screen.setKeepAwake(false);
-      void bridge.screen.setImmersive(false);
-    };
-  }, [partyMode, partyKeepAwake, partyImmersive]);
+    setActiveTab,
+  });
 
   // Session Recovery & Debounced Draft Save
   useEffect(() => {
@@ -489,100 +424,23 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     await setCampaign(updatedCamp);
   };
 
-  // Checkpoints Management
-  const handleSaveManualCheckpoint = async (name: string) => {
-    if (!campaign) return;
-    const cp: SessionCheckpoint = {
-      id: `cp-manual-${Date.now()}`,
-      campaignId: campaign.id,
-      name,
-      type: 'manual',
-      trigger: 'Manual',
-      createdAt: Date.now(),
-      state: activeDisplay,
-    };
-    await saveCheckpoint(cp);
-    const updated = await getCampaignCheckpoints(campaign.id);
-    setCheckpointsList(updated);
-    soundEngine.playSynth('church_bell');
-  };
-
-  const handleRestoreCheckpoint = async (checkpoint: SessionCheckpoint) => {
-    await createAutoCheckpoint(`Seguridad: Antes de restaurar "${checkpoint.name}"`, liveState);
-    restoreSnapshot(checkpoint.state, `Restaurado Checkpoint: ${checkpoint.name}`);
-    soundEngine.playSynth('fanfare_victory');
-  };
-
-  const handleDeleteCheckpoint = async (id: string) => {
-    if (!campaign) return;
-    await deleteCheckpoint(id);
-    const updated = await getCampaignCheckpoints(campaign.id);
-    setCheckpointsList(updated);
-  };
-
-  const handleRestoreFromHistory = (evt: HistoryEvent) => {
-    restoreSnapshot(evt.stateSnapshot, `Restaurado a: ${evt.description}`);
-  };
-
-  // Atmospheric / Direct Actions
-  const setWeatherEffect = (type: WeatherType) => {
-    updateDisplay((prev) => ({ ...prev, weather: type }), `Clima: ${type}`);
-  };
-
-  const setWeatherIntensityVal = (val: number) => {
-    updateDisplay((prev) => ({ ...prev, weatherIntensity: val }), `Intensidad del Clima: ${Math.round(val * 100)}%`);
-  };
-
-  const setLightingPreset = (filter: LightingFilter) => {
-    updateDisplay((prev) => ({ ...prev, lighting: filter }), `Iluminación: ${filter}`);
-  };
-
-  const toggleBlackout = () => {
-    const next = !activeDisplay.isBlackout;
-    updateDisplay((prev) => ({ ...prev, isBlackout: next }), next ? 'Blackout Activado' : 'Blackout Desactivado');
-  };
-
-  const triggerLightning = () => {
-    broadcastMessage({ type: 'TRIGGER_LIGHTNING' });
-    soundEngine.playSynth('thunder');
-  };
-
-  const triggerScreenShake = () => {
-    broadcastMessage({ type: 'TRIGGER_SHAKE' });
-  };
-
-  const updateBanner = () => {
-    updateDisplay(
-      (prev) => ({ ...prev, locationBanner: { ...prev.locationBanner } }),
-      `Actualizado Cartel: ${activeDisplay.locationBanner.text}`
-    );
-  };
-
-  const toggleAmbientAudio = () => {
-    const next = !activeDisplay.ambientPlaying;
-    updateDisplay((prev) => ({ ...prev, ambientPlaying: next }), next ? 'Música Iniciada' : 'Música Pausada');
-    if (activeDisplay.ambientAudioUrl) {
-      soundEngine.setAmbient(activeDisplay.ambientAudioUrl, next, activeDisplay.ambientVolume, true);
-    }
-  };
-
-  const toggleAmbientPlay = toggleAmbientAudio;
-
-  const playSfx = (sfx: any) => {
-    if (sfx.soundType === 'synthesized' && sfx.synthPreset) {
-      soundEngine.playSynth(sfx.synthPreset);
-    }
-    broadcastMessage({
-      type: 'PLAY_SFX',
-      payload: {
-        id: sfx.id,
-        name: sfx.name,
-        synthPreset: sfx.synthPreset,
-        audioUrl: sfx.audioUrl,
-        timestamp: Date.now(),
-      },
-    });
-  };
+  // Atmospheric / Direct Actions Hook
+  const {
+    setWeatherEffect,
+    setWeatherIntensityVal,
+    setLightingPreset,
+    toggleBlackout,
+    triggerLightning,
+    triggerScreenShake,
+    updateBanner,
+    toggleAmbientAudio,
+    toggleAmbientPlay,
+    playSfx,
+  } = useMasterAtmosphereActions({
+    activeDisplay,
+    updateDisplay,
+    broadcastMessage,
+  });
 
   // Emergency Actions Hook
   const {
@@ -1084,72 +942,19 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         blackoutReceipt={blackoutReceipt}
       />
 
-      <aside className={`party-mode-control ${partyMenuOpen ? 'open' : ''}`} aria-label="Modo Partida">
-        {partyMenuOpen && (
-          <div className="party-mode-menu" role="dialog" aria-label="Opciones del Modo Partida">
-            <div className="party-mode-menu-header">
-              <div>
-                <span className="party-mode-eyebrow">Android / Mesa</span>
-                <strong>Modo Partida</strong>
-              </div>
-              <button type="button" className="party-mode-close" onClick={() => setPartyMenuOpen(false)} aria-label="Cerrar menú del Modo Partida">
-                <X size={17} />
-              </button>
-            </div>
-            <button
-              type="button"
-              className={`party-mode-option ${partyKeepAwake ? 'active' : ''}`}
-              onClick={() => setPartyKeepAwake((current) => !current)}
-            >
-              {partyKeepAwake ? <Sun size={18} /> : <Moon size={18} />}
-              <span>Pantalla activa</span>
-              <small>{partyKeepAwake ? 'Activada' : 'Apagada'}</small>
-            </button>
-            <button
-              type="button"
-              className={`party-mode-option ${partyImmersive ? 'active' : ''}`}
-              onClick={() => setPartyImmersive((current) => !current)}
-            >
-              <Monitor size={18} />
-              <span>Pantalla completa</span>
-              <small>{partyImmersive ? 'Activada' : 'Apagada'}</small>
-            </button>
-            <button
-              type="button"
-              className={`party-mode-option ${!partyControlsVisible ? 'active' : ''}`}
-              onClick={() => setPartyControlsVisible((current) => !current)}
-            >
-              <Smartphone size={18} />
-              <span>{partyControlsVisible ? 'Ocultar controles' : 'Mostrar controles'}</span>
-              <small>{partyControlsVisible ? 'Consola visible' : 'Solo escena'}</small>
-            </button>
-            <button
-              type="button"
-              className="party-mode-exit"
-              onClick={() => {
-                setPartyMode(false);
-                setPartyMenuOpen(false);
-                setPartyControlsVisible(true);
-              }}
-            >
-              Salir del Modo Partida
-            </button>
-          </div>
-        )}
-        <button
-          type="button"
-          className={`party-mode-trigger ${partyMode ? 'active' : ''}`}
-          onClick={() => {
-            if (!partyMode) setPartyMode(true);
-            setPartyMenuOpen((current) => !current);
-          }}
-          aria-expanded={partyMenuOpen}
-          aria-label={partyMode ? 'Abrir opciones del Modo Partida' : 'Activar Modo Partida'}
-        >
-          <Monitor size={17} />
-          <span>{partyMode ? 'Mesa' : 'Modo mesa'}</span>
-        </button>
-      </aside>
+      {/* PARTY MODE CONTROL (Modularized) */}
+      <PartyModeControl
+        partyMode={partyMode}
+        setPartyMode={setPartyMode}
+        partyMenuOpen={partyMenuOpen}
+        setPartyMenuOpen={setPartyMenuOpen}
+        partyControlsVisible={partyControlsVisible}
+        setPartyControlsVisible={setPartyControlsVisible}
+        partyKeepAwake={partyKeepAwake}
+        setPartyKeepAwake={setPartyKeepAwake}
+        partyImmersive={partyImmersive}
+        setPartyImmersive={setPartyImmersive}
+      />
 
       {/* PRIMARY MODALS LAYER (Modularized) */}
       <MasterPrimaryModals
@@ -1331,6 +1136,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         sessionViewMode={sessionViewMode}
         onSelectTab={setActiveTab}
         onOpenTools={() => setMobileToolsOpen(true)}
+        onOpenScene={() => setShowCompositorModal(true)}
       />
     </div>
   );

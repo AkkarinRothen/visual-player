@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Tv, Swords, Sparkles, MoreHorizontal, BookOpen, FolderOpen, Gamepad2 } from 'lucide-react';
+import { Tv, Swords, Sparkles, MoreHorizontal, BookOpen, FolderOpen, Gamepad2, ImagePlus } from 'lucide-react';
 
 export interface MasterBottomNavProps {
   activeTab: string;
   sessionViewMode: 'session' | 'classic';
   onSelectTab: (tab: any) => void;
   onOpenTools: () => void;
+  onOpenScene: () => void;
 }
 
 export const MasterBottomNav: React.FC<MasterBottomNavProps> = ({
@@ -13,6 +14,7 @@ export const MasterBottomNav: React.FC<MasterBottomNavProps> = ({
   sessionViewMode,
   onSelectTab,
   onOpenTools,
+  onOpenScene,
 }) => {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const isSecondaryTabActive = activeTab === 'notes' || activeTab === 'library';
@@ -75,6 +77,15 @@ export const MasterBottomNav: React.FC<MasterBottomNavProps> = ({
       >
         <Tv size={20} />
         <span>{sessionViewMode === 'session' ? 'Sesión' : 'En Vivo'}</span>
+      </button>
+
+      <button
+        type="button"
+        className="mobile-nav-item scene-entry"
+        onClick={() => { setIsMoreOpen(false); onOpenScene(); }}
+      >
+        <ImagePlus size={20} />
+        <span>Escena</span>
       </button>
 
       <button
