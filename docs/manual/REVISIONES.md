@@ -37,6 +37,13 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
 - **Exploración:** muestra la próxima escena sugerida y permite **Preparar siguiente** o **Buscar escena**.
 - **Evidencia:** compilación de producción `npm run build` completada correctamente; validación visual en Android físico y recorrido con Mesa conectada pendientes.
 
+## 2026-09-04 — MAN-036: Centro de Partida con línea temporal de acciones
+
+- **Alcance:** la vista **Sesión** incorpora las cuatro últimas acciones del director con modo (**En Vivo** o **Borrador**), escena y hora.
+- **Navegación:** el botón **Ver historial completo** abre el historial existente para restaurar estados anteriores.
+- **Responsive:** en celulares las acciones se muestran en dos columnas; en tablets se distribuyen en cuatro bloques compactos.
+- **Evidencia:** compilación de producción `npm run build` completada correctamente; validación visual en Android físico y recorrido con Mesa conectada pendientes.
+
 ## 2026-09-04 — MAN-030: Consola compacta de acciones rápidas para Android
 
 - **Versión:** árbol de trabajo local con consola de control para cambios durante la partida.

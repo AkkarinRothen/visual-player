@@ -5529,6 +5529,94 @@ body, html {
   transform: scale(0.97);
 }
 
+.session-action-timeline {
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.session-action-timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.session-action-timeline-header button {
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  font: inherit;
+  font-size: 0.66rem;
+  text-transform: none;
+}
+
+.session-action-timeline-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.session-action-timeline-item {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.session-action-timeline-item > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.session-action-timeline-item strong,
+.session-action-timeline-item span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-action-timeline-item strong {
+  color: #e2e8f0;
+  font-size: 0.72rem;
+}
+
+.session-action-timeline-item span:last-child {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.timeline-mode-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  margin-top: 4px;
+  border-radius: 50%;
+}
+
+.timeline-mode-dot.live { background: #34d399; }
+.timeline-mode-dot.staging { background: #c084fc; }
+
+@media (max-width: 640px) {
+  .session-action-timeline-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* Reversible Android tabletop mode. The trigger stays above every hidden control. */
 .party-mode-control {
   position: fixed;

@@ -942,6 +942,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({
             onDiscardStaged={discardStaged}
             onToggleOperationMode={handleToggleOperationMode}
             onUndo={undo}
+            pastEvents={pastEvents}
+            onOpenHistory={() => setShowHistoryModal(true)}
             onTriggerLightning={triggerLightning}
             onTriggerShake={triggerScreenShake}
             onToggleBlackout={toggleBlackout}

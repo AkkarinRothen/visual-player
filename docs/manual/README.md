@@ -40,6 +40,7 @@ Necesitás tener acceso a la app en el dispositivo que usará quien dirige y en 
 - **Escenas recientes y deshacer:** La vista **Sesión** conserva hasta cinco escenas usadas recientemente con sus miniaturas. Tocá una para volver a esa ubicación siguiendo el modo actual (**En Vivo** o **Preparación**). Después de una acción rápida, usá **Deshacer** si necesitás corregirla.
 - **Panel Ahora / Después:** En la vista **Sesión**, **Ahora · En Mesa** indica la escena que está viendo el grupo y **Después · Preparado** muestra el borrador siguiente. Si hay cambios pendientes, podés tocar **Publicar** o **Descartar** directamente desde ese panel.
 - **Controles según el contexto:** Durante un combate, el bloque **Contexto actual** muestra la ronda y el combatiente activo, con botones **Anterior**, **Siguiente turno** y **Ver combate**. Fuera del combate muestra el próximo paso sugerido y permite **Preparar siguiente** o **Buscar escena**.
+- **Últimas acciones:** El **Centro de Partida** muestra las cuatro acciones más recientes, indicando si fueron **En Vivo** o **Borrador**, la escena relacionada y la hora. Tocá **Ver historial completo** para revisar o restaurar un punto anterior.
 
 Para este primer recorrido, usá conexión a Internet. El funcionamiento sin Internet y la conexión local de Android quedan pendientes de una guía comprobada en dispositivos reales. Si vas a usar imágenes o sonidos mediante enlaces, esos enlaces también deben poder abrirse desde los dispositivos.
 

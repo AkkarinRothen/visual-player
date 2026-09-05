@@ -12,6 +12,7 @@ import {
   Moon,
   Radio,
   RefreshCcw,
+  History,
   Sparkles,
   Swords,
   Volume2,
@@ -39,6 +40,7 @@ import type {
   LightningConfig,
   SceneSituation,
   DraftSaveState,
+  HistoryEvent,
 } from '../../types';
 import { gameSessionService, type BackupStatus } from '../../services/gameSessionService';
 import { SessionIdentityHeader } from './sessionPanel/SessionIdentityHeader';
@@ -68,6 +70,8 @@ interface SessionPanelProps {
   onDiscardStaged: () => void;
   onToggleOperationMode: (mode: 'live' | 'staging') => void;
   onUndo?: () => void;
+  pastEvents?: HistoryEvent[];
+  onOpenHistory?: () => void;
   onTriggerLightning: () => void;
   onTriggerShake: () => void;
   onToggleBlackout: () => void;
@@ -173,6 +177,8 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
   onDiscardStaged,
   onToggleOperationMode,
   onUndo,
+  pastEvents = [],
+  onOpenHistory,
   onTriggerLightning,
   onTriggerShake,
   onToggleBlackout: _onToggleBlackout,
@@ -625,6 +631,31 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
                 <img src={scene.backgroundUrl} alt="" aria-hidden="true" />
                 <span>{scene.name}</span>
               </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pastEvents.length > 0 && (
+        <section className="session-action-timeline" aria-label="Últimas acciones del director">
+          <div className="session-action-timeline-header">
+            <div className="flex-align-gap">
+              <History size={15} className="text-amber-400" />
+              <span>Últimas acciones</span>
+            </div>
+            {onOpenHistory && (
+              <button type="button" onClick={onOpenHistory}>Ver historial completo</button>
+            )}
+          </div>
+          <div className="session-action-timeline-list">
+            {pastEvents.slice(0, 4).map((event) => (
+              <div className="session-action-timeline-item" key={event.id}>
+                <span className={`timeline-mode-dot ${event.mode}`} />
+                <div>
+                  <strong>{event.description}</strong>
+                  <span>{event.stateSnapshot.sceneName || 'Sin escena'} · {new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              </div>
             ))}
           </div>
         </section>
