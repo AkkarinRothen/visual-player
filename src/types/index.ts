@@ -1303,4 +1303,52 @@ export interface AuditRestoreReport {
   details: string;
 }
 
+/**
+ * Activo individual dentro de un paquete de recursos (.vppack)
+ */
+export interface ResourcePackAsset {
+  id: string;
+  name: string;
+  type: 'image' | 'video';
+  category: 'token' | 'background' | 'prop';
+  dataUrl: string;
+  thumbnailUrl?: string;
+  dimensions?: { width: number; height: number };
+  tags?: string[];
+  originalFileName?: string;
+}
 
+/**
+ * Paquete de recursos visuales portable (.vppack / .vppack.json)
+ */
+export interface VisualResourcePack {
+  schemaVersion: 1;
+  type: 'visual_resource_pack';
+  id: string;
+  name: string;
+  category: 'tokens' | 'maps' | 'props' | 'assets';
+  author?: string;
+  description?: string;
+  coverDataUrl?: string;
+  createdAt: number;
+  itemCount: number;
+  totalSizeBytes: number;
+  tags?: string[];
+  assets: ResourcePackAsset[];
+}
+
+/**
+ * Registro de paquete de recursos instalado localmente
+ */
+export interface InstalledResourcePack {
+  id: string;
+  name: string;
+  category: 'tokens' | 'maps' | 'props' | 'assets';
+  author?: string;
+  description?: string;
+  coverDataUrl?: string;
+  installedAt: number;
+  itemCount: number;
+  totalSizeBytes: number;
+  tags?: string[];
+}

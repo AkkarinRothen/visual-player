@@ -8,6 +8,7 @@ import type {
   GameSession,
   GameSessionTemplate,
   SceneCompositionPreset,
+  InstalledResourcePack,
 } from '../types';
 import type { FullRecoverySnapshot } from '../services/sessionRecovery';
 import type { StoredAsset } from './assetDb';
@@ -31,6 +32,7 @@ export class VisualPlayerDB extends Dexie {
   sessions!: Table<GameSession, string>;
   sessionTemplates!: Table<GameSessionTemplate, string>;
   scenePresets!: Table<SceneCompositionPreset, string>;
+  resourcePacks!: Table<InstalledResourcePack, string>;
 
   constructor() {
     super('VisualPlayerDB');
@@ -84,6 +86,21 @@ export class VisualPlayerDB extends Dexie {
       sessions: 'id, campaignId, status, isDeleted, createdAt, updatedAt',
       sessionTemplates: 'id, campaignId, isDeleted, createdAt',
       scenePresets: 'id, campaignId, sceneId, isDeleted, createdAt, updatedAt',
+    });
+    // v9 — añade tabla para Packs de Recursos Instalables (.vppack) y campos packId a assets
+    this.version(9).stores({
+      campaigns: 'id, title, createdAt, updatedAt',
+      characters: 'id, name, roleOrTitle',
+      scenes: 'id, name',
+      assets: 'id, name, type, createdAt, originUrl, packId',
+      settings: 'key',
+      checkpoints: 'id, campaignId, sessionId, type, createdAt',
+      encounters: 'id, campaignId, name, difficulty',
+      recoverySnapshots: 'id, roomId, sessionRevision, savedAt, exitType',
+      sessions: 'id, campaignId, status, isDeleted, createdAt, updatedAt',
+      sessionTemplates: 'id, campaignId, isDeleted, createdAt',
+      scenePresets: 'id, campaignId, sceneId, isDeleted, createdAt, updatedAt',
+      resourcePacks: 'id, name, category, author, installedAt',
     });
   }
 }

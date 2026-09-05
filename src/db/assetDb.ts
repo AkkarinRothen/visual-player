@@ -5,6 +5,8 @@ import type {
   ExportPreflightReport,
   SceneCompositionPreset,
   PresetDependencyReport,
+  VisualResourcePack,
+  InstalledResourcePack,
 } from '../types';
 import { db } from './index';
 import { generateId } from './dbUtils';
@@ -26,6 +28,10 @@ export interface StoredAsset {
   createdAt: number;
   originUrl?: string;
   refCount?: number;
+  packId?: string;
+  packName?: string;
+  category?: 'token' | 'background' | 'prop' | 'character';
+  tags?: string[];
 }
 
 export interface AssetDependencyItem {
@@ -611,5 +617,105 @@ export async function purgeOrphanAssets(): Promise<{ purgedCount: number; reclai
     purgedCount: audit.orphanAssetIds.length,
     reclaimedBytes: audit.reclaimableBytes,
   };
+}
+
+/**
+ * Importa un paquete de recursos (.vppack) en IndexedDB.
+ * Registra los activos con su respectivo packId y guarda la ficha del paquete.
+ */
+export async function importResourcePack(
+  pack: VisualResourcePack,
+  onProgress?: (current: number, total: number) => void
+): Promise<InstalledResourcePack> {
+  if (!pack || pack.type !== 'visual_resource_pack' || !Array.isArray(pack.assets)) {
+    throw new Error('El archivo no es un paquete de recursos válido de Visual Player (.vppack)');
+  }
+
+  // Si ya existía una versión anterior del mismo pack, limpiamos sus assets previos
+  const existing = await db.resourcePacks.get(pack.id);
+  if (existing) {
+    const oldAssets = await db.assets.where('packId').equals(pack.id).toArray();
+    if (oldAssets.length > 0) {
+      await db.assets.bulkDelete(oldAssets.map((a) => a.id));
+    }
+  }
+
+  const total = pack.assets.length;
+  const assetsToStore: StoredAsset[] = [];
+  let calculatedSize = 0;
+
+  for (let i = 0; i < total; i++) {
+    const a = pack.assets[i];
+    const sizeEst = a.dataUrl ? Math.round((a.dataUrl.length * 3) / 4) : 0;
+    calculatedSize += sizeEst;
+
+    const stored: StoredAsset = {
+      id: a.id || generateId('asset'),
+      name: a.name,
+      type: a.type || 'image',
+      dataUrl: a.dataUrl,
+      thumbnailUrl: a.thumbnailUrl || a.dataUrl,
+      dimensions: a.dimensions,
+      category: a.category,
+      tags: a.tags,
+      packId: pack.id,
+      packName: pack.name,
+      createdAt: Date.now(),
+      refCount: 1,
+      optimizedSize: sizeEst,
+    };
+    assetsToStore.push(stored);
+
+    if (onProgress && (i % 10 === 0 || i === total - 1)) {
+      onProgress(i + 1, total);
+    }
+  }
+
+  if (assetsToStore.length > 0) {
+    await db.assets.bulkPut(assetsToStore);
+  }
+
+  const installed: InstalledResourcePack = {
+    id: pack.id,
+    name: pack.name,
+    category: pack.category,
+    author: pack.author,
+    description: pack.description,
+    coverDataUrl: pack.coverDataUrl || (pack.assets[0]?.thumbnailUrl ?? pack.assets[0]?.dataUrl),
+    installedAt: Date.now(),
+    itemCount: pack.assets.length,
+    totalSizeBytes: pack.totalSizeBytes || calculatedSize,
+    tags: pack.tags,
+  };
+
+  await db.resourcePacks.put(installed);
+  return installed;
+}
+
+/**
+ * Desinstala un paquete de recursos por ID, eliminando todos sus activos de IndexedDB.
+ */
+export async function uninstallResourcePack(packId: string): Promise<{ deletedAssetsCount: number }> {
+  const assets = await db.assets.where('packId').equals(packId).toArray();
+  const ids = assets.map((a) => a.id);
+  if (ids.length > 0) {
+    await db.assets.bulkDelete(ids);
+  }
+  await db.resourcePacks.delete(packId);
+  return { deletedAssetsCount: ids.length };
+}
+
+/**
+ * Retorna todos los paquetes de recursos instalados.
+ */
+export async function getInstalledResourcePacks(): Promise<InstalledResourcePack[]> {
+  return db.resourcePacks.orderBy('installedAt').reverse().toArray();
+}
+
+/**
+ * Obtiene todos los activos asociados a un paquete determinado.
+ */
+export async function getAssetsByPack(packId: string): Promise<StoredAsset[]> {
+  return db.assets.where('packId').equals(packId).toArray();
 }
 

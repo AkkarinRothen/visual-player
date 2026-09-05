@@ -609,6 +609,25 @@ Podés guardar cualquier escena que tengas armada en tu borrador como una pieza 
    - **Reemplazar Borrador:** Reemplaza la composición actual en preparación. Crea automáticamente un punto de control previo por si querés deshacer el cambio.
    - **Protección de la Mesa:** Las operaciones con presets se realizan exclusivamente en tu borrador. No emiten nada a la pantalla de los jugadores ni reproducen sonido.
 
+### Packs de Recursos Visuales Instalables (.vppack)
+
+Visual Player permite empaquetar, comprimir a WebP e instalar colecciones curadas de imágenes (Tokens tácticos, Mapas de batalla y Props decorativos) para disponer de miles de recursos sin conexión y sin sobrecargar la memoria del dispositivo:
+
+1. **Gestor de Packs de Recursos:**
+   - Accesible desde **Herramientas de mesa → Packs de recursos** en el móvil, o tocando el botón **Packs de Recursos** dentro de la biblioteca del selector de imágenes (**AssetPickerModal**).
+   - **Instalación táctil o por arrastre:** Arrastrá o seleccioná cualquier archivo `.vppack` (o `.json` de paquete). La app indexa los recursos en segundo plano mostrando una barra de progreso en tiempo real con el porcentaje y conteo de activos procesados.
+   - **Tarjetas de información:** Muestra carátula, autor, categoría (*Tokens*, *Mapas*, *Props*), cantidad de recursos y tamaño en MB.
+   - **Ver contenido del pack:** Tocá el icono del ojo en cualquier paquete instalado para abrir una cuadrícula con todas sus miniaturas y nombres, permitiendo revisar rápidamente qué criaturas, mapas o atrezos incluye.
+   - **Desinstalación limpia con 1 toque:** El botón de la papelera elimina por completo todos los recursos asociados a ese paquete de la base de datos local (IndexedDB) tras confirmación, liberando espacio al instante.
+
+2. **Filtro por Colección / Pack en el Selector Visual:**
+   - En la pestaña **Mi Biblioteca** al elegir un fondo de escena, retrato o prop, un menú desplegable permite filtrar entre **Todas las colecciones**, un pack específico instalado (ej. *Czepeku: Monstruos D&D*, *Mapas de Fantasía: DM Andy*) o **Sin pack / Subidos manualmente**.
+   - Los recursos pertenecientes a un paquete exhiben un distintivo dorado **Pack** en su miniatura para facilitar su reconocimiento.
+
+3. **Herramienta de Creación de Packs (CLI):**
+   - Desde la terminal de la computadora, ejecutá `npm run pack:create` (o `node scripts/create-vppack.mjs`).
+   - El asistente interactivo te permite explorar tus carpetas locales (por ejemplo `I:\TTRPG\Visuales`), elegir una categoría o autor, ajustar la resolución máxima (ej. 512 px para tokens, 1920 px para mapas) y la compresión WebP, generando automáticamente el archivo `.vppack` optimizado en la carpeta `packs/` y en `I:\TTRPG\Visuales\Packs_VP\`.
+
 <a id="continuidad"></a>
 ## Continuar la historia entre partidas
 

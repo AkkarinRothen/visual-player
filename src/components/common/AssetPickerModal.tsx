@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Upload, Image as ImageIcon, Search, Check, Link as LinkIcon, RefreshCw, FolderHeart, Sparkles, AlertCircle, Film, Play } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { X, Upload, Image as ImageIcon, Search, Check, Link as LinkIcon, RefreshCw, FolderHeart, Sparkles, AlertCircle, Film, Play, Package } from 'lucide-react';
 import { db, registerImmutableAsset, registerOptimizedAsset, type StoredAsset } from '../../db';
 import { optimizeUploadedImage, formatBytes, type OptimizedImageResult } from '../../utils/imageOptimizer';
 import { validateVideoFile, extractVideoPoster, formatVideoDuration, type VideoValidationResult } from '../../utils/videoOptimizer';
+import { ResourcePacksModal } from '../master/modals/ResourcePacksModal';
 
 export interface SelectedAssetResult {
   url: string;
@@ -34,6 +35,8 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
   const [storedAssets, setStoredAssets] = useState<StoredAsset[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'image' | 'video'>('all');
+  const [selectedPackFilter, setSelectedPackFilter] = useState<string>('all');
+  const [isPacksModalOpen, setIsPacksModalOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>(currentUrl);
   const [assetName, setAssetName] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -68,6 +71,8 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
       setVideoValidation(null);
       setVideoPosterDataUrl(null);
       setFilterType('all');
+      setSelectedPackFilter('all');
+      setIsPacksModalOpen(false);
       if (videoObjectUrl) {
         URL.revokeObjectURL(videoObjectUrl);
         setVideoObjectUrl(null);
@@ -294,12 +299,27 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
     }
   };
 
+  // Identificar colecciones y packs disponibles entre los recursos guardados
+  const availablePacks = useMemo(() => {
+    const map = new Map<string, string>();
+    storedAssets.forEach((a) => {
+      if (a.packId && a.packName) {
+        map.set(a.packId, a.packName);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [storedAssets]);
+
   // Filtrar assets de la biblioteca
   const filteredAssets = storedAssets.filter((a) => {
     const matchesSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
     if (filterType === 'image') return a.type === 'image' || !a.type;
     if (filterType === 'video') return a.type === 'video';
+    if (selectedPackFilter !== 'all') {
+      if (selectedPackFilter === 'none') return !a.packId;
+      return a.packId === selectedPackFilter;
+    }
     return true;
   });
 
@@ -801,6 +821,69 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
                 )}
               </div>
 
+              {/* Barra de Filtro por Colección/Pack + Botón de Gestor */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flex: 1, minWidth: '200px' }}>
+                  <Package size={14} style={{ color: '#fbbf24', flexShrink: 0 }} />
+                  <select
+                    value={selectedPackFilter}
+                    onChange={(e) => setSelectedPackFilter(e.target.value)}
+                    aria-label="Filtrar por pack de recursos"
+                    style={{
+                      padding: '6px 10px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.14)',
+                      borderRadius: '8px',
+                      color: '#fbbf24',
+                      fontSize: '0.8rem',
+                      fontWeight: 500,
+                      outline: 'none',
+                      cursor: 'pointer',
+                      width: '100%',
+                      maxWidth: '280px',
+                    }}
+                  >
+                    <option value="all" style={{ background: '#0f172a', color: '#fff' }}>
+                      Todas las colecciones ({storedAssets.length})
+                    </option>
+                    {availablePacks.map((p) => {
+                      const count = storedAssets.filter((a) => a.packId === p.id).length;
+                      return (
+                        <option key={p.id} value={p.id} style={{ background: '#0f172a', color: '#fff' }}>
+                          Pack: {p.name} ({count})
+                        </option>
+                      );
+                    })}
+                    <option value="none" style={{ background: '#0f172a', color: '#fff' }}>
+                      Sin pack / Subidos manualmente
+                    </option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPacksModalOpen(true)}
+                  style={{
+                    padding: '6px 12px',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    borderRadius: '8px',
+                    color: '#fbbf24',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="Instalar nuevos packs (.vppack) o desinstalar existentes"
+                >
+                  <Package size={14} />
+                  <span>Packs de Recursos</span>
+                </button>
+              </div>
+
               {filteredAssets.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af' }}>
                   <Sparkles size={32} className="text-amber-400" style={{ margin: '0 auto 12px', opacity: 0.7 }} />
@@ -884,6 +967,23 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
                             whiteSpace: 'nowrap',
                           }}
                         >
+                          {asset.packName && (
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                fontSize: '0.6rem',
+                                padding: '0 4px',
+                                borderRadius: '3px',
+                                background: 'rgba(245, 158, 11, 0.3)',
+                                color: '#fef08a',
+                                marginRight: '4px',
+                                border: '1px solid rgba(245, 158, 11, 0.4)',
+                              }}
+                              title={`Pack: ${asset.packName}`}
+                            >
+                              Pack
+                            </span>
+                          )}
                           {asset.name}
                         </div>
                       </div>
@@ -987,6 +1087,15 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
           )}
         </div>
       </div>
+
+      <ResourcePacksModal
+        isOpen={isPacksModalOpen}
+        onClose={() => {
+          setIsPacksModalOpen(false);
+          loadStoredAssets();
+        }}
+        onAssetsChanged={loadStoredAssets}
+      />
     </div>
   );
 };

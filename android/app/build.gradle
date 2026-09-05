@@ -79,3 +79,21 @@ try {
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }
+
+task autoSyncWebAssets(type: Exec) {
+    description = "Sincroniza y compila los assets web de Vite en Android si hay cambios recientes"
+    workingDir '../../'
+    
+    onlyIf {
+        !project.hasProperty('skipWebSync') && System.getenv('SKIP_WEB_SYNC') != 'true'
+    }
+
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'node scripts/ensure-android-assets.mjs'
+    } else {
+        commandLine 'node', 'scripts/ensure-android-assets.mjs'
+    }
+}
+
+preBuild.dependsOn autoSyncWebAssets
+

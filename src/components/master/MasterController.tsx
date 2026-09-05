@@ -47,6 +47,7 @@ import { EmergencyDock } from './EmergencyDock';
 import { MasterAuxiliaryModals } from './modals/MasterAuxiliaryModals';
 import { MasterBottomNav } from './navigation/MasterBottomNav';
 import { MobileToolsDrawer } from './navigation/MobileToolsDrawer';
+import { ResourcePacksModal } from './modals/ResourcePacksModal';
 
 export interface MasterControllerProps {
   initialRoomCode?: string;
@@ -103,6 +104,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   const [showScenePresetModal, setShowScenePresetModal] = useState<boolean>(false);
   const [scenePresetMode, setScenePresetMode] = useState<'save' | 'insert'>('save');
   const [showReadinessModal, setShowReadinessModal] = useState<boolean>(false);
+  const [showResourcePacksModal, setShowResourcePacksModal] = useState<boolean>(false);
   const [partyMode, setPartyMode] = useState(false);
   const [partyMenuOpen, setPartyMenuOpen] = useState(false);
   const [partyControlsVisible, setPartyControlsVisible] = useState(true);
@@ -1146,6 +1148,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
           onOpenInsertPreset={() => { handleOpenInsertScenePreset(); setMobileToolsOpen(false); }}
           onOpenPartyMode={() => { setPartyMenuOpen(true); setMobileToolsOpen(false); }}
           onOpenCampaign={() => { setShowCampaignPickerModal(true); setMobileToolsOpen(false); }}
+          onOpenResourcePacks={() => { setShowResourcePacksModal(true); setMobileToolsOpen(false); }}
           onSelectTab={(tab) => { setActiveTab(tab); setMobileToolsOpen(false); }}
         />
       )}
@@ -1155,6 +1158,11 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         onSelectTab={setActiveTab}
         onOpenTools={() => setMobileToolsOpen(true)}
         onOpenScene={() => setShowCompositorModal(true)}
+      />
+
+      <ResourcePacksModal
+        isOpen={showResourcePacksModal}
+        onClose={() => setShowResourcePacksModal(false)}
       />
     </div>
   );

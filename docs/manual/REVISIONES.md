@@ -2,6 +2,51 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-05 — MAN-055: Sincronización Automática Web-Android en Gradle (Hook preBuild de Android Studio)
+
+- **Walkthrough y entorno:** revisión del pipeline de empaquetado de Capacitor y Android Studio. Verificación mediante ejecución de Gradle (`.\gradlew.bat :app:preBuild`) tanto en frío como tras modificaciones de código (`package.json`), comprobando detección de cambios y compilación desatendida. Ejecución completa de Vitest (453/453 pruebas aprobadas en 78 suites), verificación estricta de tipos con `npx tsc -b` (0 errores) y compilación de producción con Vite (`npm run build`). Comprobación de que la tarea Gradle se salta en <50 ms cuando los assets ya están sincronizados y se ejecuta automáticamente cuando hay cambios; pendiente prueba en despliegue a dispositivo Android físico conectado por ADB.
+- **Funciones y componentes afectados:**
+  1. **Script de Detección Inteligente de Cambios (`scripts/ensure-android-assets.mjs`, `package.json`):**
+     - Inspecciona recursivamente las marcas de tiempo (`mtime`) de `src/`, `public/`, `index.html`, `package.json`, `vite.config.ts` y `capacitor.config.ts` frente al `index.html` de Android (`android/app/src/main/assets/public/index.html`).
+     - Si hay cambios pendientes o desincronización, ejecuta automáticamente `npm run android:build` (Vite build + Capacitor sync + normalización de Gradle + verificación de integridad).
+     - Si los assets ya están al día, finaliza en milisegundos sin demorar el ciclo de compilación de Android Studio.
+     - Añadido comando `npm run android:ensure` para comprobación manual rápida.
+  2. **Hook de Gradle Automático en Android Studio (`android/app/build.gradle`):**
+     - Nueva tarea `autoSyncWebAssets` conectada a `preBuild.dependsOn`.
+     - Cada vez que el usuario presiona **Run** (Play) o compila en Android Studio, Gradle verifica y compila automáticamente los últimos cambios web antes de generar el APK.
+     - Soporta bypass condicional mediante bandera `-PskipWebSync=true` o variable de entorno `SKIP_WEB_SYNC=true`.
+- **Manual:** «sin cambios de uso en la interfaz web de usuario»; mejora en el flujo de desarrollo y compilación nativa en Android Studio.
+- **Evidencia técnica:** Ejecución real de `.\gradlew.bat :app:preBuild` disparando la tarea `autoSyncWebAssets` con éxito en Gradle 8.14.3. 78/78 suites pasando (453/453 pruebas en Vitest), `npx tsc -b` con 0 errores y compilación `npm run build` limpia.
+- **Límites:** comprobado en línea de comandos y en Gradle Daemon de Windows; pendiente validación directa pulsando el botón Run dentro de la GUI de Android Studio.
+
+## 2026-09-05 — MAN-054: Sistema de Packs Instalables de Recursos (.vppack), Generador CLI y Gestor Local
+
+- **Walkthrough y entorno:** revisión y ejecución completa de pruebas unitarias y de integración en Vitest (453/453 pruebas aprobadas en 78 suites, incluyendo 6 pruebas en `resourcePackService.test.ts` y 5 pruebas en `ResourcePacksModal.test.tsx`), verificación estricta de tipos de TypeScript con `npx tsc -b` (0 errores) y compilación de producción con Vite (`npm run build` en 4.35s). Ejecución real del generador CLI `scripts/create-vppack.mjs` con conversión a WebP mediante Sharp procesando colecciones de `I:\TTRPG\Visuales` (>340.000 archivos, ~196 GB) y generando tres paquetes inaugurales de prueba (*Czepeku: Monstruos D&D Vol. 1*, *Mapas de Fantasía: DM Andy Vol. 1* y *Atrezos Navales y Piratas: Limithron*). Comprobación de UI en navegador web local; pendiente validación en dispositivo Android físico.
+- **Funciones y componentes afectados:**
+  1. **Generador CLI Interactivo y Desatendido (`scripts/create-vppack.mjs`, `package.json`):**
+     - Nuevo comando `npm run pack:create` con soporte interactivo (readline) y por argumentos (`--folder`, `--name`, `--author`, `--category`, `--max-items`, `--max-size`, `--yes`).
+     - Pipeline de optimización de imágenes con `sharp`: compresión y conversión automática a WebP (82% de calidad) y generación de miniaturas livianas de 128 px para previews instantáneos.
+     - Guarda el archivo `.vppack` resultante en `packs/` y copia automática en `I:\TTRPG\Visuales\Packs_VP\`.
+  2. **Persistencia e Indexación en IndexedDB (`assetDb.ts`, `index.ts`, `types/index.ts`):**
+     - Nuevas interfaces `VisualResourcePack`, `ResourcePackAsset` e `InstalledResourcePack`.
+     - Esquema Dexie v9 con tabla `resourcePacks: 'id, name, category, author, installedAt'` e índice `packId` en `assets`.
+     - Funciones `importResourcePack()`, `uninstallResourcePack()`, `getInstalledResourcePacks()` y `getAssetsByPack()`.
+  3. **Servicio Centralizado (`resourcePackService.ts`):**
+     - Validación estricta de archivos `.vppack`, instalación con reporte de progreso atómico, desinstalación y exportación de paquetes.
+  4. **Modal Gestor de Packs (`ResourcePacksModal.tsx`):**
+     - Acceso desde el menú móvil de *Herramientas de mesa* y desde el selector de recursos.
+     - Zona de arrastrar y soltar (Drag & Drop) / selector de archivo para instalar `.vppack` con barra de progreso.
+     - Tarjetas de paquetes con carátula, autor, categoría, cantidad de recursos y tamaño en MB.
+     - Visor emergente de miniaturas para inspeccionar el contenido de cualquier pack instalado.
+     - Botón de desinstalación limpia con confirmación que elimina todos los activos asociados de IndexedDB y libera memoria.
+  5. **Filtro por Colección en Selector Visual (`AssetPickerModal.tsx`):**
+     - Selector desplegable de colección en la pestaña *Mi Biblioteca* para filtrar por pack específico (`all`, `packId`, `none`).
+     - Distintivo visual dorado *Pack* en las tarjetas de recursos pertenecientes a un paquete instalado.
+     - Botón directo *Packs de Recursos* en la barra superior de la biblioteca.
+- **Manual:** actualizada la sección de «Packs de Recursos Visuales Instalables (.vppack)» en `docs/manual/README.md`.
+- **Evidencia técnica:** 78/78 suites pasando (453/453 pruebas en Vitest), `npx tsc -b` con 0 errores y compilación `npm run build` en 4.35s. 3 packs modelo creados y verificados en `packs/` e `I:\TTRPG\Visuales\Packs_VP\`.
+- **Límites:** comprobado en pruebas automatizadas y en entorno web local; pendiente validación en pantalla táctil capacitiva de teléfono Android físico con APK instalada.
+
 ## 2026-09-05 — MAN-053: Drawers Laterales Duales Táctiles (Edge Drawers) para Herramientas Rápidas en Móvil
 
 - **Walkthrough y entorno:** revisión y ejecución completa de pruebas unitarias y de integración en Vitest (442/442 pruebas aprobadas en 76 suites, incluyendo 5 pruebas en `MobileFxEdgeDrawer.test.tsx`, 5 pruebas en `MobileResourcesEdgeDrawer.test.tsx` y 13 pruebas completas en `LiveModularControlPanel.test.tsx`), verificación estricta de tipos de TypeScript con `npx tsc -b` (0 errores) y compilación de producción con Vite (`npm run build` en 1.45s). Comprobación de interacción visual y gestual en navegador emulando pantallas móviles (360 × 780 px a 640 px); pendiente prueba con dispositivos físicos Android y mesa de proyección conectada.

@@ -17,6 +17,7 @@ import {
   Lightbulb,
   MessageSquare,
   Music,
+  Package,
   RotateCcw,
   Settings2,
   Sparkles,
@@ -49,6 +50,7 @@ interface MobileToolsDrawerProps {
   onOpenInsertPreset: () => void;
   onOpenPartyMode: () => void;
   onOpenCampaign: () => void;
+  onOpenResourcePacks?: () => void;
   onSelectTab: (tab: 'moments' | 'combat' | 'notes' | 'library') => void;
 }
 
@@ -94,6 +96,7 @@ export const MobileToolsDrawer: React.FC<MobileToolsDrawerProps> = ({
   onOpenInsertPreset,
   onOpenPartyMode,
   onOpenCampaign,
+  onOpenResourcePacks,
   onSelectTab,
 }) => createPortal(
   <div className="mobile-tools-overlay" role="presentation" onClick={onClose}>
@@ -167,6 +170,9 @@ export const MobileToolsDrawer: React.FC<MobileToolsDrawerProps> = ({
             <ToolButton icon={<Gamepad2 size={18} />} label="Modo Partida" hint="Pantalla activa y controles" onClick={onOpenPartyMode} />
             <ToolButton icon={<BarChart3 size={18} />} label="Diagnóstico" onClick={onOpenDiagnostics} />
             <ToolButton icon={<Library size={18} />} label="Biblioteca de sesiones" onClick={onOpenSessionLibrary} />
+            {onOpenResourcePacks && (
+              <ToolButton icon={<Package size={18} />} label="Packs de recursos" hint="Instalar tokens y mapas" onClick={onOpenResourcePacks} />
+            )}
             <ToolButton icon={<Library size={18} />} label="Campaña" onClick={onOpenCampaign} />
           </div>
         </section>
