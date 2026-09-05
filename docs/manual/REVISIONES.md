@@ -59,6 +59,14 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
 - **Evidencia:** compilación de producción `npm run build` completada correctamente.
 - **Comprobación visual:** pendiente repetir la captura en Android físico para validar que el flujo clásico no presente desbordamientos en modales ni controles.
 
+## 2026-09-04 — MAN-039: Editor táctil de escena a pantalla completa
+
+- **Alcance:** `SceneCompositorModal` se adapta en teléfonos Android a una superficie de pantalla completa, sin ventana desplazable.
+- **Distribución:** lienzo superior con relación 16:9, lista de capas/controles con scroll interno y pie de acciones fijo dentro del viewport.
+- **Edición:** se conserva el arrastre táctil de personajes y props, junto con el cambio de fondo y la publicación según el modo En Vivo/Borrador.
+- **Evidencia:** compilación de producción `npm run build` completada correctamente.
+- **Comprobación visual:** pendiente en Android físico, incluyendo arrastre, teclado, fondo, rotación y publicación con Mesa conectada.
+
 ## 2026-09-04 — MAN-030: Consola compacta de acciones rápidas para Android
 
 - **Versión:** árbol de trabajo local con consola de control para cambios durante la partida.

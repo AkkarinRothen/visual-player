@@ -62,7 +62,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
   canSavePreset = true,
 }) => {
   return (
-    <div className="flex-1 flex flex-col items-center">
+    <div className="compositor-stage-panel flex-1 flex flex-col items-center">
       <div
         ref={stageRef}
         className={`stage-viewport relative w-full aspect-video rounded-xl overflow-hidden border-2 border-slate-700 select-none shadow-inner touch-none ${
