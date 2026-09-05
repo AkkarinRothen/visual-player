@@ -2,6 +2,31 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-04 — MAN-042: Ajuste de Safe Areas y visibilidad en Android (Lobby y Modo Dirección)
+
+- **Problema observado:** en teléfonos Android con muesca (notch), barra de estado del sistema o barra de navegación gestual inferior, el Lobby cortaba la cabecera superior («Visual Player») debido a un desbordamiento vertical negativo por centrado flexbox y a la falta de insets seguros (`env(safe-area-inset-*)`). El banner de sesión interrumpida y el pie de página quedaban solapados por la barra de estado y la píldora gestual.
+- **Corrección:**
+  1. **Lobby desbordamiento seguro:** se cambió la alineación de `.lobby-root` a `justify-content: flex-start` con `margin: auto 0` en `.lobby-content` para permitir scroll completo sin pérdida de la cabecera y con padding dinámico en base a `--sat` y `--sab`.
+  2. **Banner de recuperación adaptable:** extracción de estilos inline a clases `.recovery-banner*`, con distribución adaptable (columna en pantallas estrechas) y botones táctiles accesibles.
+  3. **Ajuste de insets en Modo Dirección:** aplicación de `var(--sat)` y `var(--sab)` a la barra superior (`DirectorTopBar`), base flotante (`DirectorBottomBar`), selector de expresiones/etiqueta privada, zonas de soltado rápido y pastilla de deshacer en `CharacterDirectorOverlay`.
+  4. **Optimización móvil:** márgenes, rellenos y títulos reducidos bajo `@media (max-width: 640px)` para facilitar la visualización sin scrolls innecesarios.
+- **Evidencia técnica:** 63 suites pasando (370 de 370 pruebas aprobadas), compilación TypeScript limpia (`npx tsc -b`) y empaquetado de producción (`npm run build`) verificado.
+- **Comprobación de uso:** validación de renderizado y lógica en entorno DOM local; la comprobación ergonómica y visual final en dispositivos Android físicos con mesa conectada queda pendiente de validación en mano.
+
+## 2026-09-04 — MAN-040: Limpieza de warnings de Gradle Android
+
+- **Alcance técnico:** se eliminaron los repositorios locales `flatDir` vacíos de los módulos Android de la app y de plugins Cordova.
+- **Motivo:** Gradle advertía que `flatDir` no soporta metadatos de dependencias; el proyecto no contiene AAR/JAR locales que requieran esos repositorios.
+- **Evidencia:** `npm run android:build` completado correctamente y `:app:assembleDevDebug --warning-mode all` completado correctamente; `rg` no encuentra declaraciones `flatDir` en los Gradle Android.
+- **Comprobación de uso:** sin cambios en la interfaz ni en el flujo de la app; no corresponde presentar esta limpieza como prueba visual o como mesa conectada validada.
+
+## 2026-09-04 — MAN-041: Acceso visible al movimiento de personajes
+
+- **Problema observado:** el flujo clásico de **En Vivo** mostraba posiciones rápidas, pero no dejaba visible el acceso al editor táctil para arrastrar NPCs.
+- **Corrección:** se agregó **Editar escena en vivo** con el botón **Mover personajes** en la parte superior del control clásico.
+- **Alcance:** el editor permite arrastrar personajes, cambiar el fondo y ajustar el encuadre; en celulares el botón ocupa todo el ancho para facilitar el uso táctil.
+- **Evidencia:** `npm run android:build` y `npm run build` completados correctamente. La comprobación visual en Android físico y el recorrido con Mesa conectada siguen pendientes.
+
 ## 2026-09-04 — MAN-031: Modo Partida Android con controles ocultables
 
 - **Versión:** árbol de trabajo local con modo operativo para partidas largas en celulares y tablets Android.

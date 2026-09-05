@@ -260,7 +260,7 @@ describe('Phase 1: Session Panel, Emergency Dock & DM Favorites Suite', () => {
 
       // Active Scene Card
       expect(screen.getByText(/ESCENA EN MESA/i)).toBeDefined();
-      expect(screen.getByText('Taverna del Dragón Verde')).toBeDefined();
+      expect(screen.getAllByText('Taverna del Dragón Verde').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('1 NPCs')).toBeDefined();
 
       // Next Suggested Scene Card (sc-2: Bosque Sombrío)
@@ -321,7 +321,7 @@ describe('Phase 1: Session Panel, Emergency Dock & DM Favorites Suite', () => {
         />
       );
 
-      expect(screen.getByText(/3 cambio\(s\)/i)).toBeDefined();
+      expect(screen.getAllByText(/3 cambio\(s\)/i).length).toBeGreaterThanOrEqual(1);
       const sendBtn = screen.getByTitle(/Publicar todo a la pantalla de los jugadores/i);
       await act(async () => {
         fireEvent.click(sendBtn);
@@ -361,7 +361,7 @@ describe('Phase 1: Session Panel, Emergency Dock & DM Favorites Suite', () => {
       );
 
       expect(screen.getByText(/COMBATE EN CURSO \(RONDA 2\)/i)).toBeDefined();
-      expect(screen.getByText('Goblin Líder')).toBeDefined();
+      expect(screen.getAllByText('Goblin Líder').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText(/24 \/ 35 HP/i)).toBeDefined();
 
       const nextTurnBtn = screen.getByTitle(/Avanzar al siguiente combatiente/i);

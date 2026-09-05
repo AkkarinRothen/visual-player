@@ -84,7 +84,14 @@ export const DirectorTopBar: React.FC<DirectorTopBarProps> = ({
 }) => {
   const [showFormationsDropdown, setShowFormationsDropdown] = useState<boolean>(false);
   return (
-    <div className="director-ui-element absolute top-2 left-2 right-2 flex flex-wrap items-center justify-between gap-1.5 pointer-events-auto bg-slate-950/85 backdrop-blur-md border border-amber-500/40 rounded-xl px-2.5 py-1 text-xs shadow-2xl">
+    <div
+      className="director-ui-element absolute flex flex-wrap items-center justify-between gap-1.5 pointer-events-auto bg-slate-950/85 backdrop-blur-md border border-amber-500/40 rounded-xl px-2.5 py-1 text-xs shadow-2xl"
+      style={{
+        top: 'max(8px, calc(var(--sat, 0px) + 4px))',
+        left: 'max(8px, calc(var(--sal, 0px) + 8px))',
+        right: 'max(8px, calc(var(--sar, 0px) + 8px))',
+      }}
+    >
       <div className="flex items-center gap-2">
         <span className="flex items-center gap-1 font-bold text-amber-400">
           <Move size={13} className="text-amber-400" />

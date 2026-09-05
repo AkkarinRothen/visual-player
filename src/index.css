@@ -64,11 +64,17 @@ body, html {
   width: 100%;
   height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   background: radial-gradient(circle at 50% 20%, #171b2d 0%, #090a0f 80%);
   overflow-y: auto;
-  padding: 24px;
+  overflow-x: hidden;
+  padding-top: max(16px, calc(var(--sat, 0px) + 12px));
+  padding-bottom: max(24px, calc(var(--sab, 0px) + 20px));
+  padding-left: max(16px, calc(var(--sal, 0px) + 12px));
+  padding-right: max(16px, calc(var(--sar, 0px) + 12px));
+  box-sizing: border-box;
 }
 
 .lobby-ambient-bg {
@@ -87,6 +93,7 @@ body, html {
   z-index: 10;
   max-width: 960px;
   width: 100%;
+  margin: auto 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -311,6 +318,175 @@ body, html {
 .qr-scan-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: var(--border-gold);
+}
+
+/* Interrupted session recovery banner */
+.recovery-banner {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.25) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: var(--radius-lg, 12px);
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.recovery-banner-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.recovery-banner-title {
+  color: #fbbf24;
+  font-size: 1rem;
+  font-weight: 700;
+  display: block;
+  line-height: 1.3;
+}
+
+.recovery-banner-subtitle {
+  color: #d1d5db;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  display: block;
+  word-break: break-word;
+}
+
+.recovery-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.recovery-banner-discard {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #9ca3af;
+  padding: 8px 12px;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recovery-banner-discard:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.recovery-banner-resume {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-md, 8px);
+  font-weight: 600;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.recovery-banner-resume:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 640px) {
+  .lobby-root {
+    padding-top: max(12px, calc(var(--sat, 0px) + 8px));
+    padding-bottom: max(20px, calc(var(--sab, 0px) + 16px));
+    padding-left: max(12px, calc(var(--sal, 0px) + 8px));
+    padding-right: max(12px, calc(var(--sar, 0px) + 8px));
+  }
+
+  .lobby-header {
+    margin-bottom: 20px;
+  }
+
+  .lobby-icon-badge {
+    padding: 8px;
+    margin-bottom: 8px;
+  }
+
+  .lobby-title {
+    font-size: 2rem;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+
+  .lobby-subtitle {
+    font-size: 0.88rem;
+    line-height: 1.4;
+    padding: 0 8px;
+  }
+
+  .recovery-banner {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 14px;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .recovery-banner-actions {
+    justify-content: flex-end;
+  }
+
+  .lobby-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .role-card {
+    padding: 18px 16px;
+  }
+
+  .role-icon-box {
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+
+  .role-title {
+    font-size: 1.3rem;
+    margin-bottom: 6px;
+  }
+
+  .role-desc {
+    font-size: 0.88rem;
+    margin-bottom: 14px;
+    line-height: 1.4;
+  }
+
+  .role-btn {
+    padding: 12px 16px;
+    font-size: 0.92rem;
+  }
+
+  .lobby-pin-input {
+    padding: 10px 12px;
+    font-size: 0.95rem;
+  }
+
+  .qr-scan-btn {
+    padding: 10px;
+    font-size: 0.85rem;
+  }
 }
 
 /* ==========================================================================
@@ -7627,5 +7803,58 @@ body, html {
   .preview-modal-header button {
     min-width: 44px;
     min-height: 44px;
+  }
+}
+
+/* Direct access to the tactile scene editor in the classic live control. */
+.live-scene-editor-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-color: rgba(59, 130, 246, 0.45);
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.22), rgba(15, 23, 42, 0.82));
+}
+
+.live-scene-editor-cta-copy {
+  min-width: 0;
+}
+
+.live-scene-editor-cta-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #bfdbfe;
+  font-weight: 800;
+}
+
+.live-scene-editor-cta-title svg {
+  color: #60a5fa;
+}
+
+.live-scene-editor-cta p {
+  margin: 5px 0 0;
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.live-scene-editor-cta-button {
+  flex: 0 0 auto;
+  min-height: 46px;
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .live-scene-editor-cta {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .live-scene-editor-cta-button {
+    width: 100%;
+    justify-content: center;
+    min-height: 52px;
   }
 }

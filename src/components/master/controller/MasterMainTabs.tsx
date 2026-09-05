@@ -60,6 +60,7 @@ export interface MasterMainTabsProps {
   toggleAmbientPlay: () => void;
   handleAmbientVolumeChange: (vol: number) => void;
   setShowSummonModal: (show: boolean) => void;
+  onOpenCompositor: () => void;
   changeCharacterPosition: (charId: string, pos: CharacterPosition) => void;
   dismissCharacter: (charId: string) => void;
   toggleSpeaking: (charId: string) => void;
@@ -105,6 +106,7 @@ export const MasterMainTabs: React.FC<MasterMainTabsProps> = ({
   toggleAmbientPlay,
   handleAmbientVolumeChange,
   setShowSummonModal,
+  onOpenCompositor,
   changeCharacterPosition,
   dismissCharacter,
   toggleSpeaking,
@@ -137,6 +139,25 @@ export const MasterMainTabs: React.FC<MasterMainTabsProps> = ({
     <>
       {activeTab === 'live' && sessionViewMode === 'classic' && (
         <div className="live-panel">
+          <section className="control-section live-scene-editor-cta">
+            <div className="live-scene-editor-cta-copy">
+              <div className="live-scene-editor-cta-title">
+                <Edit size={18} />
+                <span>Editar escena en vivo</span>
+              </div>
+              <p>Arrastrá NPCs directamente, cambiá el fondo y ajustá el encuadre.</p>
+            </div>
+            <button
+              type="button"
+              className="btn-primary-sm live-scene-editor-cta-button"
+              onClick={onOpenCompositor}
+              aria-label="Abrir editor táctil para mover personajes y cambiar el fondo"
+            >
+              <Edit size={16} />
+              <span>Mover personajes</span>
+            </button>
+          </section>
+
           {/* Quick Moments Shortcuts in Live Panel */}
           {campaign?.macros && campaign.macros.length > 0 && (
             <section className="control-section quick-moments-live-section">

@@ -1035,6 +1035,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
           toggleAmbientPlay={toggleAmbientPlay}
           handleAmbientVolumeChange={handleAmbientVolumeChange}
           setShowSummonModal={setShowSummonModal}
+          onOpenCompositor={() => setShowCompositorModal(true)}
           changeCharacterPosition={changeCharacterPosition}
           dismissCharacter={dismissCharacter}
           toggleSpeaking={toggleSpeaking}

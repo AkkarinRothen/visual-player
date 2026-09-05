@@ -61,7 +61,10 @@ export const DirectorBottomBar: React.FC<DirectorBottomBarProps> = ({
     <>
       {/* ── FLOATING QUICK ACTIONS BAR (On Selected Character) ── */}
       {!isDragging && (
-        <div className="director-ui-element absolute bottom-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 bg-slate-950/95 backdrop-blur-md border-2 border-amber-500/60 rounded-2xl p-1.5 shadow-2xl pointer-events-auto max-w-[96vw] overflow-x-auto no-scrollbar">
+        <div
+          className="director-ui-element absolute left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 bg-slate-950/95 backdrop-blur-md border-2 border-amber-500/60 rounded-2xl p-1.5 shadow-2xl pointer-events-auto max-w-[96vw] overflow-x-auto no-scrollbar"
+          style={{ bottom: 'max(12px, calc(var(--sab, 0px) + 6px))' }}
+        >
           {/* Avatar & Name Pill */}
           <div className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-amber-300 truncate max-w-[120px] shrink-0">
             <img
@@ -319,7 +322,10 @@ export const DirectorBottomBar: React.FC<DirectorBottomBarProps> = ({
 
       {/* ── EXPRESSIONS POPOVER ── */}
       {showExpressionsForId && (
-        <div className="director-ui-element absolute bottom-16 left-1/2 -translate-x-1/2 z-50 bg-slate-950 border border-amber-500/50 rounded-xl p-2.5 shadow-2xl flex flex-col gap-2 min-w-[200px] pointer-events-auto">
+        <div
+          className="director-ui-element absolute left-1/2 -translate-x-1/2 z-50 bg-slate-950 border border-amber-500/50 rounded-xl p-2.5 shadow-2xl flex flex-col gap-2 min-w-[200px] pointer-events-auto"
+          style={{ bottom: 'max(64px, calc(var(--sab, 0px) + 58px))' }}
+        >
           <div className="text-xs font-semibold text-amber-300 flex items-center justify-between">
             <span>Expresiones de {primarySelectedChar.name}</span>
             <button
@@ -391,7 +397,10 @@ export const DirectorBottomBar: React.FC<DirectorBottomBarProps> = ({
 
       {/* ── PRIVATE LABEL EDITOR MODAL / POPOVER ── */}
       {editingPrivateLabelId && (
-        <div className="director-ui-element absolute bottom-16 left-1/2 -translate-x-1/2 z-50 bg-slate-950 border border-amber-500/50 rounded-xl p-3 shadow-2xl flex flex-col gap-2 min-w-[260px] pointer-events-auto">
+        <div
+          className="director-ui-element absolute left-1/2 -translate-x-1/2 z-50 bg-slate-950 border border-amber-500/50 rounded-xl p-3 shadow-2xl flex flex-col gap-2 min-w-[260px] pointer-events-auto"
+          style={{ bottom: 'max(64px, calc(var(--sab, 0px) + 58px))' }}
+        >
           <div className="text-xs font-semibold text-amber-300">
             Etiqueta privada (Solo visible para el DM):
           </div>

@@ -117,18 +117,32 @@ public class VisualPlayerKeystorePlugin extends Plugin {
                 SecretKeyFactory factory = SecretKeyFactory.getInstance(key.getAlgorithm(), ANDROID_KEYSTORE);
                 KeyInfo keyInfo = (KeyInfo) factory.getKeySpec(key, KeyInfo.class);
 
-                boolean isInsideSecureHardware = keyInfo.isInsideSecureHardware();
+                boolean isInsideSecureHardware;
                 String securityLevel = "SOFTWARE";
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     int level = keyInfo.getSecurityLevel();
+                    isInsideSecureHardware = level == KeyProperties.SECURITY_LEVEL_STRONGBOX
+                        || level == KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT;
                     if (level == KeyProperties.SECURITY_LEVEL_STRONGBOX) {
                         securityLevel = "STRONGBOX";
                     } else if (level == KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT) {
                         securityLevel = "TEE";
                     }
-                } else if (isInsideSecureHardware) {
-                    securityLevel = "TEE";
+                } else {
+                    // isInsideSecureHardware() is deprecated on newer SDKs, so invoke
+                    // the legacy API reflectively only on Android versions that need it.
+                    try {
+                        Object result = KeyInfo.class
+                            .getMethod("isInsideSecureHardware")
+                            .invoke(keyInfo);
+                        isInsideSecureHardware = Boolean.TRUE.equals(result);
+                    } catch (Exception ignored) {
+                        isInsideSecureHardware = false;
+                    }
+                    if (isInsideSecureHardware) {
+                        securityLevel = "TEE";
+                    }
                 }
 
                 JSObject ret = new JSObject();

@@ -650,7 +650,14 @@ export const CharacterDirectorOverlay: React.FC<CharacterDirectorOverlayProps> =
       )}
 
       {dragPreview?.hasPassedTouchSlop && (
-        <div className="director-ui-element pointer-events-none absolute right-2 top-20 bottom-3 z-[60] flex w-[min(104px,22%)] flex-col gap-1.5">
+        <div
+          className="director-ui-element pointer-events-none absolute z-[60] flex w-[min(104px,22%)] flex-col gap-1.5"
+          style={{
+            top: 'max(80px, calc(var(--sat, 0px) + 60px))',
+            bottom: 'max(12px, calc(var(--sab, 0px) + 8px))',
+            right: 'max(8px, calc(var(--sar, 0px) + 8px))',
+          }}
+        >
           {([
             ['reserve', 'Reserva', Archive, 'border-purple-400 bg-purple-950/90 text-purple-200'],
             ['hide', 'Ocultar', EyeOff, 'border-amber-400 bg-amber-950/90 text-amber-200'],
@@ -670,7 +677,10 @@ export const CharacterDirectorOverlay: React.FC<CharacterDirectorOverlayProps> =
       )}
 
       {quickActionMessage && (
-        <div className="director-ui-element absolute bottom-16 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-2 rounded-xl border border-emerald-400/60 bg-slate-950/95 px-3 py-2 text-xs text-slate-100 shadow-2xl pointer-events-auto">
+        <div
+          className="director-ui-element absolute left-1/2 z-[70] flex -translate-x-1/2 items-center gap-2 rounded-xl border border-emerald-400/60 bg-slate-950/95 px-3 py-2 text-xs text-slate-100 shadow-2xl pointer-events-auto"
+          style={{ bottom: 'max(64px, calc(var(--sab, 0px) + 58px))' }}
+        >
           <span>{quickActionMessage}</span>
           {onUndo && (
             <button
