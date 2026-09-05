@@ -433,10 +433,48 @@ export interface SceneInteraction {
   transitions: SceneInteractionTransition[];
 }
 
+export type BackgroundType = 'image' | 'video';
+
+export interface SceneVideoConfig {
+  videoAssetId?: string;
+  videoPosterAssetId?: string;
+  videoPosterUrl?: string;
+  videoFit?: 'cover' | 'contain';
+  videoLoop?: boolean;
+  videoMuted?: boolean;
+  isCinematic?: boolean;
+  durationSeconds?: number;
+  videoDurationSeconds?: number;
+  videoAutoplay?: boolean;
+}
+
+export interface VideoPlaybackState {
+  playbackId: string;
+  videoAssetId: string;
+  status: 'idle' | 'loading' | 'ready' | 'playing' | 'paused' | 'finished' | 'error';
+  currentTimeMs: number;
+  durationMs: number;
+  isMuted: boolean;
+  volume: number;
+  playbackRate: number;
+  updatedAt: number;
+  errorMessage?: string;
+}
+
 export interface Scene {
   id: string;
   name: string;
   backgroundUrl: string;
+  backgroundType?: BackgroundType;
+  videoConfig?: SceneVideoConfig;
+  videoAssetId?: string;
+  videoPosterAssetId?: string;
+  videoPosterUrl?: string;
+  videoFit?: 'cover' | 'contain';
+  videoLoop?: boolean;
+  videoMuted?: boolean;
+  isCinematic?: boolean;
+  durationSeconds?: number;
   activeVariantId?: string;
   variants?: SceneVariant[];
   defaultCamera?: CameraTransform;
@@ -799,6 +837,9 @@ export interface DisplayState {
   savedCameraPresets?: { id: string; name: string; camera: CameraTransform }[];
   occlusionRegions?: SceneOcclusionRegion[];
   waypoints?: StageWaypoint[];
+  backgroundType?: BackgroundType;
+  videoConfig?: SceneVideoConfig;
+  videoPlayback?: VideoPlaybackState | null;
 }
 
 // History & Checkpoint Interfaces
@@ -951,6 +992,11 @@ export type SyncMessage =
   | { type: 'MESA_VIEWPORT_CHANGED'; payload: { viewport: { width: number; height: number; aspectRatio: number }; assetsStatus?: { isReady: boolean; missingCount: number; failedCount?: number }; audioStatus?: import('../domain/protocol/types').DisplayAudioStatus } }
   | { type: 'AUDIT_MESA_REQUEST'; payload: { timestamp: number } }
   | { type: 'AUDIT_MESA_RESPONSE'; payload: import('../domain/protocol/types').AuditMesaReport }
+  | { type: 'VIDEO_AVAILABILITY_QUERY'; payload: import('../domain/protocol/types').VideoAvailabilityQueryPayload }
+  | { type: 'VIDEO_AVAILABILITY_RESPONSE'; payload: import('../domain/protocol/types').VideoAvailabilityResponsePayload }
+  | { type: 'VIDEO_CHUNK_TRANSFER'; payload: import('../domain/protocol/types').VideoChunkTransferPayload }
+  | { type: 'VIDEO_PLAYBACK_COMMAND'; payload: import('../domain/protocol/types').VideoPlaybackCommandPayload }
+  | { type: 'VIDEO_PLAYBACK_TELEMETRY'; payload: import('../domain/protocol/types').VideoPlaybackTelemetryPayload }
   | { type: 'PING'; timestamp: number }
   | { type: 'PONG'; timestamp: number };
 
@@ -1067,7 +1113,7 @@ export interface DuplicateSessionOptions {
 export interface MissingAssetInfo {
   url: string;
   context: string;                   // p.ej. "Fondo de Escena: Caverna", "Avatar: Valeros"
-  assetType: 'image' | 'audio';
+  assetType: 'image' | 'video' | 'audio';
   errorReason?: string;
 }
 
@@ -1103,7 +1149,7 @@ export interface GameSessionPackage {
   assets: Array<{
     id: string;
     name: string;
-    type: 'image' | 'audio';
+    type: 'image' | 'video' | 'audio';
     dataUrl: string;
   }>;
   campaignSnippet: {

@@ -1,14 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Upload, Image as ImageIcon, Search, Check, Link as LinkIcon, RefreshCw, FolderHeart, Sparkles, AlertCircle } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Search, Check, Link as LinkIcon, RefreshCw, FolderHeart, Sparkles, AlertCircle, Film, Play } from 'lucide-react';
 import { db, registerImmutableAsset, registerOptimizedAsset, type StoredAsset } from '../../db';
 import { optimizeUploadedImage, formatBytes, type OptimizedImageResult } from '../../utils/imageOptimizer';
+import { validateVideoFile, extractVideoPoster, formatVideoDuration, type VideoValidationResult } from '../../utils/videoOptimizer';
+
+export interface SelectedAssetResult {
+  url: string;
+  name: string;
+  type?: 'image' | 'video';
+  videoAssetId?: string;
+  posterUrl?: string;
+  durationSeconds?: number;
+}
 
 export interface AssetPickerModalProps {
   isOpen: boolean;
   mode: 'background' | 'character' | 'prop' | 'all';
   currentUrl?: string;
   title?: string;
-  onSelectAsset: (asset: { url: string; name: string }) => void;
+  onSelectAsset: (asset: SelectedAssetResult) => void;
   onClose: () => void;
 }
 
@@ -23,7 +33,7 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
   const [activeTab, setActiveTab] = useState<'device' | 'library' | 'url'>('device');
   const [storedAssets, setStoredAssets] = useState<StoredAsset[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType] = useState<string>('all');
+  const [filterType, setFilterType] = useState<'all' | 'image' | 'video'>('all');
   const [previewUrl, setPreviewUrl] = useState<string>(currentUrl);
   const [assetName, setAssetName] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -33,6 +43,13 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(24);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Video-specific state
+  const [isVideoSelected, setIsVideoSelected] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoValidation, setVideoValidation] = useState<VideoValidationResult | null>(null);
+  const [videoPosterDataUrl, setVideoPosterDataUrl] = useState<string | null>(null);
+  const [videoObjectUrl, setVideoObjectUrl] = useState<string | null>(null);
 
   // Cargar recursos guardados de IndexedDB al abrir
   useEffect(() => {
@@ -46,12 +63,32 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
       setErrorMessage(null);
       setVisibleCount(24);
       setActiveTab('device');
+      setIsVideoSelected(false);
+      setVideoFile(null);
+      setVideoValidation(null);
+      setVideoPosterDataUrl(null);
+      setFilterType('all');
+      if (videoObjectUrl) {
+        URL.revokeObjectURL(videoObjectUrl);
+        setVideoObjectUrl(null);
+      }
     }
+    return () => {
+      if (videoObjectUrl) {
+        URL.revokeObjectURL(videoObjectUrl);
+      }
+    };
   }, [isOpen, currentUrl]);
 
   const loadStoredAssets = async () => {
     try {
-      const assets = await db.assets.where('type').equals('image').reverse().sortBy('createdAt');
+      let assets: StoredAsset[];
+      if (mode === 'character' || mode === 'prop') {
+        assets = await db.assets.where('type').equals('image').reverse().sortBy('createdAt');
+      } else {
+        assets = await db.assets.reverse().sortBy('createdAt');
+        assets = assets.filter((a) => a.type === 'image' || a.type === 'video');
+      }
       setStoredAssets(assets);
     } catch (err) {
       console.warn('Error cargando assets de IndexedDB:', err);
@@ -66,9 +103,9 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
       ? 'Elegir Fondo de Escena'
       : mode === 'character'
       ? 'Elegir Retrato de Personaje'
-      : 'Elegir Imagen');
+      : 'Elegir Imagen o Video');
 
-  // Procesar archivo seleccionado del dispositivo con optimización automática
+  // Procesar archivo seleccionado del dispositivo con optimización automática o validación de video
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -77,6 +114,51 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
     setErrorMessage(null);
     const fileName = file.name.replace(/\.[^/.]+$/, '');
     setAssetName(fileName);
+
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm)$/i.test(file.name);
+
+    if (isVideo) {
+      if (mode === 'character' || mode === 'prop') {
+        setIsProcessing(false);
+        setErrorMessage('Solo se admiten videos como fondo de escenario, no como figuras de personajes.');
+        return;
+      }
+
+      try {
+        const val = await validateVideoFile(file);
+        if (!val.isValid) {
+          setErrorMessage(val.error || 'El video no cumple con los requisitos del escenario.');
+          setIsProcessing(false);
+          return;
+        }
+
+        const posterInfo = await extractVideoPoster(file);
+        const objUrl = URL.createObjectURL(file);
+        setVideoObjectUrl(objUrl);
+        setVideoValidation(val);
+        setVideoFile(file);
+        setIsVideoSelected(true);
+        setVideoPosterDataUrl(posterInfo.posterDataUrl);
+        setPreviewUrl(posterInfo.posterDataUrl);
+        setOptimizedResult(null);
+      } catch (err: any) {
+        console.error('Error procesando video:', err);
+        setErrorMessage(err.message || 'Error al validar o extraer póster del video.');
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    // Flujo normal de imágenes
+    setIsVideoSelected(false);
+    setVideoFile(null);
+    setVideoValidation(null);
+    setVideoPosterDataUrl(null);
+    if (videoObjectUrl) {
+      URL.revokeObjectURL(videoObjectUrl);
+      setVideoObjectUrl(null);
+    }
 
     try {
       const role = mode === 'background' ? 'background' : 'character';
@@ -95,11 +177,46 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
 
   // Confirmar y registrar en almacenamiento local
   const handleConfirmDeviceUpload = async () => {
-    if (!previewUrl) return;
+    if (!previewUrl && !videoFile) return;
 
     setIsProcessing(true);
     try {
-      const finalName = assetName.trim() || 'Imagen sin título';
+      const finalName = assetName.trim() || (isVideoSelected ? 'Video sin título' : 'Imagen sin título');
+
+      if (isVideoSelected && videoFile && videoValidation) {
+        // Convertir video a base64 DataURL para persistencia offline segura
+        const reader = new FileReader();
+        const videoDataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(videoFile);
+        });
+
+        const stored = await registerOptimizedAsset({
+          name: finalName,
+          type: 'video',
+          dataUrl: videoDataUrl,
+          thumbnailUrl: videoPosterDataUrl || undefined,
+          posterDataUrl: videoPosterDataUrl || undefined,
+          originalSize: videoFile.size,
+          optimizedSize: videoFile.size,
+          sha256: videoValidation.sha256,
+          dimensions: { width: videoValidation.dimensions.width, height: videoValidation.dimensions.height },
+          durationSeconds: videoValidation.durationSeconds,
+        });
+
+        onSelectAsset({
+          url: stored.dataUrl,
+          name: stored.name,
+          type: 'video',
+          videoAssetId: stored.id,
+          posterUrl: videoPosterDataUrl || stored.dataUrl,
+          durationSeconds: videoValidation.durationSeconds,
+        });
+        onClose();
+        return;
+      }
+
       if (optimizedResult) {
         const stored = await registerOptimizedAsset({
           name: finalName,
@@ -112,16 +229,22 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
           sha256: optimizedResult.sha256,
           dimensions: { width: optimizedResult.width, height: optimizedResult.height },
         });
-        onSelectAsset({ url: stored.dataUrl, name: stored.name });
+        onSelectAsset({ url: stored.dataUrl, name: stored.name, type: 'image' });
       } else {
         const stored = await registerImmutableAsset(finalName, 'image', previewUrl);
-        onSelectAsset({ url: stored.dataUrl, name: stored.name });
+        onSelectAsset({ url: stored.dataUrl, name: stored.name, type: 'image' });
       }
       onClose();
     } catch (err) {
       console.error('Error guardando asset:', err);
       // Fallback: usar preview directo
-      onSelectAsset({ url: previewUrl, name: assetName.trim() || 'Imagen' });
+      onSelectAsset({
+        url: previewUrl,
+        name: assetName.trim() || (isVideoSelected ? 'Video' : 'Imagen'),
+        type: isVideoSelected ? 'video' : 'image',
+        posterUrl: videoPosterDataUrl || undefined,
+        durationSeconds: videoValidation?.durationSeconds,
+      });
       onClose();
     } finally {
       setIsProcessing(false);
@@ -130,7 +253,14 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
 
   // Seleccionar directamente desde la biblioteca
   const handleSelectFromLibrary = (asset: StoredAsset) => {
-    onSelectAsset({ url: asset.dataUrl, name: asset.name });
+    onSelectAsset({
+      url: asset.dataUrl,
+      name: asset.name,
+      type: asset.type === 'video' ? 'video' : 'image',
+      videoAssetId: asset.type === 'video' ? asset.id : undefined,
+      posterUrl: asset.posterDataUrl || asset.thumbnailUrl || asset.dataUrl,
+      durationSeconds: asset.durationSeconds,
+    });
     onClose();
   };
 
@@ -138,15 +268,26 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
   const handleConfirmUrl = async () => {
     if (!customUrlInput.trim()) return;
     const url = customUrlInput.trim();
-    const finalName = assetName.trim() || 'Imagen web';
+    const finalName = assetName.trim() || 'Recurso web';
 
     setIsProcessing(true);
     try {
-      const stored = await registerImmutableAsset(finalName, 'image', url, url);
-      onSelectAsset({ url: stored.dataUrl, name: stored.name });
+      const isVideoUrl = /\.(mp4|webm)($|\?)/i.test(url);
+      const stored = await registerImmutableAsset(finalName, isVideoUrl ? 'video' : 'image', url, url);
+      onSelectAsset({
+        url: stored.dataUrl,
+        name: stored.name,
+        type: isVideoUrl ? 'video' : 'image',
+        videoAssetId: isVideoUrl ? stored.id : undefined,
+      });
       onClose();
     } catch {
-      onSelectAsset({ url, name: finalName });
+      const isVideoUrl = /\.(mp4|webm)($|\?)/i.test(url);
+      onSelectAsset({
+        url,
+        name: finalName,
+        type: isVideoUrl ? 'video' : 'image',
+      });
       onClose();
     } finally {
       setIsProcessing(false);
@@ -157,7 +298,8 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
   const filteredAssets = storedAssets.filter((a) => {
     const matchesSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
-    if (filterType === 'all') return true;
+    if (filterType === 'image') return a.type === 'image' || !a.type;
+    if (filterType === 'video') return a.type === 'video';
     return true;
   });
 
@@ -301,7 +443,7 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
               <input
                 type="file"
                 ref={fileInputRef}
-                accept="image/*"
+                accept={mode === 'background' || mode === 'all' ? 'image/*,video/mp4,video/webm' : 'image/*'}
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
               />
@@ -338,7 +480,9 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
                     Tocar para abrir Fotos o Archivos
                   </strong>
                   <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>
-                    Soporta JPG, PNG, WebP o GIF de tu dispositivo
+                    {mode === 'background' || mode === 'all'
+                      ? 'Soporta JPG, PNG, WebP o videos MP4/WebM (hasta 30s)'
+                      : 'Soporta JPG, PNG, WebP o GIF de tu dispositivo'}
                   </span>
                 </div>
               ) : (
@@ -379,15 +523,31 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
                       border: '1px solid rgba(255,255,255,0.15)',
                     }}
                   >
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: mode === 'background' ? 'cover' : 'contain',
-                      }}
-                    />
+                    {isVideoSelected ? (
+                      <video
+                        src={videoObjectUrl || previewUrl}
+                        poster={videoPosterDataUrl || undefined}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={previewUrl}
+                        alt="Preview"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: mode === 'background' ? 'cover' : 'contain',
+                        }}
+                      />
+                    )}
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
@@ -409,9 +569,36 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
                       }}
                     >
                       <RefreshCw size={14} />
-                      <span>Cambiar Foto</span>
+                      <span>{isVideoSelected ? 'Cambiar Video' : 'Cambiar Foto'}</span>
                     </button>
                   </div>
+
+                  {/* Resumen de Video */}
+                  {isVideoSelected && videoValidation && (
+                    <div
+                      style={{
+                        background: 'rgba(245, 158, 11, 0.08)',
+                        border: '1px solid rgba(245, 158, 11, 0.25)',
+                        borderRadius: '8px',
+                        padding: '10px 14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                        fontSize: '0.82rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#fbbf24', fontWeight: 600 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Film size={14} />
+                          Fondo de Video ({videoValidation.dimensions.width}×{videoValidation.dimensions.height} • {formatVideoDuration(videoValidation.durationSeconds)})
+                        </span>
+                        <span>{videoFile ? formatBytes(videoFile.size) : ''}</span>
+                      </div>
+                      <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>
+                        Póster estático generado automáticamente para conexión instantánea sin pantalla negra.
+                      </span>
+                    </div>
+                  )}
 
                   {/* Resumen de Optimización Adaptativa */}
                   {optimizedResult && (
@@ -478,6 +665,14 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
                         setAssetName('');
                         setOptimizedResult(null);
                         setErrorMessage(null);
+                        setIsVideoSelected(false);
+                        setVideoFile(null);
+                        setVideoValidation(null);
+                        setVideoPosterDataUrl(null);
+                        if (videoObjectUrl) {
+                          URL.revokeObjectURL(videoObjectUrl);
+                          setVideoObjectUrl(null);
+                        }
                       }}
                       style={{
                         flex: 1,
@@ -514,7 +709,13 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
                       }}
                     >
                       <Check size={18} />
-                      <span>{isProcessing ? 'Guardando en la app...' : 'Usar esta Imagen'}</span>
+                      <span>
+                        {isProcessing
+                          ? 'Guardando en la app...'
+                          : isVideoSelected
+                          ? 'Usar este Video de Fondo'
+                          : 'Usar esta Imagen'}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -525,25 +726,79 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
           {/* TAB 2: MI BIBLIOTECA */}
           {activeTab === 'library' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {/* Buscador */}
-              <div style={{ position: 'relative' }}>
-                <Search size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: '#9ca3af' }} />
-                <input
-                  type="text"
-                  placeholder="Buscar en recursos guardados..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px 10px 38px',
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '0.9rem',
-                    outline: 'none',
-                  }}
-                />
+              {/* Buscador y Filtros */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: '#9ca3af' }} />
+                  <input
+                    type="text"
+                    placeholder="Buscar en recursos guardados..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px 10px 38px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+                {(mode === 'background' || mode === 'all') && (
+                  <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.06)', padding: '2px', borderRadius: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setFilterType('all')}
+                      style={{
+                        padding: '6px 10px',
+                        border: 'none',
+                        borderRadius: '6px',
+                        background: filterType === 'all' ? 'rgba(245, 158, 11, 0.25)' : 'transparent',
+                        color: filterType === 'all' ? '#fbbf24' : '#94a3b8',
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        fontWeight: filterType === 'all' ? 600 : 400,
+                      }}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilterType('image')}
+                      style={{
+                        padding: '6px 10px',
+                        border: 'none',
+                        borderRadius: '6px',
+                        background: filterType === 'image' ? 'rgba(245, 158, 11, 0.25)' : 'transparent',
+                        color: filterType === 'image' ? '#fbbf24' : '#94a3b8',
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        fontWeight: filterType === 'image' ? 600 : 400,
+                      }}
+                    >
+                      Fotos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilterType('video')}
+                      style={{
+                        padding: '6px 10px',
+                        border: 'none',
+                        borderRadius: '6px',
+                        background: filterType === 'video' ? 'rgba(245, 158, 11, 0.25)' : 'transparent',
+                        color: filterType === 'video' ? '#fbbf24' : '#94a3b8',
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        fontWeight: filterType === 'video' ? 600 : 400,
+                      }}
+                    >
+                      Videos
+                    </button>
+                  </div>
+                )}
               </div>
 
               {filteredAssets.length === 0 ? (
@@ -592,6 +847,28 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
                             objectFit: mode === 'background' ? 'cover' : 'contain',
                           }}
                         />
+                        {asset.type === 'video' && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: '4px',
+                              right: '4px',
+                              padding: '2px 5px',
+                              background: 'rgba(0,0,0,0.75)',
+                              border: '1px solid rgba(245, 158, 11, 0.4)',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              fontSize: '0.65rem',
+                              color: '#fbbf24',
+                              fontWeight: 600,
+                            }}
+                          >
+                            <Play size={8} fill="#fbbf24" />
+                            <span>{formatVideoDuration(asset.durationSeconds || 0)}</span>
+                          </div>
+                        )}
                         <div
                           style={{
                             position: 'absolute',

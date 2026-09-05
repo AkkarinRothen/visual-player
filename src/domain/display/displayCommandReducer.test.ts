@@ -252,4 +252,142 @@ describe('reduceDisplayCommand Pure Reducer Suite', () => {
       expect(res.sideEffects?.some((e) => e.type === 'trigger_bg_transition')).toBe(true);
     }
   });
+
+  it('8. Reduces SET_SCENE with videoConfig and backgroundType="video"', () => {
+    const msg: VersionedSyncMessage = {
+      protocolVersion: 1,
+      messageId: 'm-vid-1',
+      commandId: 'cmd-vid-1',
+      sequenceNumber: 7,
+      sessionRevision: 8,
+      sentAt: Date.now(),
+      tier: 'critical',
+      requiresAck: true,
+      type: 'SET_SCENE',
+      payload: {
+        id: 'scene-ambient-rain',
+        name: 'Castillo bajo la Lluvia',
+        backgroundUrl: 'https://example.com/castle-poster.jpg',
+        backgroundType: 'video',
+        videoConfig: {
+          videoAssetId: 'asset-video-rain-1',
+          videoPosterUrl: 'https://example.com/castle-poster.jpg',
+          videoLoop: true,
+          videoMuted: true,
+          durationSeconds: 15,
+        },
+      },
+    };
+
+    const res = reduceDisplayCommand(baseState, msg);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.nextState.backgroundType).toBe('video');
+      expect(res.nextState.videoConfig?.videoAssetId).toBe('asset-video-rain-1');
+      expect(res.nextState.videoConfig?.videoLoop).toBe(true);
+      expect(res.nextState.videoConfig?.durationSeconds).toBe(15);
+      expect(res.nextState.backgroundUrl).toBe('https://example.com/castle-poster.jpg');
+    }
+  });
+
+  it('9. Reduces SET_BACKGROUND with video configuration object', () => {
+    const msg: VersionedSyncMessage = {
+      protocolVersion: 1,
+      messageId: 'm-vid-2',
+      commandId: 'cmd-vid-2',
+      sequenceNumber: 8,
+      sessionRevision: 9,
+      sentAt: Date.now(),
+      tier: 'critical',
+      requiresAck: true,
+      type: 'SET_BACKGROUND',
+      payload: {
+        url: 'data:video/mp4;base64,AAAA',
+        backgroundType: 'video',
+        videoConfig: {
+          videoAssetId: 'asset-vid-direct',
+          videoLoop: true,
+        },
+      },
+    };
+
+    const res = reduceDisplayCommand(baseState, msg);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.nextState.backgroundUrl).toBe('data:video/mp4;base64,AAAA');
+      expect(res.nextState.backgroundType).toBe('video');
+      expect(res.nextState.videoConfig?.videoAssetId).toBe('asset-vid-direct');
+      expect(res.sideEffects?.some((e) => e.type === 'trigger_bg_transition')).toBe(true);
+    }
+  });
+
+  it('10. Reduces VIDEO_PLAYBACK_COMMAND for GM playback control (play, pause, seek, stop)', () => {
+    // 1. Play
+    const playMsg: VersionedSyncMessage = {
+      protocolVersion: 1,
+      messageId: 'm-vid-play',
+      commandId: 'cmd-vid-play',
+      sequenceNumber: 9,
+      sessionRevision: 10,
+      sentAt: Date.now(),
+      tier: 'critical',
+      requiresAck: true,
+      type: 'VIDEO_PLAYBACK_COMMAND',
+      payload: {
+        action: 'play',
+        videoAssetId: 'asset-vid-1',
+      },
+    };
+
+    const playRes = reduceDisplayCommand(baseState, playMsg);
+    expect(playRes.success).toBe(true);
+    if (playRes.success) {
+      expect(playRes.nextState.videoPlayback?.status).toBe('playing');
+      expect(playRes.nextState.videoPlayback?.videoAssetId).toBe('asset-vid-1');
+
+      // 2. Seek
+      const seekMsg: VersionedSyncMessage = {
+        protocolVersion: 1,
+        messageId: 'm-vid-seek',
+        commandId: 'cmd-vid-seek',
+        sequenceNumber: 10,
+        sessionRevision: 11,
+        sentAt: Date.now(),
+        tier: 'critical',
+        requiresAck: true,
+        type: 'VIDEO_PLAYBACK_COMMAND',
+        payload: {
+          action: 'seek',
+          seekTimeMs: 4500,
+        },
+      };
+
+      const seekRes = reduceDisplayCommand(playRes.nextState, seekMsg);
+      expect(seekRes.success).toBe(true);
+      if (seekRes.success) {
+        expect(seekRes.nextState.videoPlayback?.currentTimeMs).toBe(4500);
+
+        // 3. Pause
+        const pauseMsg: VersionedSyncMessage = {
+          protocolVersion: 1,
+          messageId: 'm-vid-pause',
+          commandId: 'cmd-vid-pause',
+          sequenceNumber: 11,
+          sessionRevision: 12,
+          sentAt: Date.now(),
+          tier: 'critical',
+          requiresAck: true,
+          type: 'VIDEO_PLAYBACK_COMMAND',
+          payload: { action: 'pause' },
+        };
+
+        const pauseRes = reduceDisplayCommand(seekRes.nextState, pauseMsg);
+        expect(pauseRes.success).toBe(true);
+        if (pauseRes.success) {
+          expect(pauseRes.nextState.videoPlayback?.status).toBe('paused');
+          expect(pauseRes.nextState.videoPlayback?.currentTimeMs).toBe(4500);
+        }
+      }
+    }
+  });
 });

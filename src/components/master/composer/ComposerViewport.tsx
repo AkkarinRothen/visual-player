@@ -14,6 +14,8 @@ export interface ComposerViewportProps {
   setBgOffset: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>;
   isDragging: boolean;
   backgroundUrl: string;
+  backgroundType?: 'image' | 'video';
+  videoPosterUrl?: string;
   lighting: LightingFilter;
   locationBanner: string;
   characters: CharacterOnScreen[];
@@ -35,6 +37,8 @@ export const ComposerViewport: React.FC<ComposerViewportProps> = ({
   setBgOffset,
   isDragging,
   backgroundUrl,
+  backgroundType = 'image',
+  videoPosterUrl,
   lighting,
   locationBanner,
   characters,
@@ -82,18 +86,37 @@ export const ComposerViewport: React.FC<ComposerViewportProps> = ({
       >
         {/* Fondo de Escena con ajuste en modo background */}
         {backgroundUrl ? (
-          <img
-            src={backgroundUrl}
-            alt="Fondo"
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              pointerEvents: 'none',
-              transform: `translate(${bgOffset.x}px, ${bgOffset.y}px)`,
-              transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-            }}
-          />
+          backgroundType === 'video' ? (
+            <video
+              src={backgroundUrl}
+              poster={videoPosterUrl}
+              autoPlay
+              loop
+              muted
+              playsInline
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                pointerEvents: 'none',
+                transform: `translate(${bgOffset.x}px, ${bgOffset.y}px)`,
+                transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+              }}
+            />
+          ) : (
+            <img
+              src={backgroundUrl}
+              alt="Fondo"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                pointerEvents: 'none',
+                transform: `translate(${bgOffset.x}px, ${bgOffset.y}px)`,
+                transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+              }}
+            />
+          )
         ) : (
           <div
             onClick={(e) => {

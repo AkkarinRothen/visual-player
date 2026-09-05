@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { DisplayState } from '../../types';
+import { db } from '../../db';
 import { AtmosphereCanvas } from '../canvas/AtmosphereCanvas';
 import { DisplayCharactersLayer } from './DisplayCharactersLayer';
 import { SceneLightsLayer } from './SceneLightsLayer';
@@ -49,6 +50,67 @@ export const StageViewport: React.FC<StageViewportProps> = ({
   const activeBg = state.backgroundUrl || internalActiveBg;
   const prevBg = propPrevBg !== undefined ? propPrevBg : internalPrevBg;
   const isCrossfading = propIsCrossfading !== undefined ? propIsCrossfading : internalIsCrossfading;
+
+  // ── Video Background Subsystem ──
+  const isVideoBackground =
+    state.backgroundType === 'video' ||
+    Boolean(state.videoConfig?.videoAssetId) ||
+    Boolean(state.backgroundUrl?.startsWith('data:video/')) ||
+    Boolean(state.backgroundUrl && /\.(mp4|webm)($|\?)/i.test(state.backgroundUrl));
+
+  const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null);
+  const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!isVideoBackground) {
+      setResolvedVideoUrl(null);
+      setIsVideoPlaying(false);
+      return;
+    }
+
+    if (
+      state.backgroundUrl?.startsWith('data:video/') ||
+      state.backgroundUrl?.startsWith('blob:') ||
+      (state.backgroundUrl && /\.(mp4|webm)($|\?)/i.test(state.backgroundUrl))
+    ) {
+      setResolvedVideoUrl(state.backgroundUrl);
+      return;
+    }
+
+    const assetId = state.videoConfig?.videoAssetId;
+    if (assetId) {
+      db.assets
+        .get(assetId)
+        .then((asset) => {
+          if (!isCancelled && asset?.dataUrl) {
+            setResolvedVideoUrl(asset.dataUrl);
+          }
+        })
+        .catch((err) => {
+          console.warn('[StageViewport] Could not load video asset from DB:', err);
+        });
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isVideoBackground, state.videoConfig?.videoAssetId, state.backgroundUrl]);
+
+  // Pause / resume on blackout
+  useEffect(() => {
+    if (!videoRef.current) return;
+    if (state.isBlackout) {
+      videoRef.current.pause();
+    } else if (resolvedVideoUrl) {
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined && typeof playPromise?.catch === 'function') {
+        playPromise.catch(() => {});
+      }
+    }
+  }, [state.isBlackout, resolvedVideoUrl]);
 
   // ── Camera Transform Calculations ──
   const cameraFocal = state.camera?.focalPoint || state.focalPoint || { x: 50, y: 50 };
@@ -102,7 +164,7 @@ export const StageViewport: React.FC<StageViewportProps> = ({
         overflow: 'hidden',
       }}
     >
-      {/* Background Layers with crossfade */}
+      {/* Background Layers with crossfade and video ambient support */}
       <div className="stage-background-subsystem absolute inset-0 pointer-events-none">
         {prevBg && (
           <div
@@ -110,10 +172,42 @@ export const StageViewport: React.FC<StageViewportProps> = ({
             style={{ backgroundImage: `url(${prevBg})` }}
           />
         )}
+        {/* Static poster fallback layer: Always present so that players NEVER see a black frame */}
         <div
           className={`display-bg active-bg ${isCrossfading ? 'fade-in' : ''}`}
-          style={{ backgroundImage: `url(${activeBg})` }}
+          style={{
+            backgroundImage: `url(${state.videoConfig?.videoPosterUrl || activeBg})`,
+            opacity: isVideoBackground && isVideoPlaying ? 0 : 1,
+            transition: 'opacity 0.4s ease-in-out',
+          }}
         />
+
+        {/* Seamless Video Loop Layer */}
+        {isVideoBackground && resolvedVideoUrl && (
+          <video
+            ref={videoRef}
+            src={resolvedVideoUrl}
+            poster={state.videoConfig?.videoPosterUrl || activeBg}
+            autoPlay
+            loop={state.videoConfig?.videoLoop ?? true}
+            muted={state.videoConfig?.videoMuted ?? true}
+            playsInline
+            onPlaying={() => setIsVideoPlaying(true)}
+            onPause={() => {
+              if (state.isBlackout) setIsVideoPlaying(false);
+            }}
+            className={`display-bg active-bg active-video-bg ${isCrossfading ? 'fade-in' : ''}`}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: state.fitMode || 'cover',
+              position: 'absolute',
+              inset: 0,
+              opacity: isVideoPlaying ? 1 : 0,
+              transition: 'opacity 0.4s ease-in-out',
+            }}
+          />
+        )}
       </div>
 
       {/* Atmosphere / Weather Particles & Lighting */}

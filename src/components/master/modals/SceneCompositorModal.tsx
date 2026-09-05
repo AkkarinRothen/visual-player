@@ -16,6 +16,7 @@ import { CompositorStage } from '../compositor/CompositorStage';
 import { CompositorSidebar } from '../compositor/CompositorSidebar';
 import { CompositorModals } from '../compositor/CompositorModals';
 import { AssetPickerModal } from '../../common/AssetPickerModal';
+import { applySceneLayoutTemplate, type SceneLayoutTemplate } from '../../../domain/display/sceneLayoutTemplates';
 
 interface SceneCompositorModalProps {
   initialState: DisplayState;
@@ -443,6 +444,11 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
     setShowLoadPresetModal(false);
   };
 
+  const handleApplyLayoutTemplate = (template: SceneLayoutTemplate) => {
+    pushHistory();
+    setCharacters((current) => applySceneLayoutTemplate(current, template));
+  };
+
   const handleSave = async (directToLive: boolean) => {
     setIsSaving(true);
     try {
@@ -546,6 +552,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
         canSavePreset={Boolean(onSaveCompositionPreset)}
         backgroundUrl={backgroundUrl}
         onOpenBackgroundPicker={() => setShowBackgroundPicker(true)}
+        onApplyLayoutTemplate={handleApplyLayoutTemplate}
       />
 
           <CompositorSidebar

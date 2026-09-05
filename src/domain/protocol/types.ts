@@ -69,7 +69,52 @@ export type SyncMessageType =
   | 'UPDATE_ACTIVE_RECAP'
   | 'MESA_VIEWPORT_CHANGED'
   | 'AUDIT_MESA_REQUEST'
-  | 'AUDIT_MESA_RESPONSE';
+  | 'AUDIT_MESA_RESPONSE'
+  | 'VIDEO_AVAILABILITY_QUERY'
+  | 'VIDEO_AVAILABILITY_RESPONSE'
+  | 'VIDEO_CHUNK_TRANSFER'
+  | 'VIDEO_PLAYBACK_COMMAND'
+  | 'VIDEO_PLAYBACK_TELEMETRY';
+
+export interface VideoAvailabilityQueryPayload {
+  videoAssetId: string;
+  checksum: string;
+  expectedSize: number;
+}
+
+export interface VideoAvailabilityResponsePayload {
+  videoAssetId: string;
+  available: boolean;
+  isVerified: boolean;
+}
+
+export interface VideoChunkTransferPayload {
+  transferId: string;
+  assetId: string;
+  chunkIndex: number;
+  totalChunks: number;
+  data: string; // Base64 chunk
+  checksum: string;
+}
+
+export interface VideoPlaybackCommandPayload {
+  action: 'play' | 'pause' | 'seek' | 'stop' | 'restart';
+  playbackId: string;
+  videoAssetId: string;
+  currentTimeMs?: number;
+  sceneRevision?: number;
+  timestamp: number;
+}
+
+export interface VideoPlaybackTelemetryPayload {
+  playbackId: string;
+  videoAssetId: string;
+  status: 'idle' | 'loading' | 'ready' | 'playing' | 'paused' | 'finished' | 'error';
+  currentTimeMs: number;
+  durationMs: number;
+  isMuted: boolean;
+  errorMessage?: string;
+}
 
 export interface AckPayload {
   ackMessageId: string;

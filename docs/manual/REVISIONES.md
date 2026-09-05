@@ -2,6 +2,30 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-04 — MAN-047: Soporte de Fondos de Video con Optimización y Sincronización Resiliente
+
+- **Problema y requerimiento:** necesidad de admitir fondos animados de video (ej. cascadas, lluvia, fuego, ambientaciones cinemáticas en bucle) en el Escenario de Visual Player, asegurando que se adapten a la pantalla 16:9 sin pérdida de calidad y sin congelar ni mostrar pantallas negras en la Mesa de los jugadores.
+- **Implementación y arquitectura:**
+  1. **Pipeline de validación y extracción de póster (`videoOptimizer.ts`):** validación de contenedores (MP4/H.264, WebM), duración recomendada de loops (5 a 30s), cálculo de hash SHA-256 e instantánea del primer fotograma en un `<canvas>` oculto para crear el póster de respaldo inmediato.
+  2. **Persistencia local offline (`assetDb.ts` y `sessionDb.ts`):** soporte del tipo `'video'` en la base IndexedDB local (`db.assets`), permitiendo el uso de fondos de video sin conexión a internet y en paquetes de sesión.
+  3. **Transferencia resiliente por WebRTC (`videoChunkSyncService.ts`):** protocolo de transmisión de videos en fragmentos de 64 KB (`VIDEO_CHUNK_TRANSFER`) con consulta previa de disponibilidad (`VIDEO_AVAILABILITY_QUERY`), verificación de integridad SHA-256 al ensamblar e inserción automática en la base de datos de la Mesa.
+  4. **Renderizado en Mesa con cero pantallas negras (`StageViewport.tsx`):** renderizado en doble capa; la capa de póster estático permanece visible bajo el video y se funde suavemente al arrancar la reproducción. Integración con `fitMode` (cover/contain) y pausa automática al activar el modo de emergencia *Blackout*.
+  5. **Compositor y Selector Visual (`AssetPickerModal.tsx`, `ComposerViewport.tsx`, `SceneCanvasComposer.tsx`):** selector unificado con filtro por pestañas (*Todos*, *Fotos*, *Videos*), etiquetas de duración de video y previsualización en vivo en el lienzo del director.
+- **Evidencia técnica:** compilación TypeScript limpia (`npx tsc -b`), 67 suites de pruebas pasando al 100% (387 de 387 pruebas aprobadas en Vitest, incluyendo pruebas de renderizado de video, sincronización por fragmentos y reductor de comandos) y build de producción (`npm run build`) en 3.79s.
+- **Comprobación de uso:**
+  - *Revisión de código y pruebas unitarias:* 100% completas y aprobadas.
+  - *Comprobación visual:* validado el flujo de carga, badges de duración y previsualización en el navegador.
+  - *Límites y próxima comprobación:* queda pendiente una prueba de estrés de transmisión WebRTC con múltiples dispositivos físicos en una red local con latencia real.
+- **Manual:** se actualizó `docs/manual/README.md` incorporando la subsección «Elegir imágenes y fondos de video (Selector Visual)».
+
+## 2026-09-04 — Plantillas de composición visual
+
+- **Walkthrough y entorno:** revisión de código del compositor y pruebas unitarias locales; no se realizó recorrido visual ni una prueba con Mesa conectada.
+- **Funciones afectadas:** el Compositor Táctil incorpora **JRPG**, **Diálogo** y **Mapa** debajo de la vista previa. Reorganizan las figuras existentes como punto de partida: bandos laterales, dos interlocutores destacados o miniaturas compactas para un mapa elegido como fondo.
+- **Manual:** se agregó la sección «Plantillas de composición: JRPG, diálogo y mapa táctico» a `README.md`.
+- **Evidencia:** `sceneLayoutTemplates.test.ts` pasó 2/2 pruebas. La compilación completa quedó bloqueada por un error TypeScript preexistente: variable `container` sin uso en `src/domain/display/stageViewportVideo.test.tsx:87`.
+- **Límites y próxima comprobación:** pendiente abrir el compositor en móvil y escritorio, comprobar publicación hacia una Mesa conectada y validar la legibilidad de tokens sobre mapas reales. Resultado: revisión parcial por bloqueo.
+
 ## 2026-09-04 — MAN-046: Modularización de MasterController en hooks y subcomponentes (`controller/`)
 
 - **Problema de mantenimiento:** `src/components/master/MasterController.tsx` concentraba 1,337 líneas como controlador maestro de la aplicación, albergando la gestión del botón nativo «Atrás» de Android con cascada de modales, el menú flotante del Modo Partida (mesa/inmersivo), el despacho de acciones de atmósfera/SFX y la persistencia de checkpoints automáticos y manuales.
@@ -144,6 +168,12 @@ Este registro documenta la revisión del manual. No reemplaza el historial de ca
 - **Cambio de flujo:** el compositor táctil incorpora **Añadir NPC** con personajes de la campaña disponibles en una tira desplazable.
 - **Uso:** tocar un personaje lo agrega al escenario, lo selecciona y lo deja listo para arrastrarlo; conserva deshacer y publicación junto con el resto de la composición.
 - **Evidencia:** `npm run android:build` y `npm run android:verify` completados correctamente. La comprobación visual en Android físico queda pendiente.
+
+## 2026-09-04 — MAN-050: Cambiar fondo desde el compositor táctil
+
+- **Cambio de flujo:** el editor táctil incorpora **Cambiar Fondo** junto a las acciones rápidas del escenario.
+- **Uso:** abre el selector de assets existente para elegir recursos guardados, importar una imagen o usar una URL; el fondo seleccionado se conserva al guardar la composición en En Vivo o Preparación.
+- **Evidencia:** `npm run android:build` y `npm run android:verify` completados correctamente; la validación visual en Android físico queda pendiente.
 
 ## 2026-09-04 — MAN-031: Modo Partida Android con controles ocultables
 

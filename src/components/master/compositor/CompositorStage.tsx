@@ -14,7 +14,11 @@ import {
   Plus,
   Bookmark,
   FolderOpen,
+  Swords,
+  MessageCircle,
+  Map,
 } from 'lucide-react';
+import type { SceneLayoutTemplate } from '../../../domain/display/sceneLayoutTemplates';
 
 export interface CompositorStageProps {
   stageRef: React.RefObject<HTMLDivElement | null>;
@@ -42,6 +46,7 @@ export interface CompositorStageProps {
   canSavePreset?: boolean;
   backgroundUrl?: string;
   onOpenBackgroundPicker?: () => void;
+  onApplyLayoutTemplate: (template: SceneLayoutTemplate) => void;
 }
 
 export const CompositorStage: React.FC<CompositorStageProps> = ({
@@ -64,6 +69,7 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
   canSavePreset = true,
   backgroundUrl,
   onOpenBackgroundPicker,
+  onApplyLayoutTemplate,
 }) => {
   return (
     <div className="compositor-stage-panel flex-1 flex flex-col items-center">
@@ -235,6 +241,11 @@ export const CompositorStage: React.FC<CompositorStageProps> = ({
       {/* QUICK PRESETS & TOOLBAR UNDER STAGE */}
       <div className="w-full flex items-center justify-between mt-2 px-1">
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded bg-slate-950/70 p-1 border border-slate-800" aria-label="Plantillas de composición">
+            <button type="button" className="px-1.5 py-1 text-amber-300 hover:bg-slate-800 rounded text-[10px] flex items-center gap-1" onClick={() => onApplyLayoutTemplate('jrpg-battle')} title="Batalla JRPG: primeras figuras a la izquierda y el resto a la derecha"><Swords size={14} />JRPG</button>
+            <button type="button" className="px-1.5 py-1 text-sky-300 hover:bg-slate-800 rounded text-[10px] flex items-center gap-1" onClick={() => onApplyLayoutTemplate('visual-novel')} title="Novela visual: protagonistas en primer plano"><MessageCircle size={14} />Diálogo</button>
+            <button type="button" className="px-1.5 py-1 text-emerald-300 hover:bg-slate-800 rounded text-[10px] flex items-center gap-1" onClick={() => onApplyLayoutTemplate('tactical-map')} title="Mapa táctico: miniaturas compactas en cuadrícula"><Map size={14} />Mapa</button>
+          </div>
           <button
             className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded text-slate-200 flex items-center gap-1.5"
             onClick={() => setShowAddPropModal(true)}

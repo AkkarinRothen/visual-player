@@ -15,6 +15,8 @@ import { DisplayHUD } from './DisplayHUD';
 import { HandoutDisplayLayer } from './HandoutDisplayLayer';
 import { RecapDisplayLayer } from './RecapDisplayLayer';
 import { APP_VERSION, BUILD_ID, PROTOCOL_VERSION, APP_CAPABILITIES } from '../../version';
+import { videoChunkSyncService } from '../../services/videoChunkSyncService';
+import { db } from '../../db';
 
 interface PlayerDisplayProps {
   initialRoomCode?: string;
@@ -176,6 +178,19 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
         });
         return;
       }
+      if (msg && msg.type === 'VIDEO_CHUNK_TRANSFER') {
+        videoChunkSyncService.receiveChunk(msg.payload).then((progress) => {
+          if (progress.isComplete && progress.dataUrl) {
+            setState((prev) => ({
+              ...prev,
+              videoConfig: prev.videoConfig ? { ...prev.videoConfig } : undefined,
+            }));
+          }
+        }).catch((err) => {
+          console.warn('[PlayerDisplay] Error receiving video chunk:', err);
+        });
+        return;
+      }
       handleIncomingMessage(msg as any);
     });
 
@@ -297,6 +312,24 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
       isCancelled = true;
     };
   }, [state.backgroundUrl, state.characters, state.props]);
+
+  // Consulta automática de fragmentos de video al Master si no existen en IndexedDB local
+  useEffect(() => {
+    const assetId = state.videoConfig?.videoAssetId;
+    if (!assetId) return;
+
+    db.assets.get(assetId).then((found) => {
+      if (!found || !found.dataUrl) {
+        peerService.send({
+          type: 'VIDEO_AVAILABILITY_QUERY',
+          payload: {
+            assetId,
+            sha256: (state.videoConfig as any)?.sha256,
+          },
+        });
+      }
+    }).catch(() => {});
+  }, [state.videoConfig?.videoAssetId]);
 
   // Handle incoming messages from Master Remote via sequential transactional executor
   const handleIncomingMessage = (msg: any) => {

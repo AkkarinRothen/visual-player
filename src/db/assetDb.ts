@@ -12,7 +12,7 @@ import { generateId } from './dbUtils';
 export interface StoredAsset {
   id: string;
   name: string;
-  type: 'image' | 'audio';
+  type: 'image' | 'audio' | 'video';
   dataUrl: string;
   thumbnailUrl?: string;
   originalDataUrl?: string;
@@ -20,6 +20,9 @@ export interface StoredAsset {
   optimizedSize?: number;
   sha256?: string;
   dimensions?: { width: number; height: number };
+  durationSeconds?: number;
+  posterAssetId?: string;
+  posterDataUrl?: string;
   createdAt: number;
   originUrl?: string;
   refCount?: number;
@@ -28,7 +31,7 @@ export interface StoredAsset {
 export interface AssetDependencyItem {
   url: string;
   context: string;
-  type: 'image' | 'audio';
+  type: 'image' | 'audio' | 'video';
 }
 
 /**
@@ -37,7 +40,7 @@ export interface AssetDependencyItem {
  */
 export async function registerImmutableAsset(
   name: string,
-  type: 'image' | 'audio',
+  type: 'image' | 'audio' | 'video',
   dataUrl: string,
   originUrl?: string
 ): Promise<StoredAsset> {
@@ -68,7 +71,7 @@ export async function registerImmutableAsset(
  */
 export async function registerOptimizedAsset(params: {
   name: string;
-  type: 'image' | 'audio';
+  type: 'image' | 'audio' | 'video';
   dataUrl: string;
   thumbnailUrl?: string;
   originalDataUrl?: string;
@@ -76,6 +79,9 @@ export async function registerOptimizedAsset(params: {
   optimizedSize?: number;
   sha256?: string;
   dimensions?: { width: number; height: number };
+  durationSeconds?: number;
+  posterAssetId?: string;
+  posterDataUrl?: string;
   originUrl?: string;
 }): Promise<StoredAsset> {
   const existing = await db.assets
@@ -94,6 +100,9 @@ export async function registerOptimizedAsset(params: {
       thumbnailUrl: existing.thumbnailUrl || params.thumbnailUrl,
       sha256: existing.sha256 || params.sha256,
       dimensions: existing.dimensions || params.dimensions,
+      durationSeconds: existing.durationSeconds || params.durationSeconds,
+      posterAssetId: existing.posterAssetId || params.posterAssetId,
+      posterDataUrl: existing.posterDataUrl || params.posterDataUrl,
     };
     await db.assets.put(updated);
     return updated;
@@ -110,6 +119,9 @@ export async function registerOptimizedAsset(params: {
     optimizedSize: params.optimizedSize,
     sha256: params.sha256,
     dimensions: params.dimensions,
+    durationSeconds: params.durationSeconds,
+    posterAssetId: params.posterAssetId,
+    posterDataUrl: params.posterDataUrl,
     originUrl: params.originUrl,
     refCount: 1,
     createdAt: Date.now(),

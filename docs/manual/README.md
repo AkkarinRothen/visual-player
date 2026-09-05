@@ -46,6 +46,7 @@ Necesitás tener acceso a la app en el dispositivo que usará quien dirige y en 
 - **Herramientas de mesa en el celular:** En la barra inferior tocá **Más** y luego **Herramientas de mesa**. Desde ese drawer podés cambiar entre **En vivo** y **Preparación**, publicar o descartar cambios, abrir escena y cámara, acceder a recursos, combate, historial, presets, diagnóstico y **Modo Partida**.
 - **Acceso directo a Escena:** La barra inferior también incluye **Escena**. Tocá ese botón para abrir directamente el editor táctil y mover personajes, cambiar el fondo u ordenar la composición durante la mesa.
 - **Añadir NPC desde la escena:** Dentro del editor táctil, la sección **Añadir NPC** muestra personajes de la campaña en una tira horizontal. Tocá uno para incorporarlo y dejarlo seleccionado; después arrastralo al lugar deseado.
+- **Cambiar el fondo desde la escena:** En el editor táctil, tocá **Cambiar Fondo**. Podés elegir un recurso guardado, importar una imagen del dispositivo o usar una URL; el fondo queda aplicado a la composición al publicar o guardar.
 - **Últimas acciones:** El **Centro de Partida** muestra las cuatro acciones más recientes, indicando si fueron **En Vivo** o **Borrador**, la escena relacionada y la hora. Tocá **Ver historial completo** para revisar o restaurar un punto anterior.
 
 Para este primer recorrido, usá conexión a Internet. El funcionamiento sin Internet y la conexión local de Android quedan pendientes de una guía comprobada en dispositivos reales. Si vas a usar imágenes o sonidos mediante enlaces, esos enlaces también deben poder abrirse desde los dispositivos.
@@ -247,6 +248,26 @@ La misma ventana ofrece duplicar y eliminar campañas. Duplicar puede servirte p
 **Ejemplo:** «Posada del Dragón», una imagen de la taberna y el subtítulo «Al caer la noche».
 
 La app exige que quede al menos un escenario en la campaña. Las opciones de clima e iluminación del editor y de la Vista Clásica pueden tener nombres distintos en esta versión.
+
+### Elegir imágenes y fondos de video (Selector Visual)
+
+El **Selector Visual** permite elegir y subir tanto imágenes estáticas (`PNG`, `JPG`, `WebP`) como **fondos de video animados** (`MP4`, `WebM`):
+
+1. **Formatos recomendados:**
+   - **Videos en bucle (Loop):** ideales para cascadas, fuego crepitante, lluvia en una taberna o cielos nubosos en movimiento. Se recomiendan clips breves de entre **5 y 30 segundos** en formato MP4 (H.264) o WebM.
+   - **Proporción y resolución:** preferentemente 16:9 (por ejemplo 1920×1080 o 1280×720). El escenario adapta el video automáticamente con bandas neutras sin recortar ni deformar la imagen.
+2. **Generación automática de póster (Sin pantallas negras):**
+   - Al cargar un video, la app extrae de inmediato una captura del primer fotograma (*póster*).
+   - Este póster se proyecta al instante en la Mesa física mientras el video se descarga o transfiere por la red. Los jugadores **nunca verán una pantalla negra o vacía**.
+3. **Pestañas de la Biblioteca:**
+   - Podés filtrar rápidamente entre **Todos**, **Fotos** o **Videos** para localizar tus recursos sin confusiones.
+   - Las tarjetas de video muestran una etiqueta con su duración exacta y una vista previa interactiva.
+4. **Funcionamiento sin conexión:**
+   - Tanto los videos como sus pósteres se almacenan en la memoria local del navegador/app (IndexedDB). No requieren conexión a internet una vez transferidos o empaquetados en la campaña.
+5. **Comportamiento en mesa:**
+   - Los videos de fondo se reproducen en bucle continuo y sin sonido por defecto (el audio de la escena se gestiona de forma independiente con la Banda Sonora y el SFX Pad).
+   - Al activar el modo **Blackout (Emergencia)**, la reproducción del video se pausa inmediatamente junto con el resto de los elementos visuales.
+
 
 ### Crear y mostrar un personaje
 
@@ -614,6 +635,16 @@ El control **Mute Total** se ofrece para silenciar y cambia a **Reactivar**. En 
 | El botón Atrás de Android no cierra la app | El botón Atrás está protegido para evitar pérdidas de datos: primero cierra el teclado, luego menús o ventanas emergentes y finalmente pide confirmación antes de salir. |
 
 ### Modo Dirección Táctil y Composición de Escenas
+
+### Plantillas de composición: JRPG, diálogo y mapa táctico
+
+En el compositor, debajo de la vista previa, encontrás tres botones: **JRPG**, **Diálogo** y **Mapa**. Son puntos de partida; no crean ni borran figuras y podés mover cada una después.
+
+- **JRPG:** coloca la primera mitad de las figuras de la lista a la izquierda y el resto a la derecha, enfrentadas. Ordená la lista o ajustá las figuras si querés cambiar quiénes forman cada bando.
+- **Diálogo:** destaca las dos primeras figuras a cada lado, como una escena de novela visual. Las demás quedan más pequeñas detrás.
+- **Mapa:** reduce las figuras y las reparte sobre una cuadrícula regular. Elegí primero el mapa como **Cambiar Fondo** y usá retratos o PNG transparentes como miniaturas/tokens.
+
+Después de aplicar una plantilla, revisá el encuadre y tocá **Guardar Composición** si querés reutilizarla. En **Modo En Vivo**, terminá con **Publicar a Mesa** para que el grupo la vea. La distribución se aplica al borrador del compositor; no modifica puntos de golpe, iniciativa ni el combate activo.
 
 Podés colocar y dirigir a tus personajes directamente sobre la pantalla de previsualización sin entrar a ventanas complejas:
 

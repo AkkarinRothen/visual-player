@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ConnectionStatus, DisplayState, SyncMessage } from '../types';
+import { db } from '../db';
 import { peerService } from '../services/peerService';
 import { sessionCommandBus, type MesaTelemetryInfo } from '../services/sessionCommandBus';
 import { acquireServerSessionToken, startTurnRenewalWatcher } from '../services/iceConfig';
+import { createVideoChunks } from '../services/videoChunkSyncService';
 
 interface UseMasterConnectionOptions {
   initialRoomCode?: string;
@@ -70,9 +72,34 @@ export function useMasterConnection(options: UseMasterConnectionOptions = {}) {
       }
     });
 
-    const unsubMsg = peerService.onMessage((msg) => {
+    const unsubMsg = peerService.onMessage(async (msg: any) => {
       if (msg.type === 'REQUEST_FULL_STATE') {
         onFullStateRequestedRef.current?.();
+      } else if (msg.type === 'VIDEO_AVAILABILITY_QUERY') {
+        const { assetId } = msg.payload || {};
+        if (assetId) {
+          try {
+            const asset = await db.assets.get(assetId);
+            if (asset && asset.dataUrl) {
+              const chunks = createVideoChunks({
+                assetId: asset.id,
+                name: asset.name,
+                dataUrl: asset.dataUrl,
+                sha256: asset.sha256 || 'sha256-legacy',
+                durationSeconds: asset.durationSeconds,
+                posterDataUrl: asset.posterDataUrl || asset.thumbnailUrl,
+              });
+              for (const chunk of chunks) {
+                peerService.send({
+                  type: 'VIDEO_CHUNK_TRANSFER',
+                  payload: chunk,
+                });
+              }
+            }
+          } catch (err) {
+            console.warn('[useMasterConnection] Failed to stream video chunks:', err);
+          }
+        }
       }
     });
 

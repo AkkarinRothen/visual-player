@@ -7,6 +7,8 @@ import type {
   WeatherType,
   LightingFilter,
   CameraTransform,
+  BackgroundType,
+  SceneVideoConfig,
 } from '../../../types';
 import { db } from '../../../db';
 import {
@@ -48,6 +50,8 @@ export const SceneCanvasComposer: React.FC<SceneCanvasComposerProps> = ({
   // Scene metadata
   const [sceneName, setSceneName] = useState(initialScene?.name || 'Nueva Escena');
   const [backgroundUrl, setBackgroundUrl] = useState(initialScene?.backgroundUrl || '');
+  const [backgroundType, setBackgroundType] = useState<BackgroundType>(initialScene?.backgroundType || 'image');
+  const [videoConfig, setVideoConfig] = useState<SceneVideoConfig | undefined>(initialScene?.videoConfig);
   const [locationBanner, setLocationBanner] = useState(initialScene?.locationBanner || '');
   const [subtitle, setSubtitle] = useState(initialScene?.subtitle || '');
   const [weather, setWeather] = useState<WeatherType>(initialScene?.weather || 'none');
@@ -119,6 +123,8 @@ export const SceneCanvasComposer: React.FC<SceneCanvasComposerProps> = ({
     if (initialScene) {
       setSceneName(initialScene.name);
       setBackgroundUrl(initialScene.backgroundUrl);
+      setBackgroundType(initialScene.backgroundType || 'image');
+      setVideoConfig(initialScene.videoConfig);
       setLocationBanner(initialScene.locationBanner || initialScene.name);
       setSubtitle(initialScene.subtitle || '');
       setWeather(initialScene.weather || 'none');
@@ -465,6 +471,8 @@ export const SceneCanvasComposer: React.FC<SceneCanvasComposerProps> = ({
     id: initialScene?.id || `scene-${Date.now()}`,
     name: sceneName.trim() || 'Escena sin título',
     backgroundUrl,
+    backgroundType,
+    videoConfig,
     locationBanner: locationBanner.trim() || sceneName.trim(),
     subtitle: subtitle.trim(),
     weather,
@@ -560,6 +568,8 @@ export const SceneCanvasComposer: React.FC<SceneCanvasComposerProps> = ({
         setBgOffset={setBgOffset}
         isDragging={isDraggingRef.current}
         backgroundUrl={backgroundUrl}
+        backgroundType={backgroundType}
+        videoPosterUrl={videoConfig?.videoPosterUrl}
         lighting={lighting}
         locationBanner={locationBanner}
         characters={characters}
@@ -636,6 +646,20 @@ export const SceneCanvasComposer: React.FC<SceneCanvasComposerProps> = ({
         onSelectAsset={(asset) => {
           if (assetPickerMode === 'background') {
             setBackgroundUrl(asset.url);
+            if (asset.type === 'video') {
+              setBackgroundType('video');
+              setVideoConfig({
+                videoAssetId: asset.videoAssetId,
+                videoPosterUrl: asset.posterUrl || asset.url,
+                videoDurationSeconds: asset.durationSeconds,
+                videoLoop: true,
+                videoMuted: true,
+                videoAutoplay: true,
+              });
+            } else {
+              setBackgroundType('image');
+              setVideoConfig(undefined);
+            }
             if (!sceneName || sceneName === 'Nueva Escena') {
               setSceneName(asset.name);
             }

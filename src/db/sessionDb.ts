@@ -1424,7 +1424,7 @@ export async function packSessionForExport(
     if (a.originUrl) assetMap.set(a.originUrl, a);
   }
 
-  const packedAssets: Array<{ id: string; name: string; type: 'image' | 'audio'; dataUrl: string }> = [];
+  const packedAssets: Array<{ id: string; name: string; type: 'image' | 'video' | 'audio'; dataUrl: string }> = [];
   const missingAssets: MissingAssetInfo[] = preflightReport ? [...preflightReport.missing] : [];
 
   for (const dep of dependencies) {

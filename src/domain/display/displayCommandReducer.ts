@@ -89,6 +89,13 @@ export function reduceDisplayCommand(
         currentSceneId: payload.id,
         sceneName: payload.name || state.sceneName,
         backgroundUrl: payload.backgroundUrl || state.backgroundUrl,
+        backgroundType: payload.backgroundType || (payload.videoConfig ? 'video' : 'image'),
+        videoConfig: payload.videoConfig || (payload.videoAssetId ? {
+          videoAssetId: payload.videoAssetId,
+          videoPosterUrl: payload.videoPosterUrl,
+          videoLoop: payload.videoLoop,
+          videoMuted: payload.videoMuted,
+        } : undefined),
         weather: payload.weather || 'none',
         weatherIntensity: payload.weatherIntensity ?? 0.5,
         lighting: payload.lighting || 'normal',
@@ -134,21 +141,26 @@ export function reduceDisplayCommand(
     }
 
     case 'SET_BACKGROUND': {
-      const bgUrl = msg.payload as string;
+      const payload = msg.payload as any;
+      const bgUrl = typeof payload === 'string' ? payload : payload?.url;
       if (typeof bgUrl !== 'string') {
         return {
           success: false,
           errorCode: 'INVALID_BACKGROUND_URL',
-          errorMessage: 'SET_BACKGROUND requiere una URL en formato string',
+          errorMessage: 'SET_BACKGROUND requiere una URL válida',
         };
       }
 
+      const nextState: DisplayState = {
+        ...state,
+        backgroundUrl: bgUrl,
+        backgroundType: typeof payload === 'object' && payload?.backgroundType ? payload.backgroundType : (payload?.videoConfig ? 'video' : (state.backgroundType || 'image')),
+        videoConfig: typeof payload === 'object' && payload?.videoConfig !== undefined ? payload.videoConfig : state.videoConfig,
+      };
+
       return {
         success: true,
-        nextState: {
-          ...state,
-          backgroundUrl: bgUrl,
-        },
+        nextState,
         sideEffects: [{ type: 'trigger_bg_transition', payload: { backgroundUrl: bgUrl } }],
       };
     }
@@ -879,6 +891,54 @@ export function reduceDisplayCommand(
         nextState: {
           ...state,
           activeRecap: activeRecap || null,
+        },
+      };
+    }
+
+    case 'VIDEO_PLAYBACK_COMMAND': {
+      const payload = msg.payload as any;
+      if (!payload || !payload.action) {
+        return {
+          success: false,
+          errorCode: 'INVALID_VIDEO_COMMAND',
+          errorMessage: 'VIDEO_PLAYBACK_COMMAND requiere una acción válida (play, pause, stop, seek)',
+        };
+      }
+
+      const prevPlayback = state.videoPlayback || {
+        playbackId: `playback-${Date.now()}`,
+        videoAssetId: payload.videoAssetId || state.videoConfig?.videoAssetId || '',
+        status: 'idle',
+        currentTimeMs: 0,
+        durationMs: (state.videoConfig?.durationSeconds || 0) * 1000,
+        isMuted: state.videoConfig?.videoMuted ?? true,
+        volume: 1,
+        playbackRate: 1,
+        updatedAt: Date.now(),
+      };
+
+      let nextStatus = prevPlayback.status;
+      let nextTimeMs = prevPlayback.currentTimeMs;
+
+      if (payload.action === 'play') nextStatus = 'playing';
+      else if (payload.action === 'pause') nextStatus = 'paused';
+      else if (payload.action === 'stop') {
+        nextStatus = 'idle';
+        nextTimeMs = 0;
+      } else if (payload.action === 'seek' && typeof payload.seekTimeMs === 'number') {
+        nextTimeMs = payload.seekTimeMs;
+      }
+
+      return {
+        success: true,
+        nextState: {
+          ...state,
+          videoPlayback: {
+            ...prevPlayback,
+            status: nextStatus,
+            currentTimeMs: nextTimeMs,
+            updatedAt: Date.now(),
+          },
         },
       };
     }

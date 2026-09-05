@@ -2,7 +2,7 @@ import React from 'react';
 import { Users, X, Image as ImageIcon, Plus, Sparkles } from 'lucide-react';
 import type { Campaign, Scene } from '../../../types';
 import type { SceneDraftState } from '../../../services/draftStorageService';
-import { AssetPickerModal } from '../../common/AssetPickerModal';
+import { AssetPickerModal, type SelectedAssetResult } from '../../common/AssetPickerModal';
 import { TransferSceneModal } from '../workshop/TransferSceneModal';
 
 export interface ComposerModalsProps {
@@ -11,7 +11,7 @@ export interface ComposerModalsProps {
   assetPickerMode: 'background' | 'character';
   backgroundUrl: string;
   quickCharAvatar: string;
-  onSelectAsset: (asset: { url: string; name: string }) => void;
+  onSelectAsset: (asset: SelectedAssetResult) => void;
   onCloseAssetPicker: () => void;
 
   // Quick Char Modal
