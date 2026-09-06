@@ -2,6 +2,20 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-068: Modularización de Vista Taller de Preparación (WorkshopView.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.77s y ejecución completa de la suite de pruebas con `npm test -- --run` (82 archivos aprobados, 470 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Vista de Taller (`WorkshopView.tsx` y subcomponentes):** el componente monolítico de 1.000 líneas se redujo a 445 líneas aislando sus pestañas y modal de creación en submódulos especializados dentro de `src/components/master/workshop/`:
+     - `WorkshopScenesTab.tsx`: catálogo y grid de escenas 16:9, composición de escena, transferencia a sesión y eliminación.
+     - `WorkshopCharactersTab.tsx`: catálogo de personajes/PNJs, avatares, roles y acciones de edición/baja.
+     - `WorkshopAssetsTab.tsx`: banco de recursos, packs `.vppack`, galería de medios y acceso a respaldos.
+     - `WorkshopNewCampaignModal.tsx`: modal flotante con formulario para alta rápida de campañas.
+  2. **Orquestación:** `WorkshopView.tsx` retiene el selector de campaña, el listener de botón atrás de Android (Capacitor) y la coordinación de modales.
+- **Manual:** sin cambios de uso; todas las opciones, botones, nombres de controles y comportamiento de la pantalla de Taller se mantienen exactamente iguales.
+- **Evidencia técnica:** 470 tests superados en Vitest, 0 errores en `tsc -b`, build de producción Vite exitoso.
+- **Resultado:** modularización de componentes del taller completada con éxito sin regresiones.
+
 ## 2026-09-06 — MAN-067: Modularización de Capa de Persistencia de Sesión (sessionDb.ts)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript y bundle de producción con `npm run build` (`tsc -b && vite build`) correcto en 1.5s y ejecución completa de la suite de pruebas con `npm test -- --run` (82 archivos aprobados, 470 tests superados al 100%).

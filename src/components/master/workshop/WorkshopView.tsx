@@ -2,15 +2,11 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Plus,
-  Edit,
-  Trash2,
   Image as ImageIcon,
   Users,
   FolderOpen,
   Compass,
-  Send,
   FolderArchive,
-  Package,
 } from 'lucide-react';
 import type { Campaign, Scene, Character } from '../../../types';
 import {
@@ -27,6 +23,10 @@ import { AssetPickerModal } from '../../common/AssetPickerModal';
 import { TransferSceneModal } from './TransferSceneModal';
 import { BackupManagerModal } from '../modals/BackupManagerModal';
 import { ResourcePacksModal } from '../modals/ResourcePacksModal';
+import { WorkshopScenesTab } from './WorkshopScenesTab';
+import { WorkshopCharactersTab } from './WorkshopCharactersTab';
+import { WorkshopAssetsTab } from './WorkshopAssetsTab';
+import { WorkshopNewCampaignModal } from './WorkshopNewCampaignModal';
 import { App as CapApp } from '@capacitor/app';
 
 export interface WorkshopViewProps {
@@ -424,456 +424,40 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
 
       {/* 3. Contenido de la Pestaña Activa */}
       <main style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
-        {/* PESTAÑA 1: ESCENAS */}
         {activeTab === 'scenes' && (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Escenas Preparadas</h2>
-                <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>
-                  Toca una escena para editarla a pantalla completa
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowBackupModal(true)}
-                  style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    color: '#cbd5e1',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                    fontWeight: 600,
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                  }}
-                  title="Copias de Seguridad (.vpbackup)"
-                >
-                  <FolderArchive size={16} className="text-amber-400" />
-                  <span>Respaldos</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSceneToEdit(null);
-                    setIsComposingScene(true);
-                  }}
-                  style={{
-                    background: 'linear-gradient(135deg, #d97706, #b45309)',
-                    border: 'none',
-                    color: '#fff',
-                    borderRadius: '8px',
-                    padding: '10px 16px',
-                    fontWeight: 600,
-                    fontSize: '0.88rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)',
-                  }}
-                >
-                  <Plus size={16} />
-                  <span>Nueva Escena</span>
-                </button>
-              </div>
-            </div>
-
-            {activeCampaign?.scenes.length === 0 ? (
-              <div
-                style={{
-                  border: '2px dashed rgba(255,255,255,0.15)',
-                  borderRadius: '12px',
-                  padding: '40px 20px',
-                  textAlign: 'center',
-                  color: '#9ca3af',
-                }}
-              >
-                <ImageIcon size={40} className="text-amber-400" style={{ margin: '0 auto 12px', opacity: 0.8 }} />
-                <h3 style={{ color: '#f3f4f6', margin: '0 0 6px' }}>No hay escenas en esta campaña</h3>
-                <p style={{ fontSize: '0.85rem', marginBottom: '16px' }}>
-                  Empieza creando tu primer escenario con un fondo y personajes.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSceneToEdit(null);
-                    setIsComposingScene(true);
-                  }}
-                  style={{
-                    background: '#d97706',
-                    border: 'none',
-                    color: '#fff',
-                    borderRadius: '8px',
-                    padding: '8px 16px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Crear Primera Escena
-                </button>
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                  gap: '16px',
-                }}
-              >
-                {activeCampaign?.scenes.map((sc) => (
-                  <div
-                    key={sc.id}
-                    style={{
-                      background: 'rgba(15, 23, 42, 0.7)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '12px',
-                      overflow: 'hidden',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-                    }}
-                  >
-                    {/* Miniatura 16:9 */}
-                    <div
-                      style={{
-                        position: 'relative',
-                        aspectRatio: '16/9',
-                        width: '100%',
-                        background: '#020408',
-                        overflow: 'hidden',
-                        cursor: 'pointer',
-                      }}
-                      onClick={() => {
-                        setSceneToEdit(sc);
-                        setIsComposingScene(true);
-                      }}
-                    >
-                      <img
-                        src={sc.backgroundUrl}
-                        alt={sc.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: '8px',
-                          left: '8px',
-                          background: 'rgba(0,0,0,0.7)',
-                          backdropFilter: 'blur(6px)',
-                          borderRadius: '6px',
-                          padding: '3px 8px',
-                          fontSize: '0.75rem',
-                          color: '#fbbf24',
-                          fontWeight: 700,
-                        }}
-                      >
-                        {sc.locationBanner || sc.name}
-                      </div>
-
-                      {sc.activeCharacters && sc.activeCharacters.length > 0 && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            bottom: '8px',
-                            right: '8px',
-                            background: 'rgba(0,0,0,0.75)',
-                            borderRadius: '6px',
-                            padding: '3px 8px',
-                            fontSize: '0.72rem',
-                            color: '#fff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
-                          <Users size={12} />
-                          <span>{sc.activeCharacters.length} en escena</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Metadata y Acciones */}
-                    <div style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div>
-                        <strong style={{ fontSize: '0.95rem', color: '#fff', display: 'block' }}>
-                          {sc.name}
-                        </strong>
-                        <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                          {sc.subtitle || 'Sin subtítulo'}
-                        </span>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSceneToEdit(sc);
-                            setIsComposingScene(true);
-                          }}
-                          style={{
-                            background: 'rgba(245, 158, 11, 0.15)',
-                            border: '1px solid rgba(245, 158, 11, 0.3)',
-                            borderRadius: '6px',
-                            color: '#fbbf24',
-                            padding: '8px 12px',
-                            fontSize: '0.82rem',
-                            fontWeight: 600,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <Edit size={14} />
-                          <span>Componer</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setSceneToTransfer(sc)}
-                          style={{
-                            background: 'rgba(59, 130, 246, 0.15)',
-                            border: '1px solid rgba(59, 130, 246, 0.3)',
-                            borderRadius: '6px',
-                            color: '#60a5fa',
-                            padding: '8px 10px',
-                            fontSize: '0.82rem',
-                            fontWeight: 600,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            cursor: 'pointer',
-                          }}
-                          title="Llevar a sesión preparada"
-                        >
-                          <Send size={14} />
-                          <span>Llevar</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteScene(sc.id, sc.name)}
-                          style={{
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            border: '1px solid rgba(239, 68, 68, 0.2)',
-                            borderRadius: '6px',
-                            color: '#f87171',
-                            padding: '8px',
-                            cursor: 'pointer',
-                          }}
-                          title="Eliminar escena"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <WorkshopScenesTab
+            scenes={activeCampaign?.scenes || []}
+            onComposeScene={(sc) => {
+              setSceneToEdit(sc);
+              setIsComposingScene(true);
+            }}
+            onTransferScene={(sc) => setSceneToTransfer(sc)}
+            onDeleteScene={handleDeleteScene}
+            onOpenBackupModal={() => setShowBackupModal(true)}
+          />
         )}
 
-        {/* PESTAÑA 2: PERSONAJES */}
         {activeTab === 'characters' && (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Personajes & NPCs</h2>
-                <span style={{ fontSize: '0.8rem', color: '#94a3af' }}>
-                  Fichas listas para invocar en cualquier escena
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setCharToEdit(null);
-                  setShowCharModal(true);
-                }}
-                style={{
-                  background: 'linear-gradient(135deg, #d97706, #b45309)',
-                  border: 'none',
-                  color: '#fff',
-                  borderRadius: '8px',
-                  padding: '10px 16px',
-                  fontWeight: 600,
-                  fontSize: '0.88rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  cursor: 'pointer',
-                }}
-              >
-                <Plus size={16} />
-                <span>Nuevo Personaje</span>
-              </button>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                gap: '12px',
-              }}
-            >
-              {activeCampaign?.characters.map((ch) => (
-                <div
-                  key={ch.id}
-                  style={{
-                    background: 'rgba(15, 23, 42, 0.6)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '10px',
-                    padding: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                  }}
-                >
-                  <img
-                    src={ch.defaultAvatarUrl}
-                    alt={ch.name}
-                    style={{
-                      width: '48px',
-                      height: '48px',
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '2px solid rgba(245, 158, 11, 0.4)',
-                    }}
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <strong style={{ display: 'block', fontSize: '0.95rem', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {ch.name}
-                    </strong>
-                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{ch.roleOrTitle}</span>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCharToEdit(ch);
-                        setShowCharModal(true);
-                      }}
-                      style={{
-                        background: 'rgba(255,255,255,0.06)',
-                        border: 'none',
-                        color: '#cbd5e1',
-                        borderRadius: '6px',
-                        padding: '6px',
-                        cursor: 'pointer',
-                      }}
-                      title="Editar"
-                    >
-                      <Edit size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteCharacter(ch.id, ch.name)}
-                      style={{
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: 'none',
-                        color: '#f87171',
-                        borderRadius: '6px',
-                        padding: '6px',
-                        cursor: 'pointer',
-                      }}
-                      title="Eliminar"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <WorkshopCharactersTab
+            characters={activeCampaign?.characters || []}
+            onAddCharacter={() => {
+              setCharToEdit(null);
+              setShowCharModal(true);
+            }}
+            onEditCharacter={(ch) => {
+              setCharToEdit(ch);
+              setShowCharModal(true);
+            }}
+            onDeleteCharacter={handleDeleteCharacter}
+          />
         )}
 
-        {/* PESTAÑA 3: BANCO DE IMÁGENES */}
         {activeTab === 'assets' && (
-          <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <FolderOpen size={48} className="text-amber-400" style={{ margin: '0 auto 16px', opacity: 0.8 }} />
-            <h2 style={{ fontSize: '1.2rem', color: '#fff', marginBottom: '8px' }}>
-              Banco de Recursos Multimedia
-            </h2>
-            <p style={{ fontSize: '0.9rem', color: '#94a3b8', maxWidth: '420px', margin: '0 auto 20px' }}>
-              Importa fotos locales desde tu dispositivo o inspecciona las imágenes guardadas en la base de datos local para reutilizarlas en tus escenas.
-            </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => setShowResourcePacksModal(true)}
-                style={{
-                  background: 'linear-gradient(135deg, #d97706, #b45309)',
-                  border: 'none',
-                  color: '#fff',
-                  borderRadius: '10px',
-                  padding: '12px 24px',
-                  fontWeight: 600,
-                  fontSize: '0.95rem',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  boxShadow: '0 4px 16px rgba(217, 119, 6, 0.3)',
-                }}
-              >
-                <Package size={18} />
-                <span>Instalar Packs de Recursos (.vppack)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowAssetPicker(true)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.16)',
-                  color: '#f1f5f9',
-                  borderRadius: '10px',
-                  padding: '12px 24px',
-                  fontWeight: 600,
-                  fontSize: '0.95rem',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <FolderOpen size={18} className="text-amber-400" />
-                <span>Explorar Galería de Medios</span>
-              </button>
-            </div>
-
-            <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-              <button
-                type="button"
-                onClick={() => setShowBackupModal(true)}
-                style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  color: '#cbd5e1',
-                  borderRadius: '10px',
-                  padding: '10px 20px',
-                  fontWeight: 600,
-                  fontSize: '0.88rem',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <FolderArchive size={18} className="text-amber-400" />
-                <span>Gestionar Respaldos y Restauración (.vpbackup)</span>
-              </button>
-            </div>
-          </div>
+          <WorkshopAssetsTab
+            onOpenResourcePacksModal={() => setShowResourcePacksModal(true)}
+            onOpenAssetPicker={() => setShowAssetPicker(true)}
+            onOpenBackupModal={() => setShowBackupModal(true)}
+          />
         )}
       </main>
 
@@ -918,63 +502,13 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
       />
 
       {/* MODAL NUEVA CAMPAÑA */}
-      {showNewCampaignModal && (
-        <div className="modal-overlay" onClick={() => setShowNewCampaignModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', padding: '24px' }}>
-            <h3 style={{ margin: '0 0 16px', color: '#fff' }}>Crear Nueva Campaña</h3>
-            <form onSubmit={handleCreateCampaign}>
-              <input
-                type="text"
-                required
-                placeholder="Nombre de la Campaña"
-                value={newCampaignTitle}
-                onChange={(e) => setNewCampaignTitle(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  fontSize: '0.9rem',
-                  marginBottom: '16px',
-                  outline: 'none',
-                }}
-              />
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowNewCampaignModal(false)}
-                  style={{
-                    padding: '8px 16px',
-                    background: 'rgba(255,255,255,0.08)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    color: '#9ca3af',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '8px 18px',
-                    background: '#d97706',
-                    border: 'none',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Crear
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <WorkshopNewCampaignModal
+        isOpen={showNewCampaignModal}
+        title={newCampaignTitle}
+        onTitleChange={setNewCampaignTitle}
+        onCreateCampaign={handleCreateCampaign}
+        onClose={() => setShowNewCampaignModal(false)}
+      />
 
       {/* Modal de Traslado a Sesión Preparada */}
       {sceneToTransfer && (
