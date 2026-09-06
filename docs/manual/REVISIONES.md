@@ -2,6 +2,23 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-075: Modularización de Visor de Handouts y Documentos (HandoutViewerModal.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.48s y ejecución completa de suites de pruebas con `npm test -- --run` (88 suites aprobadas, 488 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Visor de Handouts y Cartas (`HandoutViewerModal.tsx` y submódulos en `src/components/master/handout/`):** el modal monolítico de 730 líneas se redujo a 95 líneas desacoplando su lógica de manipulación de documentos y niebla de guerra en subcomponentes modulares y un hook dedicado:
+     - `handoutTypes.ts`: contratos de tipado compartido para modos de interacción (`'pan' | 'reveal-rect' | 'reveal-brush'`), rectángulos de recorte y props de modal.
+     - `HandoutHeader.tsx`: cabecera con iconografía, título del visor, distintivo visual de estado de proyección (`Mesa: Pág. N` vs `Borrador DM`) y botón accesible de cierre.
+     - `HandoutMultipageBar.tsx`: barra horizontal de navegación multipágina con selección de página activa, agregado de nuevas páginas (`+ Página`), eliminación con protección de última página y proyección rápida a la pantalla de los jugadores (`Mostrar Pág. N en Mesa`).
+     - `HandoutToolbar.tsx`: barra de herramientas con selector de herramienta (Recuadro, Pincel, Mover), selector de grosor de pincel (Fino 4%, Medio 8%, Grande 14%), botones de niebla (Deshacer trazo, Ocultar Todo, Revelar Todo) y controles de zoom con porcentaje legible y reencuadre rápido.
+     - `HandoutCanvasWorkspace.tsx`: lienzo interactivo de previsualización con soporte de transformaciones de escala/desplazamiento, renderizado de imagen, máscara fantasma de niebla de guerra para el DM con marcas de regiones públicas y áreas descubiertas (rectángulos y círculos), y previsualizaciones de trazo en vivo.
+     - `HandoutFooter.tsx`: pie de acciones con campos de edición de título de página y URL de recurso gráfico, botón condicional para retirar de la Mesa y acción principal adaptativa ("Proyectar a la Mesa" / "Actualizar en Mesa").
+     - `useHandoutEditor.ts`: hook de estado y operaciones (256 líneas) que centraliza la normalización de páginas, cálculo de coordenadas relativas normalizadas (0-100), eventos de puntero con captura (`PointerCapture`), recorte de niebla, historial de trazos y sincronización en tiempo real con la Mesa.
+  2. **Pruebas unitarias (`HandoutViewerModal.test.tsx`):** suite de 3 pruebas cubriendo renderizado de elementos del visor, creación y navegación entre páginas del documento y disparos de proyección (`onProjectHandout`) y descarte (`onDismissHandout`).
+- **Manual:** sin cambios de uso; todas las opciones de revelado selectivo, pincel, navegación multipágina y proyección a mesa conservan idénticos atajos, controles visuales y resultados esperados.
+- **Evidencia técnica:** 88 suites aprobadas, 488/488 tests pasando en Vitest (3/3 tests unitarios nuevos en `HandoutViewerModal.test.tsx`), compilación `tsc -b` y bundle de producción en 1.48s con 0 errores.
+- **Resultado:** modularización del visor de handouts y documentos completada con éxito.
+
 ## 2026-09-06 — MAN-074: Modularización de Compositor de Escenas (SceneCompositorModal.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.54s y ejecución completa de suites de pruebas con `npm test -- --run` (87 suites aprobadas, 485 tests superados al 100%).
