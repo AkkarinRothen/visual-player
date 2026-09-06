@@ -61,6 +61,32 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
     }
   }, [connectionStatus, pairingInfo.phase]);
 
+  // Native Android Back Button Handler
+  useEffect(() => {
+    const bridge = getPlatformBridge();
+    const unsubscribe = bridge.lifecycle.onBackButton(() => {
+      if (showDiagnosticModal) {
+        setShowDiagnosticModal(false);
+        return true;
+      }
+      if (!isOverlayMinimized) {
+        setIsOverlayMinimized(true);
+        return true;
+      }
+      if (onExitToLobby) {
+        const confirmed = window.confirm('¿Deseas salir de la pantalla de la mesa y volver al inicio?');
+        if (confirmed) {
+          onExitToLobby();
+        }
+        return true;
+      }
+      return false;
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [showDiagnosticModal, isOverlayMinimized, onExitToLobby]);
+
   // Core Display State
   const [state, setState] = useState<DisplayState>({
     sceneName: 'Cargando Aventura...',

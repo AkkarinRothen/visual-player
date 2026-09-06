@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Tv, Smartphone, Sparkles, ArrowRight, Camera, X, RefreshCw, Trash2, Image, ShieldAlert, Compass } from 'lucide-react';
+import { Tv, Smartphone, Sparkles, ArrowRight, Camera, RefreshCw, Trash2, Image, ShieldAlert, Compass } from 'lucide-react';
 import { sessionRecoveryService, type RecoverySnapshot } from '../../services/sessionRecovery';
 import type { Role } from '../../types';
 import heroImage from '../../assets/hero.png';

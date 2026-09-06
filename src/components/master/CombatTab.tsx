@@ -744,6 +744,14 @@ export const CombatTab: React.FC<CombatTabProps> = ({
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Agregar Combatiente</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowAddModal(false)}
+                title="Cerrar modal"
+              >
+                <X size={20} />
+              </button>
             </div>
             <form onSubmit={handleAddCustomCombatant} className="modal-form">
               <label>Nombre del Monstruo / PNJ</label>
