@@ -2,6 +2,16 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-066: Modularización de Tipos Base y Componente AssetPickerModal
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores) y ejecución completa de la suite de pruebas con `npm test -- --run` (82 archivos aprobados, 470 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Tipos del sistema (`src/types/index.ts` y submódulos):** el archivo monolítico de 1.359 líneas se descompuso en 8 módulos temáticos (`common.types.ts`, `combat.types.ts`, `atmosphere.types.ts`, `character.types.ts`, `scene.types.ts`, `cinematic.types.ts`, `display.types.ts`, `session.types.ts`) manteniendo `src/types/index.ts` como exportador central (*barrel export*) retrocompatible.
+  2. **Selector de Recursos (`AssetPickerModal.tsx` y `src/components/common/assetPicker/`):** el componente de 1.172 líneas se redujo a 267 líneas aislando sus responsabilidades en `AssetPickerDeviceTab.tsx` (subida y optimización), `AssetPickerLibraryTab.tsx` (catálogo y packs IndexedDB), `AssetPickerUrlTab.tsx` (enlace web) y `assetPickerTypes.ts`.
+- **Manual:** sin cambios de uso; la interfaz de usuario, botones, pestañas y comportamiento funcional del selector de recursos y el resto de la aplicación se mantienen idénticos.
+- **Evidencia técnica:** 470 tests superados en Vitest (`AssetPickerModal.test.tsx` 4/4 pasados), 0 errores en `tsc --noEmit`.
+- **Resultado:** modularización arquitectónica de tipos y componentes completada con éxito sin regresiones.
+
 ## 2026-09-06 — MAN-065: Overhaul Visual de Hoy Juego
 
 - **Walkthrough y entorno:** revisión en código de la vista **Hoy juego**, compilación de producción con `npm run build` correcta y pruebas enfocadas con `npx vitest run src\components\master\LiveQuickSessionView.test.tsx src\components\master\SessionPanel.test.tsx` (16/16 aprobadas en 2 archivos). Lint enfocado sobre `LiveQuickSessionView.tsx` y `liveQuickSession.css` sin errores. No se realizó walkthrough visual en Android físico ni prueba con Mesa conectada durante esta tanda.
