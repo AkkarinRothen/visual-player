@@ -2,6 +2,22 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-072: Modularización de Panel de Sesión y Consola Clásica (SessionPanel.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.93s y ejecución completa de la suite de pruebas con `npm test -- --run` (85 suites aprobadas, 479 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Panel de Sesión (`SessionPanel.tsx` y subcomponentes en `src/components/master/sessionPanel/`):** el componente monolítico de 992 líneas se redujo a 581 líneas desacoplando la Consola Clásica y sus secciones en submódulos modulares y fuertemente tipados:
+     - `SessionClassicConsoleView.tsx`: vista orquestadora de la consola clásica del director (modo tradicional) que integra la navegación de estados, tiras de comparación, acciones rápidas, panel contextual, escenas recientes, historial y tarjetas de escena activa/siguiente/combate.
+     - `SessionNowNextStrip.tsx`: tira de lectura y acción rápida "Ahora · En Mesa" vs "Después · Preparado", con previsualización de miniaturas de escena, personajes confirmados, número de cambios pendientes y botones rápidos de Publicar / Descartar.
+     - `SessionQuickActionsBar.tsx`: barra táctil de acciones de un toque (Relámpago, Sacudir, Cartel, Ambiente, Sonidos, Más, Editar escena) junto con el cajón emergente modal accesible ("Más acciones": iluminación, cámara, recursos, música, presets).
+     - `SessionContextualPanel.tsx`: widget contextual que adapta automáticamente sus controles según si hay un combate activo (turno actual, botones anterior/siguiente, acceso a consola de combate) o fase de exploración (escena siguiente sugerida, botón preparar siguiente, buscador de escenas).
+     - `SessionRecentScenesStrip.tsx`: carrusel horizontal con chips táctiles de escenas recientemente visitadas con feedback de última acción ejecutada y botón Deshacer.
+     - `SessionActionTimeline.tsx`: panel cronológico con las últimas 4 acciones del DM, distintivos de modo (en vivo / preparación) y acceso directo al historial completo.
+  2. **Pruebas unitarias (`SessionClassicConsoleView.test.tsx`):** incorporación de 3 tests específicos cubriendo renderizado de cabecera y tiras, apertura/cierre del cajón de más acciones y disparo de callbacks de acciones rápidas.
+- **Manual:** sin cambios de uso; todas las opciones, botones de acción rápida, tira ahora/después, tarjetas y accesos a modales conservan idéntica apariencia y comportamiento interactivo.
+- **Evidencia técnica:** 479 tests superados en Vitest (`SessionPanel.test.tsx` 12/12 pasados, `SessionClassicConsoleView.test.tsx` 3/3 pasados), 0 errores en `tsc -b`, bundle de producción Vite exitoso en 1.93s.
+- **Resultado:** modularización del panel de sesión y consola clásica completada con éxito sin regresiones.
+
 ## 2026-09-06 — MAN-071: Integración Radix Tabs y Provider Visual MUI en Sesión
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Prueba enfocada con `npx vitest run src\components\master\SessionPanel.test.tsx` aprobada (12/12 tests). Compilación de producción con `npm run build` correcta. Lint enfocado con `npx oxlint src\components\master\SessionPanel.tsx src\components\ui\VisualProviders.tsx src\styles\modularControl.css` sin errores, con advertencias preexistentes en `SessionPanel.tsx` sobre efectos/dependencias.
