@@ -2,6 +2,20 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-081: Modularización de Panel de Control Modular en Vivo (LiveModularControlPanel.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.58s y ejecución completa de suites de pruebas con `npm test -- --run` (93 suites aprobadas, 507 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Panel de Control Modular en Vivo (`LiveModularControlPanel.tsx` y submódulos en `src/components/master/modularControl/live/`):** el componente central de 606 líneas se redujo a 264 líneas desacoplando el escenario táctico superior, modales auxiliares, solapas/cajones de borde y hook de gestión en submódulos especializados:
+     - `useLiveModularControl.ts`: hook personalizado (282 líneas) que centraliza la selección de personajes, conmutación de cuadrícula táctica, apertura de modales de ficha y selector de fondo, conmutación de solapas táctiles, disparos de efectos atmosféricos y cinemáticos (rayos, temblores, apagón de mesa, cartel de ubicación), invocación e inserción interactiva de figuras y assets de packs de recursos, y manipulación en tiempo real de escala, capas z-index, modo espejo, clima, iluminación y audio ambiental.
+     - `LiveStageSection.tsx`: sección superior del escenario en vivo con relación de aspecto 16:9 persistente, distintivo de conexión en vivo ("Mesa conectada" / "Control local"), botones flotantes para conmutar cuadrícula táctica (con indicador de estado activo `stage-tactical-toggle-btn`) y pantalla completa, visor `StageViewport` y capa táctil interactiva `StageTouchOverlay`.
+     - `LiveModalsSection.tsx`: subcomponente que aísla la apertura condicional del modal de creación o edición de fichas de personaje (`CharacterEditModal`) y el selector de fondo de escenario (`AssetPickerModal`).
+     - `LiveDrawersSection.tsx`: subcomponente contenedor de las solapas táctiles de borde para pulgar (`MobileEdgePullTabs`) con alerta visual de FX activos, el panel lateral izquierdo de efectos visuales y SFX (`MobileFxEdgeDrawer`) y el panel lateral derecho de recursos, favoritos, escenas y notas de campaña (`MobileResourcesEdgeDrawer`).
+  2. **Pruebas unitarias (`LiveModularControlPanel.test.tsx`):** verificación completa de la suite existente de 13 pruebas unitarias sin regresiones, cubriendo renderizado del escenario 16:9 y tarjetas modulares, selección e inspección contextual de figuras, arrastre táctil de personajes, conmutación de cuadrícula táctica y apertura de drawers laterales.
+- **Manual:** sin cambios de uso; todos los controles táctiles, tarjetas modulares, inspector contextual de figuras, cuadrícula táctica y cajones de borde conservan idéntica disposición, apariencia y resultados en la Mesa.
+- **Evidencia técnica:** 93 suites aprobadas, 507/507 tests pasando en Vitest (13/13 pasados en `LiveModularControlPanel.test.tsx`), compilación `tsc -b` y bundle de producción Vite en 1.58s sin errores ni regresiones.
+- **Resultado:** modularización del panel de control modular en vivo completada con éxito.
+
 ## 2026-09-06 — MAN-080: Modularización de Biblioteca de Encuentros de Combate (SavedEncountersModal.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.71s y ejecución completa de suites de pruebas con `npm test -- --run` (93 suites aprobadas, 507 tests superados al 100%).
