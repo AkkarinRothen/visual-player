@@ -91,13 +91,13 @@ export function useScenePreset({
     try {
       const all = await getSceneCompositionPresets(campaignId);
       setPresets(all);
-      if (all.length > 0 && !selectedPresetId) {
+      if (all.length > 0) {
         selectPresetForInspection(all[0]);
       }
     } catch (err) {
       console.error('Error al cargar presets:', err);
     }
-  }, [campaignId, selectedPresetId, selectPresetForInspection]);
+  }, [campaignId, selectPresetForInspection]);
 
   // Load presets on open
   useEffect(() => {
@@ -111,7 +111,8 @@ export function useScenePreset({
     } else {
       loadPresets();
     }
-  }, [isOpen, mode, campaignId, stagedState.sceneName, loadPresets]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, mode, campaignId, stagedState.sceneName]);
 
   const selectedPreset = useMemo(
     () => presets.find((p) => p.id === selectedPresetId) || null,

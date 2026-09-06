@@ -2,6 +2,23 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-079: Modularización de Presets de Composición de Escena (ScenePresetModal.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.62s y ejecución completa de suites de pruebas con `npm test -- --run` (92 suites aprobadas, 502 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Presets de Composición de Escena (`ScenePresetModal.tsx` y submódulos en `src/components/master/modals/scenePreset/`):** el modal monolítico de 649 líneas se redujo a 98 líneas desacoplando su lógica de guardado, explorador de presets, escaneo de dependencias y pie de acciones en subcomponentes modulares y un hook dedicado:
+     - `scenePresetTypes.ts`: contratos de tipado compartido para modos de guardado e inserción (`'save' | 'insert'`), mapeo de resolución de conflictos de dependencias (`'reuse_existing' | 'create_copy'`) y props de los subcomponentes.
+     - `useScenePreset.ts`: hook personalizado (227 líneas) que centraliza la carga de presets desde Dexie, filtrado reactivo por texto y etiquetas, escaneo asíncrono de dependencias con reporte de elementos autocontenidos y faltantes, resolución de duplicados en campaña, guardado transaccional e instanciación segura en la preparación activa con punto de restauración automático.
+     - `ScenePresetHeader.tsx`: cabecera temática con distintivo contextual (guardado vs exploración/inserción), títulos descriptivos y aviso de modo de preparación segura (sin emisión a la Mesa ni audio a los jugadores).
+     - `ScenePresetSaveView.tsx`: ficha de vista previa del borrador con miniatura y rejilla de estadísticas (personajes, props, luces, emisores, audio ambiental y diálogo vinculado) junto con el formulario de guardado (nombre, descripción, etiquetas y conversación vinculada opcional).
+     - `ScenePresetListColumn.tsx`: columna izquierda del explorador con campo de búsqueda reactivo, listado de presets con miniaturas, contadores y etiquetas, y estado vacío con sugerencia táctil.
+     - `ScenePresetDetailColumn.tsx`: columna derecha de inspección detallada con título y descripción del preset seleccionado, distintivo de análisis de dependencias (pieza 100% autocontenida o advertencia de faltantes), selectores de resolución de conflictos para personajes y diálogos, y diálogo de confirmación para reemplazar la escena en borrador.
+     - `ScenePresetFooter.tsx`: pie de acciones con botón de cancelar, botón de guardado con estados visuales de progreso y confirmación, y botones de inserción adaptativos ("Reemplazar Borrador" y "Añadir como Escena Nueva").
+  2. **Pruebas unitarias (`ScenePresetModal.test.tsx`):** suite de 4 pruebas cubriendo renderizado del borrador en modo save, guardado transaccional del preset, carga y selección en modo insert con escaneo de dependencias e instanciación como nueva escena, y cierre accesible mediante botón y overlay.
+- **Manual:** sin cambios de uso; todas las opciones de guardado e inserción de presets de escena, resolución de dependencias e instanciación conservan idénticos controles, etiquetas y flujos.
+- **Evidencia técnica:** 92 suites aprobadas, 502/502 tests pasando en Vitest (4/4 tests unitarios nuevos en `ScenePresetModal.test.tsx`), compilación `tsc -b` y bundle de producción Vite en 1.62s con 0 errores.
+- **Resultado:** modularización del modal de presets de composición de escena completada con éxito.
+
 ## 2026-09-06 — MAN-078: Modularización de Tarjeta de Escena Activa (ActiveSceneCard.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.68s y ejecución completa de suites de pruebas con `npm test -- --run` (91 suites aprobadas, 498 tests superados al 100%).
