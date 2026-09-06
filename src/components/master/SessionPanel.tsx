@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import * as Tabs from '@radix-ui/react-tabs';
 import {
   AudioLines,
   ArrowLeft,
@@ -472,38 +473,41 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
       />
 
       {/* SELECTOR DE VISTA DE SESIÓN (HOY JUEGO / PANEL MODULAR / CONSOLA CLÁSICA) */}
-      <div className="session-view-mode-selector" role="tablist" aria-label="Modo de vista de control">
-        <button
-          type="button"
-          className={`session-view-tab ${controlViewMode === 'quick' ? 'active' : ''}`}
-          onClick={() => setControlViewMode('quick')}
-          role="tab"
-          aria-selected={controlViewMode === 'quick'}
-        >
-          <Zap size={15} />
-          <span>Hoy juego</span>
-        </button>
-        <button
-          type="button"
-          className={`session-view-tab ${controlViewMode === 'modular' ? 'active' : ''}`}
-          onClick={() => setControlViewMode('modular')}
-          role="tab"
-          aria-selected={controlViewMode === 'modular'}
-        >
-          <LayoutGrid size={15} />
-          <span>Panel Modular</span>
-        </button>
-        <button
-          type="button"
-          className={`session-view-tab ${controlViewMode === 'console' ? 'active' : ''}`}
-          onClick={() => setControlViewMode('console')}
-          role="tab"
-          aria-selected={controlViewMode === 'console'}
-        >
-          <Sliders size={15} />
-          <span>Consola Clásica</span>
-        </button>
-      </div>
+      <Tabs.Root
+        className="session-view-tabs-root"
+        value={controlViewMode}
+        onValueChange={(value) => setControlViewMode(value as 'quick' | 'modular' | 'console')}
+      >
+        <Tabs.List className="session-view-mode-selector" aria-label="Modo de vista de control">
+          <Tabs.Trigger
+            type="button"
+            className="session-view-tab"
+            value="quick"
+            onClick={() => setControlViewMode('quick')}
+          >
+            <Zap size={15} />
+            <span>Hoy juego</span>
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            type="button"
+            className="session-view-tab"
+            value="modular"
+            onClick={() => setControlViewMode('modular')}
+          >
+            <LayoutGrid size={15} />
+            <span>Panel Modular</span>
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            type="button"
+            className="session-view-tab"
+            value="console"
+            onClick={() => setControlViewMode('console')}
+          >
+            <Sliders size={15} />
+            <span>Consola Clásica</span>
+          </Tabs.Trigger>
+        </Tabs.List>
+      </Tabs.Root>
 
       {controlViewMode === 'quick' ? (
         <LiveQuickSessionView

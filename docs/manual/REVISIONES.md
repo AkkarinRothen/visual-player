@@ -2,6 +2,17 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-071: Integración Radix Tabs y Provider Visual MUI en Sesión
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Prueba enfocada con `npx vitest run src\components\master\SessionPanel.test.tsx` aprobada (12/12 tests). Compilación de producción con `npm run build` correcta. Lint enfocado con `npx oxlint src\components\master\SessionPanel.tsx src\components\ui\VisualProviders.tsx src\styles\modularControl.css` sin errores, con advertencias preexistentes en `SessionPanel.tsx` sobre efectos/dependencias.
+- **Funciones y componentes afectados:**
+  1. **Selector de vista de sesión (`SessionPanel.tsx`):** el selector **Hoy juego / Panel Modular / Consola Clásica** ahora usa `@radix-ui/react-tabs`, conservando los mismos nombres visibles y el mismo flujo de cambio de vista.
+  2. **Estilos del selector (`modularControl.css`):** el estado activo se apoya en `data-state="active"` de Radix y suma foco visible para navegación por teclado.
+  3. **Provider visual (`VisualProviders.tsx`):** se incorporaron `CssBaseline` y `GlobalStyles` de MUI para normalizar `color-scheme`, selección de texto, scrollbars y comportamiento táctil en Android/WebView.
+- **Manual:** sin cambios de uso; los controles mantienen la misma ubicación, textos y comportamiento esperado para usuarios.
+- **Evidencia técnica:** `SessionPanel.test.tsx` 12/12 aprobado, build Vite exitoso. Persisten advertencias conocidas de chunks grandes y una importación dinámica inefectiva en `demoData.ts`, sin bloqueo funcional.
+- **Resultado:** integración completada sin regresiones detectadas en pruebas enfocadas ni compilación.
+
 ## 2026-09-06 — MAN-070: Modularización de Biblioteca de Sesiones (SessionLibraryModal.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.65s y ejecución completa de la suite de pruebas con `npm test -- --run` (84 suites aprobadas, 476 tests superados al 100%).

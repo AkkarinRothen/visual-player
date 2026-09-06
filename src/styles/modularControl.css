@@ -895,6 +895,12 @@
 }
 
 /* Selector de modo para la vista de sesión */
+.session-view-tabs-root {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
 .session-view-mode-selector {
   display: flex;
   background: rgba(15, 23, 42, 0.9);
@@ -930,7 +936,13 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
-.session-view-tab.active {
+.session-view-tab:focus-visible {
+  outline: 2px solid rgba(251, 191, 36, 0.75);
+  outline-offset: 2px;
+}
+
+.session-view-tab.active,
+.session-view-tab[data-state='active'] {
   background: rgba(245, 158, 11, 0.18);
   color: #fbbf24;
   border: 1px solid rgba(245, 158, 11, 0.35);
@@ -1950,4 +1962,3 @@
 .mobile-aux-btn:hover {
   background: rgba(51, 65, 85, 0.9);
 }
-
