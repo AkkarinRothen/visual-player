@@ -18,25 +18,18 @@ import {
   Swords,
   Play,
   Square,
-  ChevronRight,
-  ChevronLeft,
   Dices,
   UserPlus,
-  Eye,
-  EyeOff,
-  Heart,
-  Plus,
-  Trash2,
-  Clock,
-  RotateCcw,
   BookOpen,
-  Award,
-  Sparkles,
-  X,
-  Copy,
+  Plus,
 } from 'lucide-react';
+import { CombatantCard } from './combat/CombatantCard';
+import { CombatTimerControls } from './combat/CombatTimerControls';
+import { CombatVictoryModal } from './combat/CombatVictoryModal';
+import { AddCombatantModal } from './combat/AddCombatantModal';
+import type { VictorySummaryData, NewCombatantFormData } from './combat/combatTypes';
 
-interface CombatTabProps {
+export interface CombatTabProps {
   combatState: CombatState;
   campaign: Campaign | null;
   currentScene: Scene | null;
@@ -45,22 +38,6 @@ interface CombatTabProps {
   onSaveEncounter?: (encounter: SavedEncounter) => void;
   onDeleteEncounter?: (id: string) => void;
 }
-
-const CONDITIONS_LIST: { id: CombatCondition; label: string; icon: string }[] = [
-  { id: 'burning', label: 'En Llamas', icon: '🔥' },
-  { id: 'poisoned', label: 'Envenenado', icon: '☠️' },
-  { id: 'stunned', label: 'Aturdido', icon: '⚡' },
-  { id: 'blinded', label: 'Ciego', icon: '👁️‍🗨️' },
-  { id: 'paralyzed', label: 'Paralizado', icon: '🧊' },
-  { id: 'invisible', label: 'Invisible', icon: '👻' },
-  { id: 'concentrating', label: 'Concentración', icon: '🌀' },
-  { id: 'blessed', label: 'Bendito', icon: '✨' },
-  { id: 'cursed', label: 'Maldito', icon: '🩸' },
-  { id: 'frightened', label: 'Asustado', icon: '😱' },
-  { id: 'prone', label: 'Derribado', icon: '🛡️' },
-  { id: 'restrained', label: 'Apresado', icon: '⛓️' },
-  { id: 'charmed', label: 'Hechizado', icon: '💖' },
-];
 
 export const CombatTab: React.FC<CombatTabProps> = ({
   combatState,
@@ -77,12 +54,7 @@ export const CombatTab: React.FC<CombatTabProps> = ({
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [showEncountersModal, setShowEncountersModal] = useState<boolean>(false);
   const [showVictoryModal, setShowVictoryModal] = useState<boolean>(false);
-  const [victorySummary, setVictorySummary] = useState<{
-    rounds: number;
-    defeatedMonsters: string[];
-    survivors: string[];
-    rewards: string;
-  } | null>(null);
+  const [victorySummary, setVictorySummary] = useState<VictorySummaryData | null>(null);
 
   // Close modals on Escape key
   useEffect(() => {
@@ -98,13 +70,7 @@ export const CombatTab: React.FC<CombatTabProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showAddModal, showVictoryModal, showEncountersModal]);
 
-  const [newCombatant, setNewCombatant] = useState<{
-    name: string;
-    avatarUrl: string;
-    initiative: number;
-    hp: number;
-    isMonster: boolean;
-  }>({
+  const [newCombatant, setNewCombatant] = useState<NewCombatantFormData>({
     name: '',
     avatarUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80',
     initiative: 10,
@@ -185,7 +151,6 @@ export const CombatTab: React.FC<CombatTabProps> = ({
     const updated = combatState.combatants.map((c) =>
       c.id === cbtId ? { ...c, isDeployed: true } : c
     );
-    // Sort deployed combatants by initiative
     onUpdateCombatState({ ...combatState, combatants: updated });
   };
 
@@ -443,51 +408,17 @@ export const CombatTab: React.FC<CombatTabProps> = ({
         </div>
 
         {combatState.isActive && (
-          <div className="turn-navigation-row">
-            <button className="turn-nav-btn" onClick={handlePrevTurn} title="Turno Anterior">
-              <ChevronLeft size={20} />
-              <span>Anterior</span>
-            </button>
-
-            {/* Turn Timer Controller */}
-            <div className="turn-timer-ctrl-group">
-              <div
-                className={`turn-timer-badge ${localRemaining <= 10 && combatState.isTimerRunning ? 'urgent' : ''}`}
-                onClick={handleToggleTimer}
-                title={combatState.isTimerRunning ? 'Pausar Reloj' : 'Iniciar Reloj'}
-              >
-                <Clock size={16} />
-                <span>{localRemaining}s</span>
-              </div>
-              <button
-                className="timer-mini-btn"
-                onClick={() => handleAddTimerSeconds(30)}
-                title="Añadir +30 segundos al turno"
-              >
-                <Plus size={12} />
-                <span className="text-[10px] font-bold">30s</span>
-              </button>
-              <button className="timer-mini-btn" onClick={handleResetTimer} title="Reiniciar reloj">
-                <RotateCcw size={14} />
-              </button>
-              <button
-                className={`timer-mini-btn ${combatState.showTurnTimerToPlayers !== false ? 'active' : ''}`}
-                onClick={toggleShowTimerToPlayers}
-                title={
-                  combatState.showTurnTimerToPlayers !== false
-                    ? 'Reloj visible en Mesa'
-                    : 'Reloj oculto a jugadores'
-                }
-              >
-                {combatState.showTurnTimerToPlayers !== false ? <Eye size={14} /> : <EyeOff size={14} />}
-              </button>
-            </div>
-
-            <button className="turn-nav-btn primary" onClick={handleNextTurn} title="Siguiente Turno">
-              <span>Siguiente</span>
-              <ChevronRight size={20} />
-            </button>
-          </div>
+          <CombatTimerControls
+            isTimerRunning={!!combatState.isTimerRunning}
+            showTurnTimerToPlayers={combatState.showTurnTimerToPlayers !== false}
+            localRemaining={localRemaining}
+            onPrevTurn={handlePrevTurn}
+            onNextTurn={handleNextTurn}
+            onToggleTimer={handleToggleTimer}
+            onAddTimerSeconds={handleAddTimerSeconds}
+            onResetTimer={handleResetTimer}
+            onToggleShowTimerToPlayers={toggleShowTimerToPlayers}
+          />
         )}
       </section>
 
@@ -542,90 +473,17 @@ export const CombatTab: React.FC<CombatTabProps> = ({
             </span>
           </div>
         ) : (
-          deployedCombatants.map((c, index) => {
-            const isActive = combatState.isActive && index === combatState.currentTurnIndex;
-            return (
-              <div
-                key={c.id}
-                className={`master-combatant-card ${isActive ? 'active-turn' : ''} ${
-                  c.currentHp <= 0 ? 'fallen' : ''
-                }`}
-              >
-                {/* Card Header */}
-                <div className="card-row-top">
-                  <div className="combatant-avatar-box">
-                    <img src={c.avatarUrl} alt={c.name} className="combatant-avatar" />
-                    <span className="init-score">Init: {c.initiative}</span>
-                  </div>
-
-                  <div className="combatant-info">
-                    <div className="name-row">
-                      <strong className="combatant-name">{c.name}</strong>
-                      {isActive && <span className="active-turn-pill">TURNO ACTIVO</span>}
-                    </div>
-
-                    {/* HP Modifiers */}
-                    <div className="hp-manager-row">
-                      <Heart size={14} className="text-rose-500" />
-                      <span className="hp-readout">
-                        {c.currentHp} / {c.maxHp} HP
-                      </span>
-
-                      <div className="hp-buttons-group">
-                        <button className="hp-btn" onClick={() => handleModifyHp(c.id, -5)}>
-                          -5
-                        </button>
-                        <button className="hp-btn" onClick={() => handleModifyHp(c.id, -1)}>
-                          -1
-                        </button>
-                        <button className="hp-btn plus" onClick={() => handleModifyHp(c.id, 1)}>
-                          +1
-                        </button>
-                        <button className="hp-btn plus" onClick={() => handleModifyHp(c.id, 5)}>
-                          +5
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="combatant-card-actions">
-                    <button
-                      className={`icon-toggle-btn ${c.showHpToPlayers ? 'on' : 'off'}`}
-                      onClick={() => handleToggleHpVisibility(c.id)}
-                      title={c.showHpToPlayers ? 'HP visible en Tablet' : 'HP oculto a jugadores'}
-                    >
-                      {c.showHpToPlayers ? <Eye size={16} /> : <EyeOff size={16} />}
-                    </button>
-                    <button
-                      className="delete-combatant-btn"
-                      onClick={() => handleRemoveCombatant(c.id)}
-                      title="Eliminar del encuentro"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Conditions Row */}
-                <div className="conditions-picker-row">
-                  {CONDITIONS_LIST.map((cond) => {
-                    const isApplied = c.conditions.includes(cond.id);
-                    return (
-                      <button
-                        key={cond.id}
-                        className={`cond-chip ${isApplied ? 'applied' : ''}`}
-                        onClick={() => handleToggleCondition(c.id, cond.id)}
-                        title={cond.label}
-                      >
-                        <span>{cond.icon}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })
+          deployedCombatants.map((c, index) => (
+            <CombatantCard
+              key={c.id}
+              combatant={c}
+              isActive={combatState.isActive && index === combatState.currentTurnIndex}
+              onModifyHp={handleModifyHp}
+              onToggleHpVisibility={handleToggleHpVisibility}
+              onToggleCondition={handleToggleCondition}
+              onRemoveCombatant={handleRemoveCombatant}
+            />
+          ))
         )}
       </div>
 
@@ -674,131 +532,20 @@ export const CombatTab: React.FC<CombatTabProps> = ({
       )}
 
       {/* MODAL: VICTORY SUMMARY */}
-      {showVictoryModal && victorySummary && (
-        <div className="modal-overlay victory-modal-overlay" onClick={() => setShowVictoryModal(false)}>
-          <div className="modal-content victory-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="flex-align-gap">
-                <Sparkles size={20} className="text-amber-400" />
-                <h2>¡Victoria en Combate!</h2>
-              </div>
-              <button className="modal-close" onClick={() => setShowVictoryModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="victory-summary-body">
-              <div className="summary-stat-box">
-                <span className="stat-num">{victorySummary.rounds}</span>
-                <span className="stat-label">Rondas de Batalla</span>
-              </div>
-
-              <div className="summary-details-section">
-                <strong>💀 Enemigos Derrotados ({victorySummary.defeatedMonsters.length}):</strong>
-                <p>
-                  {victorySummary.defeatedMonsters.length > 0
-                    ? victorySummary.defeatedMonsters.join(', ')
-                    : 'Ningún enemigo caído.'}
-                </p>
-
-                <strong>🛡️ Supervivientes ({victorySummary.survivors.length}):</strong>
-                <p>
-                  {victorySummary.survivors.length > 0
-                    ? victorySummary.survivors.join(', ')
-                    : 'No hubo supervivientes.'}
-                </p>
-
-                <div className="victory-rewards-card">
-                  <div className="flex-between mb-1">
-                    <div className="flex-align-gap">
-                      <Award size={16} className="text-amber-400" />
-                      <strong>Recompensas Asignadas:</strong>
-                    </div>
-                    <button
-                      className="copy-rewards-btn"
-                      onClick={() => {
-                        navigator.clipboard.writeText(victorySummary.rewards);
-                        alert('¡Recompensas copiadas al portapapeles!');
-                      }}
-                      title="Copiar recompensas"
-                    >
-                      <Copy size={13} />
-                      <span>Copiar</span>
-                    </button>
-                  </div>
-                  <p className="rewards-text">{victorySummary.rewards}</p>
-                </div>
-              </div>
-            </div>
-
-            <button className="btn-primary full" onClick={() => setShowVictoryModal(false)}>
-              Cerrar Resumen
-            </button>
-          </div>
-        </div>
-      )}
+      <CombatVictoryModal
+        isOpen={showVictoryModal}
+        summary={victorySummary}
+        onClose={() => setShowVictoryModal(false)}
+      />
 
       {/* Modal: Add Combatant */}
-      {showAddModal && (
-        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Agregar Combatiente</h2>
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() => setShowAddModal(false)}
-                title="Cerrar modal"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleAddCustomCombatant} className="modal-form">
-              <label>Nombre del Monstruo / PNJ</label>
-              <input
-                type="text"
-                required
-                placeholder="Ej. Líder Orco"
-                value={newCombatant.name}
-                onChange={(e) => setNewCombatant({ ...newCombatant, name: e.target.value })}
-                className="master-input"
-              />
-
-              <label>Iniciativa</label>
-              <input
-                type="number"
-                value={newCombatant.initiative}
-                onChange={(e) =>
-                  setNewCombatant({ ...newCombatant, initiative: parseInt(e.target.value) || 0 })
-                }
-                className="master-input"
-              />
-
-              <label>Puntos de Golpe Máximos (HP)</label>
-              <input
-                type="number"
-                value={newCombatant.hp}
-                onChange={(e) =>
-                  setNewCombatant({ ...newCombatant, hp: parseInt(e.target.value) || 1 })
-                }
-                className="master-input"
-              />
-
-              <label>URL del Retrato</label>
-              <input
-                type="text"
-                value={newCombatant.avatarUrl}
-                onChange={(e) => setNewCombatant({ ...newCombatant, avatarUrl: e.target.value })}
-                className="master-input"
-              />
-
-              <button type="submit" className="btn-primary full">
-                Agregar al Encuentro
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      <AddCombatantModal
+        isOpen={showAddModal}
+        formData={newCombatant}
+        onFormDataChange={setNewCombatant}
+        onSubmit={handleAddCustomCombatant}
+        onClose={() => setShowAddModal(false)}
+      />
     </div>
   );
 };

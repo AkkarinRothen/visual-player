@@ -2,6 +2,21 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-069: Modularización de Consola de Combate (CombatTab.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.76s y ejecución completa de la suite de pruebas con `npm test -- --run` (83 archivos aprobados, 473 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Consola de Combate (`CombatTab.tsx` y subcomponentes en `src/components/master/combat/`):** el componente monolítico de 805 líneas se redujo a 268 líneas descomponiendo sus responsabilidades en submódulos especializados:
+     - `combatTypes.ts`: catálogo unificado de condiciones D&D (`CONDITIONS_LIST`) y contratos de datos para resúmenes de victoria y creación de combatientes.
+     - `CombatantCard.tsx`: tarjeta de combatiente en combate activo, vida interactiva con modificadores rápidos (-5, -1, +1, +5), visibilidad en Mesa (tablet), selector de condiciones y eliminación.
+     - `CombatTimerControls.tsx`: barra de turnos con navegación (anterior/siguiente), cuenta regresiva precisa por turno, badges de urgencia, extensión rápida (+30s), reinicio y visibilidad para jugadores.
+     - `CombatVictoryModal.tsx`: modal de victoria con rondas disputadas, enemigos caídos, supervivientes y recompensas con copia al portapapeles.
+     - `AddCombatantModal.tsx`: modal de alta rápida de combatientes manuales.
+  2. **Pruebas unitarias (`CombatTab.test.tsx`):** incorporación de 3 tests específicos cubriendo estado inicial vacío, inicio de combate activo en ronda 1 y modificación interactiva de puntos de golpe.
+- **Manual:** sin cambios de uso; todos los controles, botones de navegación, chips de estado, temporizador y modales mantienen el comportamiento visual y funcional idéntico.
+- **Evidencia técnica:** 473 tests superados en Vitest (`CombatTab.test.tsx` 3/3 pasados), 0 errores en `tsc -b`, build de producción Vite exitoso.
+- **Resultado:** modularización de combate completada con éxito sin regresiones.
+
 ## 2026-09-06 — MAN-068: Modularización de Vista Taller de Preparación (WorkshopView.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.77s y ejecución completa de la suite de pruebas con `npm test -- --run` (82 archivos aprobados, 470 tests superados al 100%).
