@@ -20,7 +20,9 @@ import { DirectorChipsStrip } from './director/DirectorChipsStrip';
 import { DirectorBottomBar } from './director/DirectorBottomBar';
 import { DirectorMoreDrawer } from './director/DirectorMoreDrawer';
 import { DirectorModals } from './director/DirectorModals';
-import { Archive, EyeOff, Lock, Mic, RotateCcw, Trash2, MapPin } from 'lucide-react';
+import { DirectorStageGuides } from './director/DirectorStageGuides';
+import { DirectorDropZonesAndFeedback } from './director/DirectorDropZonesAndFeedback';
+import { DirectorCharacterTokens } from './director/DirectorCharacterTokens';
 
 export interface CharacterDirectorOverlayProps {
   characters: CharacterOnScreen[];
@@ -526,76 +528,15 @@ export const CharacterDirectorOverlay: React.FC<CharacterDirectorOverlayProps> =
         onUndo={onUndo}
       />
 
-      {/* ── VISIBLE NARRATIVE WAYPOINTS ── */}
-      {(showWaypoints || showGuides) && waypoints.map((wp) => (
-        <div
-          key={wp.id}
-          data-testid={`director-waypoint-${wp.id}`}
-          className="director-ui-element absolute -translate-x-1/2 translate-y-1/2 pointer-events-auto cursor-pointer z-30 group"
-          style={{
-            left: `${wp.normalizedX}%`,
-            bottom: `${wp.normalizedY + (groundLineY || 0)}%`,
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleWaypointClick(wp);
-          }}
-          title={`Punto narrativo: ${wp.name}. Toca para mover la figura seleccionada aquí.`}
-        >
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-950/90 border border-cyan-400/80 text-cyan-200 text-[10px] font-semibold shadow-xl group-hover:scale-110 group-hover:border-amber-400 group-hover:text-amber-300 transition-all">
-            <MapPin size={11} className="text-amber-400" />
-            <span>{wp.name}</span>
-          </div>
-          <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 border border-slate-950 mx-auto mt-0.5 group-hover:bg-amber-400 shadow-sm" />
-        </div>
-      ))}
-
-      {/* ── VISUAL GUIDES & SAFE MARGINS (Optional Overlay) ── */}
-      {showGuides && (
-        <>
-          <div
-            className="pointer-events-none absolute left-0 right-0 h-0.5 bg-amber-400/80 border-b border-amber-300 z-10 flex items-center justify-center transition-all"
-            style={{ bottom: `${groundLineY || 0}%` }}
-          >
-            <span className="bg-slate-950/90 text-amber-300 text-[9px] px-2 py-0.5 rounded-t border border-b-0 border-amber-400/60 font-mono">
-              Línea de suelo (Y = {groundLineY || 0}%)
-            </span>
-          </div>
-          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-[64px] border-t border-dashed border-cyan-400/40 bg-cyan-950/15 z-0 flex items-start justify-end pr-2 pt-0.5">
-            <span className="text-[9px] text-cyan-400/80 font-mono">
-              Margen seguro: Diálogos y Nombres
-            </span>
-          </div>
-          <div className="pointer-events-none absolute top-0 bottom-0 left-1/2 w-0.5 border-r border-dashed border-amber-500/30 z-0" />
-        </>
-      )}
-
-      {/* ── DYNAMIC MAGNETIC SNAP GUIDE LINES ── */}
-      {dragPreview?.snapGuideLines && dragPreview.snapGuideLines.map((line, idx) => (
-        line.axis === 'x' ? (
-          <div
-            key={`snap-x-${line.position}-${idx}`}
-            data-testid={`snap-guide-x-${line.position}`}
-            className="pointer-events-none absolute top-0 bottom-0 z-40 border-l-2 border-dashed border-rose-400/90 shadow-[0_0_8px_rgba(244,63,94,0.6)] animate-pulse"
-            style={{ left: `${line.position}%` }}
-          >
-            <div className="absolute top-12 -translate-x-1/2 px-1.5 py-0.5 rounded bg-rose-950/90 border border-rose-400 text-rose-200 text-[9px] font-mono font-semibold shadow-lg whitespace-nowrap">
-              {line.label}
-            </div>
-          </div>
-        ) : (
-          <div
-            key={`snap-y-${line.position}-${idx}`}
-            data-testid={`snap-guide-y-${line.position}`}
-            className="pointer-events-none absolute left-0 right-0 z-40 border-b-2 border-dashed border-rose-400/90 shadow-[0_0_8px_rgba(244,63,94,0.6)] animate-pulse"
-            style={{ bottom: `${line.position + (groundLineY || 0)}%` }}
-          >
-            <div className="absolute right-4 -translate-y-1/2 px-1.5 py-0.5 rounded bg-rose-950/90 border border-rose-400 text-rose-200 text-[9px] font-mono font-semibold shadow-lg whitespace-nowrap">
-              {line.label}
-            </div>
-          </div>
-        )
-      ))}
+      {/* ── VISIBLE NARRATIVE WAYPOINTS & GUIDES ── */}
+      <DirectorStageGuides
+        showWaypoints={showWaypoints}
+        showGuides={showGuides}
+        waypoints={waypoints}
+        groundLineY={groundLineY}
+        snapGuideLines={dragPreview?.snapGuideLines}
+        onWaypointClick={handleWaypointClick}
+      />
 
       {/* ── CHARACTER CHIP ROSTER STRIP (Overlapping & Reserve Quick Access) ── */}
       <DirectorChipsStrip
@@ -635,165 +576,26 @@ export const CharacterDirectorOverlay: React.FC<CharacterDirectorOverlayProps> =
         }}
       />
 
-      {reserveDrag?.passedSlop && (
-        <div
-          className="pointer-events-none absolute z-50 -translate-x-1/2 rounded-2xl border-2 border-emerald-300 bg-emerald-500/20 p-1 shadow-2xl"
-          style={{
-            left: `${reserveDrag.normalizedX}%`,
-            bottom: `${reserveDrag.normalizedY + (groundLineY || 0)}%`,
-            width: `${Math.round(80 * (reserveDrag.character.scale ?? 1))}px`,
-            height: `${Math.round(120 * (reserveDrag.character.scale ?? 1))}px`,
-          }}
-        >
-          <img src={reserveDrag.character.avatarUrl} alt="" className="h-full w-full object-contain opacity-80" />
-        </div>
-      )}
-
-      {dragPreview?.hasPassedTouchSlop && (
-        <div
-          className="director-ui-element pointer-events-none absolute z-[60] flex w-[min(104px,22%)] flex-col gap-1.5"
-          style={{
-            top: 'max(80px, calc(var(--sat, 0px) + 60px))',
-            bottom: 'max(12px, calc(var(--sab, 0px) + 8px))',
-            right: 'max(8px, calc(var(--sar, 0px) + 8px))',
-          }}
-        >
-          {([
-            ['reserve', 'Reserva', Archive, 'border-purple-400 bg-purple-950/90 text-purple-200'],
-            ['hide', 'Ocultar', EyeOff, 'border-amber-400 bg-amber-950/90 text-amber-200'],
-            ['remove', 'Quitar', Trash2, 'border-rose-400 bg-rose-950/90 text-rose-200'],
-          ] as const).map(([target, label, Icon, colors]) => (
-            <div
-              key={target}
-              className={`flex flex-1 flex-col items-center justify-center rounded-xl border-2 text-[11px] font-bold shadow-xl transition-transform ${colors} ${
-                dragPreview.quickDropTarget === target ? 'scale-105 ring-2 ring-white' : 'opacity-80'
-              }`}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {quickActionMessage && (
-        <div
-          className="director-ui-element absolute left-1/2 z-[70] flex -translate-x-1/2 items-center gap-2 rounded-xl border border-emerald-400/60 bg-slate-950/95 px-3 py-2 text-xs text-slate-100 shadow-2xl pointer-events-auto"
-          style={{ bottom: 'max(64px, calc(var(--sab, 0px) + 58px))' }}
-        >
-          <span>{quickActionMessage}</span>
-          {onUndo && (
-            <button
-              type="button"
-              className="flex items-center gap-1 font-bold text-amber-300 hover:text-amber-200"
-              onClick={() => {
-                onUndo();
-                setQuickActionMessage(null);
-              }}
-            >
-              <RotateCcw size={13} />
-              <span>Deshacer</span>
-            </button>
-          )}
-        </div>
-      )}
+      {/* ── DROP ZONES & QUICK FEEDBACK TOAST ── */}
+      <DirectorDropZonesAndFeedback
+        reserveDrag={reserveDrag}
+        groundLineY={groundLineY}
+        hasPassedTouchSlop={dragPreview?.hasPassedTouchSlop}
+        quickDropTarget={dragPreview?.quickDropTarget}
+        quickActionMessage={quickActionMessage}
+        onUndo={onUndo}
+        onClearQuickActionMessage={() => setQuickActionMessage(null)}
+      />
 
       {/* ── CHARACTER SELECTION BOXES & TOUCH HANDLES ── */}
-      {characters.map((char) => {
-        if (char.presence === 'in_reserve') return null;
-
-        const isSelected = selectedIds.has(char.id);
-        const activeDrag = dragPreview;
-        const isDraggingThis = !!activeDrag?.isDragging && activeDrag.initialPositions.has(char.id);
-        const isLocked = !!char.isLocked;
-        const cursorClass = isLocked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing';
-
-        const initialDragPosition = activeDrag?.initialPositions.get(char.id);
-        const dragDeltaX = activeDrag?.hasPassedTouchSlop ? activeDrag.currentX - activeDrag.startX : 0;
-        const dragDeltaY = activeDrag?.hasPassedTouchSlop ? activeDrag.currentY - activeDrag.startY : 0;
-        const posX = initialDragPosition
-          ? initialDragPosition.x + dragDeltaX
-          : char.normalizedX ?? 50;
-        const logicalPosY = initialDragPosition
-          ? initialDragPosition.y + dragDeltaY
-          : char.normalizedY ?? 0;
-        const posY = logicalPosY + (groundLineY || 0);
-        const visualAnchorOffsetY = char.visualAnchorOffsetY || 0;
-        const effectiveScale = char.scale ?? 1.0;
-
-        return (
-          <div
-            key={char.id}
-            data-testid={`director-handle-${char.id}`}
-            className={`director-ui-element absolute pointer-events-auto ${cursorClass} transition-transform ${
-              isSelected ? 'z-40' : 'z-20'
-            }`}
-            style={{
-              left: `${posX}%`,
-              bottom: `${posY}%`,
-              transform: `translate(-50%, ${visualAnchorOffsetY}%)`,
-              touchAction: 'none',
-            }}
-            onClick={(e) => handleSelect(char.id, e)}
-            onPointerDown={(e) => handlePointerDown(char, e)}
-          >
-            {/* Direct Selection Box */}
-            <div
-              className={`relative rounded-2xl transition-all p-1 flex flex-col items-center justify-center ${
-                isSelected
-                  ? 'ring-2 ring-amber-400 bg-amber-500/15 shadow-[0_0_20px_rgba(245,158,11,0.4)]'
-                  : 'hover:ring-1 hover:ring-amber-400/50 hover:bg-slate-900/30'
-              }`}
-              style={{
-                width: `${Math.round(80 * effectiveScale)}px`,
-                height: `${Math.round(120 * effectiveScale)}px`,
-              }}
-            >
-              {isDraggingThis && activeDrag?.hasPassedTouchSlop && (
-                <img
-                  src={char.avatarUrl}
-                  alt=""
-                  className="absolute inset-1 w-[calc(100%-0.5rem)] h-[calc(100%-0.5rem)] object-contain opacity-70 pointer-events-none drop-shadow-xl"
-                  draggable={false}
-                />
-              )}
-
-              {/* Center crosshair dot */}
-              <div
-                className={`w-2 h-2 rounded-full border border-slate-950 transition-colors ${
-                  isSelected ? 'bg-amber-400 shadow-sm' : 'bg-slate-300 opacity-60'
-                }`}
-              />
-
-              {/* Private label tag pill */}
-              <div
-                className={`absolute -top-5 px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap shadow-md transition-colors ${
-                  isSelected
-                    ? 'bg-amber-500 text-slate-950 font-bold'
-                    : 'bg-slate-950/80 text-slate-200 border border-slate-700'
-                }`}
-              >
-                {char.privateLabel || char.name}
-              </div>
-
-              {/* Badges corner */}
-              <div className="absolute top-1 right-1 flex items-center gap-0.5">
-                {char.isHidden && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" title="Oculto" />
-                )}
-                {char.isLocked && <Lock size={10} className="text-rose-400" />}
-                {char.isSpeaking && <Mic size={10} className="text-yellow-300 animate-pulse" />}
-              </div>
-            </div>
-
-            {isDraggingThis && activeDrag?.hasPassedTouchSlop && activeDrag.anchorId === char.id && (
-              <div className="absolute left-1/2 -translate-x-1/2 -bottom-7 pointer-events-none bg-slate-950/95 border border-amber-400 px-2 py-0.5 rounded-md text-[10px] text-amber-200 font-mono whitespace-nowrap shadow-xl">
-                X {posX.toFixed(1)}% · Y {logicalPosY.toFixed(1)}%
-              </div>
-            )}
-          </div>
-        );
-      })}
+      <DirectorCharacterTokens
+        characters={characters}
+        selectedIds={selectedIds}
+        dragPreview={dragPreview}
+        groundLineY={groundLineY}
+        onSelect={handleSelect}
+        onPointerDown={handlePointerDown}
+      />
 
       {/* ── FLOATING QUICK ACTIONS BAR (On Selected Character) ── */}
       <DirectorBottomBar

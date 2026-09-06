@@ -2,6 +2,20 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-073: Modularización de Dirección de Personajes (CharacterDirectorOverlay.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.50s y ejecución de suites de pruebas con `npm test -- DirectorStageGuides.test.tsx characterDirector.test.tsx --run` (2 archivos, 38 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Dirección Táctil de Personajes (`CharacterDirectorOverlay.tsx` y subcomponentes en `src/components/master/director/`):** el componente de 891 líneas se redujo a 641 líneas aislando sus responsabilidades de renderizado de escena en submódulos especializados:
+     - `DirectorStageGuides.tsx`: renderizado interactivo de waypoints narrativos con badges y marcadores, líneas de guía visual de suelo (`groundLineY`), margen seguro de nombres/diálogos, eje vertical central y guías dinámicas de snapping magnético en X e Y con etiquetas animadas.
+     - `DirectorDropZonesAndFeedback.tsx`: previsualización de arrastre de personajes desde reserva, zonas táctiles de soltado rápido (reserva, ocultar, quitar) en el lateral derecho durante el arrastre y banner accesible de feedback de última acción con botón Deshacer.
+     - `DirectorCharacterTokens.tsx`: cajas de selección directa y manillas táctiles de personajes sobre el escenario, gestión de cursores (`cursor-grab` vs `cursor-not-allowed`), cruces de selección, anillo activo, etiqueta privada visible, badges de estado (oculto, bloqueado, hablando) y tooltip de coordenadas en tiempo real durante el arrastre.
+     - `directorTypes.ts`: exportación de los tipos `QuickDropTarget` y `DragPreviewState` para interoperabilidad de contratos de datos.
+  2. **Pruebas unitarias (`DirectorStageGuides.test.tsx`):** incorporación de 3 tests específicos comprobando renderizado de waypoints y disparos de click, líneas de guía visual de suelo y visualización de guías de snap magnético.
+- **Manual:** sin cambios de uso; todos los controles táctiles, gestos de arrastre, waypoints, selector de formaciones, presets y modales conservan idéntica apariencia y respuesta interactiva.
+- **Evidencia técnica:** 38 tests superados en Vitest (`characterDirector.test.tsx` 35/35 pasados, `DirectorStageGuides.test.tsx` 3/3 pasados), 0 errores en `tsc -b`, bundle de producción Vite exitoso en 1.50s.
+- **Resultado:** modularización de dirección de personajes en vivo completada con éxito sin regresiones.
+
 ## 2026-09-06 — MAN-072: Modularización de Panel de Sesión y Consola Clásica (SessionPanel.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.93s y ejecución completa de la suite de pruebas con `npm test -- --run` (85 suites aprobadas, 479 tests superados al 100%).

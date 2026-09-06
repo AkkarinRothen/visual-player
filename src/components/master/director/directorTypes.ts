@@ -4,12 +4,14 @@ export interface SnapGuideLine {
   label?: string;
 }
 
+export type QuickDropTarget = 'reserve' | 'hide' | 'remove';
+
 export interface DragState {
   isDragging: boolean;
   hasPassedTouchSlop: boolean;
   pointerClientX: number;
   pointerClientY: number;
-  quickDropTarget: 'reserve' | 'hide' | 'remove' | null;
+  quickDropTarget: QuickDropTarget | null;
   snapGuideLines?: SnapGuideLine[];
   anchorId: string;
   startX: number;
@@ -20,6 +22,8 @@ export interface DragState {
   currentY: number;
   initialPositions: Map<string, { x: number; y: number }>;
 }
+
+export type DragPreviewState = DragState;
 
 export type FormationType = 'line' | 'semicircle' | 'flanks' | 'cluster';
 
