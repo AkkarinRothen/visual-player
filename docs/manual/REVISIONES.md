@@ -2,6 +2,21 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-078: Modularización de Tarjeta de Escena Activa (ActiveSceneCard.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.68s y ejecución completa de suites de pruebas con `npm test -- --run` (91 suites aprobadas, 498 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Tarjeta de Escena Activa en Consola (`ActiveSceneCard.tsx` y submódulos en `src/components/master/sessionPanel/activeScene/`):** el componente monolítico de 648 líneas se redujo a 125 líneas desacoplando sus secciones operativas en subcomponentes modulares especializados:
+     - `ActiveSceneHeaderPreview.tsx`: cabecera con punto de directo animado, título "ESCENA EN MESA", etiqueta de Blackout activo y previsualización con fondo de escena, título superpuesto y estado del banner de localización.
+     - `ActiveSceneMetaChips.tsx`: tira de información compacta con conteo de NPCs, clima en tiempo real, iluminación y botones de acceso rápido a modales contextuales (Presets de Luz, Diario de Revelaciones, Crónica cinematográfica, Asistente de Preparación, Visor de Handouts, Banda Sonora por Bioma y Exportación de Crónica), acompañado del selector horizontal de tono situacional (Exploración, Tensión, Combate, Descanso).
+     - `ActiveSceneQuickActions.tsx`: barra de acciones rápidas para conmutar cartel de localización, disparo instantáneo de rayos, auto-tormenta estocástica, modo fotosensible sin destellos, temblor de pantalla, control de música ambiental, atenuación inteligente de fondo para narrador (*ducking*) con selector de perfil, y accesos directos al compositor táctil y SFX Pad.
+     - `ActiveSceneCameraLightsBar.tsx`: barra horizontal de encuadres cinematográficos (Plano General, Encuadrar Hablante con cálculo de ancla, Encuadrar Grupo con envolvente matemática y botón Restablecer) junto con conmutadores rápidos de luces localizadas y emisores atmosféricos activos.
+     - `ActiveSceneVariantsAndRevelations.tsx`: selector de variantes alternativas de escenario (día/noche, estados climáticos) y barra de revelación progresiva de personajes (rostro e identidad real/nombre) con feedback visual inmediato.
+  2. **Pruebas unitarias (`ActiveSceneCard.test.tsx`):** suite de 3 pruebas cubriendo renderizado de preview y meta-chips, disparo interactivo de acciones de escena (cartel, rayo, temblor, música), selección de encuadres de cámara y alternancia de variantes de fondo.
+- **Manual:** sin cambios de uso; todas las acciones de control de escena, atajos táctiles, cámara y revelaciones conservan idénticos controles, etiquetas y resultados en la Mesa.
+- **Evidencia técnica:** 91 suites aprobadas, 498/498 tests pasando en Vitest (3/3 tests unitarios nuevos en `ActiveSceneCard.test.tsx`), compilación `tsc -b` y bundle de producción Vite en 1.68s sin regresiones.
+- **Resultado:** modularización de la tarjeta de escena activa completada con éxito.
+
 ## 2026-09-06 — MAN-077: Modularización de Traslado de Escena a Preparación (TransferSceneModal.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.55s y ejecución completa de suites de pruebas con `npm test -- --run` (90 suites aprobadas, 495 tests superados al 100%).
