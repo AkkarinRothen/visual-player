@@ -2,6 +2,20 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-067: Modularización de Capa de Persistencia de Sesión (sessionDb.ts)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript y bundle de producción con `npm run build` (`tsc -b && vite build`) correcto en 1.5s y ejecución completa de la suite de pruebas con `npm test -- --run` (82 archivos aprobados, 470 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Persistencia de sesiones (`src/db/sessionDb.ts` y `src/db/session/`):** el archivo más extenso del proyecto (1.667 líneas) se descompuso en 4 submódulos especializados de dominio:
+     - `sessionCrud.ts`: operaciones CRUD básicas, ciclo de vida de sesión (crear, actualizar borrador/vivo, renombrar, archivar, papelera y migración legacy).
+     - `sessionOperations.ts`: operaciones entre sesiones y grupos (sanitización de plantillas, duplicación, próxima sesión, baseline y nuevo grupo).
+     - `sessionTemplates.ts`: plantillas maestras, presets de composición de escena, actualización granular y detección de diferencias.
+     - `sessionPackages.ts`: empaquetado portable `.vpp.json`, detección de conflictos de versión multi-dispositivo, checklist de readiness pre-partida y copia de auditoría aislada.
+  2. **Compatibilidad:** `src/db/sessionDb.ts` se redujo a un *barrel export* limpio de 8 líneas preservando retrocompatibilidad total para todos los servicios, componentes y suites de tests existentes.
+- **Manual:** sin cambios de uso; todas las capacidades de base de datos, guardado, duplicación, plantillas y exportación conservan sus flujos y comportamiento funcional intactos.
+- **Evidencia técnica:** 470 tests superados en Vitest (`gameSessionService.test.ts` 11/11 pasados, `gameSessionStorageRobustness.test.ts` pasados), 0 errores en `tsc -b`, build de producción Vite exitoso.
+- **Resultado:** modularización arquitectónica de base de datos completada con éxito sin regresiones.
+
 ## 2026-09-06 — MAN-066: Modularización de Tipos Base y Componente AssetPickerModal
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores) y ejecución completa de la suite de pruebas con `npm test -- --run` (82 archivos aprobados, 470 tests superados al 100%).
