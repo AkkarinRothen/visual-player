@@ -2,6 +2,19 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-074: Modularización de Compositor de Escenas (SceneCompositorModal.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.54s y ejecución completa de suites de pruebas con `npm test -- --run` (87 suites aprobadas, 485 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Compositor de Escena (`SceneCompositorModal.tsx` y submódulos en `src/components/master/compositor/`):** el modal monolítico de 764 líneas se redujo a 384 líneas aislando responsabilidades de control, cabecera, pie y lógica de manipulación de entidades:
+     - `CompositorHeader.tsx`: barra superior con título descriptivo de Control de Mesa, badge interactivo de modo operativo (En Vivo vs Preparación) y selector de relación de aspecto (16:9, 16:10, 4:3) con preservación de encuadre.
+     - `CompositorFooter.tsx`: barra inferior flotante con botón de Deshacer cambios en entidades, botón de Cancelar y acción principal adaptativa ("Publicar en Mesa", "Guardar en Borrador" o "Listo").
+     - `useCompositorEntities.ts`: hook personalizado de 338 líneas que centraliza el estado y operaciones de personajes y props (selección individual/múltiple, arrastre con límites matemáticos, microajuste con cruceta D-Pad, escalado proporcional, rotación, orden de capas visuales, duplicación y pila de historial de deshacer).
+  2. **Pruebas unitarias (`SceneCompositorModal.test.tsx`):** suite de 3 pruebas comprobando renderizado de cabecera y pie con badges de modo, cambio interactivo de relación de aspecto y persistencia al guardar cambios mediante `onSaveState`.
+- **Manual:** sin cambios de uso; todas las herramientas de composición, arrastre sobre lienzo Konva, selector de aspect ratio y guardado conservan idénticos flujos, accesibilidad y experiencia.
+- **Evidencia técnica:** 87 suites aprobadas, 485/485 tests pasando en Vitest, 0 errores en `tsc -b`, bundle de producción Vite sin regresiones.
+- **Resultado:** modularización del compositor de escenas completada con éxito.
+
 ## 2026-09-06 — MAN-073: Modularización de Dirección de Personajes (CharacterDirectorOverlay.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.50s y ejecución de suites de pruebas con `npm test -- DirectorStageGuides.test.tsx characterDirector.test.tsx --run` (2 archivos, 38 tests superados al 100%).
