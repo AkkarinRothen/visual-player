@@ -2,6 +2,22 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-082: Modularización de Gestor de Respaldos y Restauración (BackupManagerModal.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.74s y ejecución completa de suites de pruebas con `npm test -- --run` (94 suites aprobadas, 511 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Gestor de Respaldos (`BackupManagerModal.tsx` y submódulos en `src/components/master/modals/backup/`):** el componente monolítico de 577 líneas se redujo a 90 líneas desacoplando cabecera, navegación de pestañas, exportador, restaurador/inspección de archivos y hook de gestión en submódulos especializados:
+     - `backupManagerTypes.ts`: contratos de tipado para props del modal, cabecera, pestañas, exportador y restaurador.
+     - `useBackupManager.ts`: hook personalizado (205 líneas) que gestiona el cálculo reactivo de estadísticas de la base de datos (conteo de campañas, escenas, personajes y assets locales en Dexie), la generación y compresión del paquete `.vpbackup` con soporte para Web Share API móvil y descarga directa, la inspección previa de integridad con reporte pre-vuelo (conteo de elementos y detección de campañas ya existentes), y la ejecución atómica de restauración en sus tres modos (`copy`, `merge`, `replace`).
+     - `BackupHeader.tsx`: cabecera temática con icono ámbar de archivo, título "Gestor de Respaldos Autónomos", subtítulo de seguridad y botón accesible de cierre (`aria-label="Cerrar modal de respaldos"`).
+     - `BackupTabs.tsx`: conmutador horizontal accesible para alternar entre "Crear Respaldo" y "Restaurar Copia".
+     - `BackupCreateTab.tsx`: pestaña de exportación con tarjeta de estadísticas locales de Dexie, texto explicativo del formato autocontenido `.vpbackup`, banner de éxito persistente tras la descarga/compartición y botón de acción con estado de procesamiento.
+     - `BackupRestoreTab.tsx`: pestaña de restauración con zona de soltado / explorador de archivos `.vpbackup`, visualización de reporte pre-vuelo (origen, fecha, campañas y assets), selector interactivo del modo de restauración (Crear Copias, Fusionar y Actualizar, Sobrescribir Todo) con advertencias preventivas de reemplazo, mensaje de resultado y botón de confirmación de restauración.
+  2. **Pruebas unitarias (`BackupManagerModal.test.tsx`):** suite de 4 pruebas unitarias cubriendo el renderizado de la pestaña de creación con estadísticas, exportación y descarga de archivo de respaldo, alternancia a la pestaña de restauración con carga de archivo, preflight report y confirmación de restauración en modo copia, y cierre accesible mediante botón y overlay.
+- **Manual:** sin cambios de uso; todas las herramientas de exportación `.vpbackup`, inspección pre-vuelo, modos de restauración y estadísticas locales conservan idéntica apariencia, controles y resultados.
+- **Evidencia técnica:** 94 suites aprobadas, 511/511 tests pasando en Vitest (4/4 tests unitarios nuevos en `BackupManagerModal.test.tsx`), compilación `tsc -b` y bundle de producción Vite en 1.74s sin errores ni regresiones.
+- **Resultado:** modularización del modal gestor de respaldos completada con éxito.
+
 ## 2026-09-06 — MAN-081: Modularización de Panel de Control Modular en Vivo (LiveModularControlPanel.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.58s y ejecución completa de suites de pruebas con `npm test -- --run` (93 suites aprobadas, 507 tests superados al 100%).
