@@ -2,6 +2,22 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-076: Modularización de Editor de Conversaciones (ConversationEditorModal.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.72s y ejecución completa de suites de pruebas con `npm test -- --run` (89 suites aprobadas, 492 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Editor de Conversaciones y Guiones (`ConversationEditorModal.tsx` y submódulos en `src/components/master/conversation/`):** el modal monolítico de 696 líneas se redujo a 85 líneas desacoplando su lógica de edición de intervenciones, modo ensayo y formularios de línea en subcomponentes especializados:
+     - `conversationTypes.ts`: contratos de tipado compartido para propiedades del modal y configuración de conversación.
+     - `ConversationHeader.tsx`: cabecera con título contextual ("Editar Conversación" vs "Nueva Conversación"), botones de Deshacer y Rehacer con control de pila, conmutador de Modo Ensayo y botón de guardado.
+     - `ConversationLineList.tsx`: panel izquierdo con campos de título y descripción general, cabecera de intervenciones con botón "+ Añadir", y lista scrollable con avatar, alias de hablante, estilo, advertencia de texto largo (>180 caracteres) y botones de reordenamiento (Subir/Bajar), duplicar y eliminar.
+     - `ConversationRehearsalView.tsx`: vista de ensayo local (aislada sin emisión a la Mesa) que simula la pantalla de los jugadores mediante `CinematicDialogueLayer` con navegación paso a paso (Anterior, Reiniciar, Siguiente).
+     - `ConversationLineForm.tsx`: formulario detallado para la frase activa con selector de personaje o Narrador, alias público, estilos visuales (Normal, Narración, Susurro, ¡Grito!), foco automático, selector de expresiones de retrato, área de texto con contador en tiempo real, acciones asociadas de escena (encuadre de cámara y disparo de macro/momento) y notas privadas del DM estrictamente confidenciales.
+     - `useConversationEditor.ts`: hook de estado y operaciones (199 líneas) que centraliza la clonación profunda del guión, historial transaccional de deshacer/rehacer, manipulación inmutable de intervenciones y persistencia asíncrona.
+  2. **Pruebas unitarias (`ConversationEditorModal.test.tsx`):** suite de 4 pruebas cubriendo el renderizado del guión y detalles de línea, adición y edición en tiempo real de intervenciones, alternancia del modo ensayo y guardado asíncrono (`onSave` y `onClose`).
+- **Manual:** sin cambios de uso; todas las herramientas de edición de guiones, expresiones de retrato, acciones cinematográficas y modo ensayo conservan idénticos flujos, accesibilidad y experiencia.
+- **Evidencia técnica:** 89 suites aprobadas, 492/492 tests pasando en Vitest (4/4 tests unitarios nuevos en `ConversationEditorModal.test.tsx`), compilación de producción `tsc -b && vite build` en 1.72s sin errores ni regresiones.
+- **Resultado:** modularización del editor de conversaciones completada con éxito.
+
 ## 2026-09-06 — MAN-075: Modularización de Visor de Handouts y Documentos (HandoutViewerModal.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.48s y ejecución completa de suites de pruebas con `npm test -- --run` (88 suites aprobadas, 488 tests superados al 100%).
