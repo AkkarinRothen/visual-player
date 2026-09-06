@@ -2,6 +2,23 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-077: Modularización de Traslado de Escena a Preparación (TransferSceneModal.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.55s y ejecución completa de suites de pruebas con `npm test -- --run` (90 suites aprobadas, 495 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Traslado de Escenas a Preparaciones (`TransferSceneModal.tsx` y submódulos en `src/components/master/workshop/transferScene/`):** el modal monolítico de 667 líneas se redujo a 110 líneas desacoplando su lógica de consulta de sesiones, creación en línea y opciones de incorporación en subcomponentes especializados:
+     - `transferSceneTypes.ts`: contratos de tipado compartido para modos de transferencia (`'repertoire' | 'staging'`), información de sesión transferida y props de modal.
+     - `TransferSceneHeader.tsx`: cabecera con distintivo visual temático en ámbar, título de operación, nombre de la campaña activa y botón accesible de cierre.
+     - `TransferSceneSuccessView.tsx`: pantalla de confirmación tras el traslado con icono de verificación esmeralda, resumen del destino y modo aplicado, aviso de no publicación inmediata a los jugadores y botones "Seguir en el Taller" o "Abrir Preparación" vinculados al router.
+     - `TransferSceneSummaryCard.tsx`: tarjeta compacta con miniatura de fondo o marcador de posición, nombre de la escena, contador de figuras colocadas y badge de música ambiental si está configurada.
+     - `TransferTargetSessionPicker.tsx`: selector de sesión de destino en la campaña con carga asíncrona, estado vacío con sugerencia táctil, y formulario desplegable para crear una nueva preparación al instante sin salir del flujo.
+     - `TransferModeOptions.tsx`: selector mediante botones de radio de alta visibilidad para "Añadir al repertorio disponible (Recomendado)" vs "Abrir como escena en preparación (Staging)", tarjeta informativa de copia profunda y botones de cancelar y confirmación con estado de carga `isTransferring`.
+     - `useTransferScene.ts`: hook personalizado (178 líneas) que gestiona la resolución de campaña por ID, consulta de sesiones activas en Dexie, creación de nuevas sesiones y guardado transaccional con clonación profunda independiente de la escena.
+  2. **Pruebas unitarias (`TransferSceneModal.test.tsx`):** suite de 3 pruebas cubriendo renderizado del resumen y selector, despliegue del formulario de nueva sesión, y confirmación transaccional con paso a la vista de éxito y apertura de preparación.
+- **Manual:** sin cambios de uso; todas las opciones de traslado al repertorio o a Staging, creación de preparaciones y navegación conservan idénticos flujos, atajos visuales y experiencia.
+- **Evidencia técnica:** 90 suites aprobadas, 495/495 tests pasando en Vitest (3/3 tests unitarios nuevos en `TransferSceneModal.test.tsx`), compilación `tsc -b` y bundle de producción Vite en 1.55s sin errores.
+- **Resultado:** modularización del modal de traslado de escenas completada con éxito.
+
 ## 2026-09-06 — MAN-076: Modularización de Editor de Conversaciones (ConversationEditorModal.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.72s y ejecución completa de suites de pruebas con `npm test -- --run` (89 suites aprobadas, 492 tests superados al 100%).
