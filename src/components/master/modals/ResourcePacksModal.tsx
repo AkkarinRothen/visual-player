@@ -63,7 +63,17 @@ export const ResourcePacksModal: React.FC<ResourcePacksModalProps> = ({
   };
 
   const handleFileProcess = async (file: File) => {
-    if (!file.name.endsWith('.vppack') && !file.name.endsWith('.json')) {
+    const lowerName = file.name.toLowerCase();
+    const isCandidate =
+      lowerName.endsWith('.vppack') ||
+      lowerName.endsWith('.json') ||
+      lowerName.endsWith('.bin') ||
+      lowerName.includes('.vppack') ||
+      file.type === 'application/octet-stream' ||
+      file.type === 'application/json' ||
+      file.type === '';
+
+    if (!isCandidate) {
       setStatusMessage({ text: 'Por favor seleccioná un archivo de paquete de recursos (.vppack o .json)', type: 'error' });
       return;
     }
@@ -269,7 +279,7 @@ export const ResourcePacksModal: React.FC<ResourcePacksModalProps> = ({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".vppack,.json"
+                  accept="*/*,.vppack,.json,application/octet-stream,application/json"
                   className="hidden"
                   onChange={handleFileSelected}
                   disabled={isInstalling}

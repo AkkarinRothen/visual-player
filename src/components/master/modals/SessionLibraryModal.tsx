@@ -427,7 +427,7 @@ export const SessionLibraryModal: React.FC<SessionLibraryModalProps> = ({
               <input
                 ref={importFileRef}
                 type="file"
-                accept=".vpp.json,.json"
+                accept="*/*,.vpp.json,.json,application/json,application/octet-stream"
                 onChange={handleFileChosen}
                 className="sr-only"
                 aria-label="Seleccionar archivo de sesión para importar"

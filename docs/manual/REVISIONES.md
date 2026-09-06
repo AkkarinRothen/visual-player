@@ -2,6 +2,33 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-05 — MAN-061: Compatibilidad de Selección de Packs (.vppack) en Android SAF y Google Drive
+
+- **Walkthrough y entorno:** comprobación de selector de archivos nativo de Android (Storage Access Framework y proveedor de Google Drive) desde la aplicación compilada en Android (`com.akkarinrothen.visualplayer`). Se identificó que archivos `.vppack` almacenados en Google Drive o descargas aparecían atenuados / deshabilitados como `Archivo BIN` debido a filtros MIME estrictos (`accept=".vppack,.json"`).
+- **Funciones y componentes afectados:**
+  1. **Selector de Packs de Recursos (`ResourcePacksModal.tsx`):** ampliación del atributo `accept` a `*/*,.vppack,.json,application/octet-stream,application/json` para permitir que el proveedor de almacenamiento de Android y Google Drive habilite la selección de archivos binarios/propietarios `.vppack`. Flexibilización de la validación en `handleFileProcess` para aceptar por extensión o MIME genérico (`application/octet-stream`), delegando la validación del esquema al servicio del pack.
+  2. **Selector de Sesiones y Backups (`SessionLibraryModal.tsx`, `BackupManagerModal.tsx`):** actualización análoga con soporte de MIME genéricos y wildcards para evitar el bloqueo de archivos `.vpp.json` o `.vpbackup`.
+- **Manual:** sin cambios de uso de cara al usuario en la interfaz; se asegura la compatibilidad con selectores de archivos en Android.
+- **Evidencia técnica:** compilación TypeScript sin errores con `npm run build`, sincronización Capacitor `npm run android:build` exitosa y generación de APK `app-prod-debug.apk` (6.09 MB) copiada a la raíz como `VisualPlayer-debug.apk` e instalada en tablet Samsung Galaxy Tab A8.
+- **Límites:** instalación pendiente en el teléfono Motorola por desconexión temporal de depuración Wi-Fi (4G activo en el móvil).
+- **Resultado:** corrección integrada; los archivos `.vppack` ya no quedan atenuados en Google Drive ni en el gestor de archivos de Android.
+
+## 2026-09-05 — MAN-060: Walkthrough en Hardware Android Real (Motorola + Samsung Tab A8), Triage P0/P1 y Ergonomía Móvil
+
+- **Walkthrough y entorno:** recorrido completo de punta a punta ejecutado sobre dos dispositivos Android físicos conectados por ADB Wi-Fi: un teléfono **Motorola One Fusion** (`720x1600`) como Control Remoto del Master y una tablet **Samsung Galaxy Tab A8** (`1200x1920`) como Pantalla de Escena (Mesa). Se verificó emparejamiento WebRTC P2P con código PIN de sala (`VP-GVEJ`), sincronización en directo de escena (*Taberna del Dragón Durmiente*), cartel de ubicación, ambientación lumínica y partículas, inicio y gestión de combate, macros cinemáticos (*Despertar de Vaelthazar*), y respuesta a la suspensión y desbloqueo de pantalla.
+- **Funciones y componentes afectados:**
+  1. **Inicio en Modo Sesión Modular (`MasterController.tsx`):** en teléfonos y pantallas táctiles (`innerWidth <= 768` o soporte touch), el controlador del Master ahora inicia de forma predeterminada en el **Panel Modular** táctil (`sessionViewMode = 'session'`) con acceso directo a las pestañas inferiores (**En Vivo**, **Escena**, **Combate**, **Momentos**, **Más**) y botones directos a **Packs** y **Sesiones**, eliminando la barrera de botones pequeños de la consola clásica en celulares.
+  2. **Prevención de bloqueo por inactividad (`MasterController.tsx`):** activación de `platform.screen.setKeepAwake(true)` durante el ciclo de vida del Master, evitando que el teléfono se apague o bloquee automáticamente con el PIN del sistema a mitad de la partida.
+  3. **Protección táctil en el Lobby (`Lobby.tsx`):** el rol **Pantalla de Escena** restringe su acción al botón explícito **Abrir en esta Pantalla** (`.btn-display`). El gesto de deslizar con el pulgar sobre la tarjeta ya no conmuta accidentalmente el teléfono a modo mesa.
+  4. **Entrada de PIN optimizada (`Lobby.tsx`):** el campo de PIN restringe su longitud a 7 caracteres (`maxLength={7}`), fuerza mayúsculas (`autoCapitalize="characters"`) y permite enviar directamente con la tecla Enter del teclado virtual (IME).
+  5. **Scroll y manipulación en el Compositor (`CompositorStage.tsx`):** el visor del escenario sustituye `touch-none` por `touch-pan-y` en áreas vacías del fondo, permitiendo que en teléfonos verticales el usuario desplace la pantalla hacia abajo para acceder a la barra de acciones (**Listo**, **Cancelar**, **Deshacer**), preservando a la vez el arrastre exclusivo de figuras y props con `touchAction: 'none'`.
+  6. **Cierre accesible en modales de combate (`CombatTab.tsx`):** el formulario **Agregar Combatiente** incorpora botón de cierre **X** en la cabecera y escucha la tecla Escape / botón Atrás.
+  7. **Manejo del botón Atrás en Pantalla de Escena (`PlayerDisplay.tsx`):** integración con `platform.lifecycle.onBackButton` para cerrar modales de diagnóstico o QR, y solicitar confirmación antes de salir al Lobby para evitar cierres abruptos de la mesa.
+- **Manual:** actualizadas las indicaciones de adaptación a celulares y tablets, Wakelock (pantalla activa) y conexión por PIN en `docs/manual/README.md`.
+- **Evidencia técnica:** walkthrough real ejecutado vía ADB con capturas `tablet_curr.png`, `moto_curr.png`, `moto_combat.png`, `moto_combat_clicked.png`, `tab_combat_clicked.png` y `tab_macro_fired.png`. Compilación web con `npm run build` (cero errores TS), sincronización `npm run android:build` exitosa y generación de APK de producción `app-prod-debug.apk` (6.03 MB) instalada en Motorola One Fusion.
+- **Límites:** el modo Hora de dormir / bloqueo con PIN del dispositivo anfitrión requiere desbloqueo físico por parte del usuario; reconexión de ADB TLS sobre la tablet Samsung pendiente de reactivación tras reposo prolongado de Wi-Fi; audio en WebView requiere un toque inicial del usuario en la mesa debido a la política de autoplay del navegador.
+- **Resultado:** fixes P0/P1 de usabilidad y robustez integrados y validados en hardware real; aplicación lista para la fase 2: diseño del modo "Hoy juego".
+
 ## 2026-09-05 — MAN-059: Integración Completa de Frameworks Visuales para Overhaul
 
 - **Walkthrough y entorno:** integración técnica de frameworks visuales y compilación de producción con `npm run build` correcta. Lint enfocado sobre archivos modificados sin errores; quedaron advertencias no bloqueantes en patrones existentes de React y refs de Floating UI. No se realizó comprobación visual en navegador, dispositivo Android físico ni Mesa conectada.

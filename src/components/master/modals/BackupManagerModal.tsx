@@ -376,7 +376,7 @@ export const BackupManagerModal: React.FC<BackupManagerModalProps> = ({
                 <input
                   id="backupFileInput"
                   type="file"
-                  accept=".vpbackup,.json"
+                  accept="*/*,.vpbackup,.json,application/json,application/octet-stream"
                   onChange={handleFileChange}
                   style={{ display: 'none' }}
                 />
