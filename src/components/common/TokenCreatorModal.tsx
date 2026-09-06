@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { X, ZoomIn, ZoomOut, RotateCcw, Check, Upload, Sparkles } from 'lucide-react';
 
 export interface TokenCreatorModalProps {
@@ -244,8 +245,8 @@ export const TokenCreatorModal: React.FC<TokenCreatorModalProps> = ({
     onClose();
   };
 
-  return (
-    <div className="modal-overlay" onClick={onClose} data-testid="token-creator-modal">
+  const modalContent = (
+    <div className="modal-overlay token-creator-overlay" onClick={onClose} data-testid="token-creator-modal" style={{ zIndex: 10000 }}>
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -496,4 +497,9 @@ export const TokenCreatorModal: React.FC<TokenCreatorModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return ReactDOM.createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

@@ -915,6 +915,11 @@ export const MasterController: React.FC<MasterControllerProps> = ({
             onDismissCharacter={dismissCharacter}
             onOpenFullScreenPreview={() => setShowFullScreenPreview(true)}
             canUndo={pastEvents.length > 0}
+            hasRunningMacro={!!runningMacro}
+            runningMacroName={runningMacro?.macro.name}
+            onCancelMacro={handleCancelRunningMacro}
+            isMuted={isMasterAudioMuted}
+            onToggleMuteTotal={handleToggleMuteTotal}
           />
         )}
 

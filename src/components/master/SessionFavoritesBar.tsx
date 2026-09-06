@@ -137,6 +137,11 @@ export const SessionFavoritesBar: React.FC<SessionFavoritesBarProps> = ({
             >
               <div className="fav-tile-icon-box">{renderIcon(item, status)}</div>
               <span className="fav-tile-label">{item.label}</span>
+              {item.isDynamicSuggestion && (
+                <span className="fav-ack-badge" style={{ background: 'rgba(99, 102, 241, 0.25)', color: '#a5b4fc' }}>
+                  Sugerido
+                </span>
+              )}
               {status === 'ack' && <span className="fav-ack-badge">ACK</span>}
               {!available && <span className="fav-broken-badge">No disponible</span>}
             </button>

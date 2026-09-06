@@ -48,7 +48,14 @@ Necesitás tener acceso a la app en el dispositivo que usará quien dirige y en 
 - **Acceso directo a Escena:** La barra inferior también incluye **Escena**. Tocá ese botón para abrir directamente el editor táctil y mover personajes, cambiar el fondo u ordenar la composición durante la mesa.
 - **Añadir NPC desde la escena:** Dentro del editor táctil, la sección **Añadir NPC** muestra personajes de la campaña en una tira horizontal. Tocá uno para incorporarlo y dejarlo seleccionado; después arrastralo al lugar deseado.
 - **Cambiar el fondo desde la escena:** En el editor táctil, tocá **Cambiar Fondo**. Podés elegir un recurso guardado, importar una imagen del dispositivo o usar una URL. En **Cambios en directo** se refleja automáticamente en la Mesa; en **Preparación** queda pendiente hasta publicar el borrador.
-- **Panel de Control Modular e Inspector (Celular y Tablet):** En dispositivos móviles, la vista **Sesión** activa de forma predeterminada el nuevo **Panel Modular**, diseñado para una operación ágil con el pulgar:
+- **Modo "Hoy juego" — Partida en vivo rápida (Celular y Tablet):** En teléfonos y pantallas táctiles, la vista **Sesión** inicia de forma predeterminada en **Hoy juego**, una interfaz enfocada en la velocidad y el control con una sola mano:
+  1. **Estado en Mesa (LIVE):** Muestra la escena proyectada actualmente con su miniatura, el distintivo verde pulsante **En Mesa**, el número de figuras presentes y botones rápidos de alternancia para el **Cartel (ON/OFF)** y la **Música (ON/OFF)**.
+  2. **Transición Rápida (Ahora vs Próxima):** Incluye un carrusel táctil de escenas de campaña para preparar el siguiente escenario con un toque sin alterar la pantalla del grupo, y un botón primario de gran tamaño: **«ENVIAR A LA MESA AHORA»** con confirmación visual (ACK) de entrega. Si deseás cancelar la preparación, contás con el enlace **Descartar**.
+  3. **Favoritos inteligentes por escena:** Barra táctil horizontal que prioriza automáticamente los atajos relevantes para la escena actual: NPCs presentes en pantalla (con atajo para enfocarlos), macros cinemáticos relacionados y escenas siguientes sugeridas (distinguidas con la etiqueta *Sugerido*), seguidas por los favoritos globales del director.
+  4. **Control rápido de combate:** Si el combate está inactivo, ofrece el botón **Iniciar Combate**. Cuando la batalla está activa, indica la ronda y el combatiente en turno, con botones **◀ Ant** y **Sig ▶** para rotar la iniciativa y **Fin** para cerrarla rápidamente.
+  5. **Acciones de ambientación de 1 toque:** Acceso directo para el pulgar a **Relámpago**, **Sacudir pantalla**, alternar **Cartel** y abrir el panel completo de **Combate**.
+  6. **Dock de emergencia persistente:** Ubicado al alcance de la mano con **Mute Total** (silencia todo el audio de inmediato), **Blackout** (con doble toque de protección para evitar apagados accidentales) y **Parar Momento** (si hay una secuencia cinemática ejecutándose).
+- **Panel de Control Modular e Inspector:** Segunda opción del selector de sesión, recomendada cuando necesitás interactuar directamente sobre las figuras del escenario:
   1. **Escenario 16:9 persistente:** Ubicado en la parte superior sin recortes ni deformaciones, muestra fielmente lo que ve la Mesa. Podés tocar directamente cualquier figura para seleccionarla o arrastrarla suavemente para reubicarla en directo. Arriba a la derecha contás con el botón conmutador de **Cuadrícula táctica** y el botón para **Maximizar / Pantalla completa**.
   2. **Módulos simultáneos:**
      - **Escena actual:** Muestra la carátula, nombre y estado; incluye los botones **Cambiar** (para elegir otra escena), **Transición** (para efectos cinemáticos de cambio) y **Subir Fondo** (para importar o cambiar el fondo de pantalla directamente desde el celular sin salir de la partida).
@@ -62,7 +69,7 @@ Necesitás tener acceso a la app en el dispositivo que usará quien dirige y en 
      - **Solapa izquierda (⚡ FX):** Abre el cajón de efectos en vivo y dados de mesa. Incluye impactos dramáticos de un toque (**Relámpago**, **Sacudir pantalla**, **Apagón / Luz** con runa de emergencia y **Cartel de escena** narrativo), botonera de **Sonidos Rápidos (SFX)** procedimentales con latencia cero (Espada, Fuego, Hechizo, Trueno, Campana, Rugido, Puerta) y un **Tirador de Dados Rápidos** (**d4**, **d6**, **d8**, **d10**, **d12**, **d20**, **d100**) que reproduce un sonido de dado y muestra el resultado en un badge flotante al instante. Permite encadenar múltiples efectos sin cerrarse y se oculta tocando fuera o en la solapa.
      - **Solapa derecha (📂 Mesa / Recursos):** Abre el cajón de gestión rápida de la sesión. Brinda acceso directo con un toque a los **Favoritos del DM**, buscador de **Packs instalados**, carrusel de **Escenas de campaña** con miniaturas y distintivo de la escena activa en Mesa, lista de **Personajes de biblioteca** para invocarlos al escenario mediante el botón `+`, y accesos a **Notas de sesión** y **Diario de revelaciones**. En **Packs instalados**, escribí parte del nombre o etiqueta y filtrá por **Todo**, **Fondos**, **Personajes**, **Tokens** o **Assets**. Tocá un resultado para aplicarlo de inmediato: los fondos cambian la escena en vivo, los personajes/tokens se invocan en la Mesa y los assets se colocan como objetos visibles. Al usar un recurso, invocar un personaje, cambiar de escena o disparar un favorito, el cajón se repliega automáticamente para devolver al director de inmediato a la acción.
   6. **Cambios en directo e instantáneos:** Todos los controles aplican sus cambios en tiempo real a la Mesa conectada mediante WebRTC, sin necesidad de pulsar un botón de publicar.
-  7. **Alternancia de vista:** Mediante las pestañas **Panel Modular** y **Consola Clásica** situadas en la parte superior de la sesión, podés alternar en cualquier momento entre el panel modular táctil y la consola detallada de preparación y borradores.
+  7. **Alternancia de vista:** Mediante las tres pestañas superiores (**Hoy juego**, **Panel Modular** y **Consola Clásica**) situadas en la parte superior de la sesión, podés alternar en cualquier momento entre la velocidad de un toque, la edición táctil del escenario y la consola detallada de preparación y borradores.
 - **Últimas acciones:** El **Centro de Partida** muestra las cuatro acciones más recientes, indicando si fueron **En Vivo** o **Borrador**, la escena relacionada y la hora. Tocá **Ver historial completo** para revisar o restaurar un punto anterior.
 
 Para este primer recorrido, usá conexión a Internet. El funcionamiento sin Internet y la conexión local de Android quedan pendientes de una guía comprobada en dispositivos reales. Si vas a usar imágenes o sonidos mediante enlaces, esos enlaces también deben poder abrirse desde los dispositivos.
@@ -307,13 +314,19 @@ El **Selector Visual** permite elegir y subir tanto imágenes estáticas (`PNG`,
 
 ### Crear y mostrar un personaje
 
-1. Entrá en **Campañas → Nuevo NPC**.
-2. Completá nombre, rol o título, puntos de golpe, retrato y las notas que necesites.
-3. Guardá el personaje con el botón del formulario.
-4. En **Vista Clásica → Personajes en Escena**, abrí la biblioteca de invocación y elegilo.
-5. Ajustá su posición o destacalo como hablante. Para sacarlo de la escena, usá **Quitar de Pantalla**.
+1. Entrá en **Campañas → Nuevo NPC** (o en **Taller de Preparación → Personajes → Nuevo Personaje**).
+2. Completá el nombre, rol o título, puntos de golpe y las notas que necesites.
+3. En **Retrato**, tocá **Elegir Retrato (Fotos / Biblioteca)**:
+   - Se abrirá directamente en la pestaña **Mi Biblioteca**, preseleccionando las colecciones de personajes y avatares disponibles en tus packs instalados.
+   - Podés buscar por nombre o etiqueta desde el campo **Buscar activos...** o filtrar por colección con el desplegable.
+   - La biblioteca carga miniaturas ligeras para navegar fluidamente entre cientos de retratos sin sobrecargar la memoria ni ralentizar el dispositivo móvil.
+   - Si preferís usar una foto propia o de la web, podés alternar a la pestaña **Subir Archivo / Cámara** o **URL Externa**.
+   - Al tocar el retrato deseado, queda seleccionado al instante.
+4. Guardá el personaje con el botón del formulario (**Crear Personaje**).
+5. En **Vista Clásica → Personajes en Escena** (o desde la sección **Añadir NPC** en el editor de escena), elegilo para sumarlo al escenario.
+6. Ajustá su posición o destacalo como hablante. Para sacarlo de la escena, usá **Quitar de Pantalla**.
 
-Quitar un personaje de pantalla conserva su ficha en la campaña. Eliminarlo desde la biblioteca es una acción diferente.
+Quitar un personaje de pantalla conserva su ficha en la campaña. Eliminarlo desde la biblioteca de personajes es una acción permanente diferente.
 
 <a id="ambientar"></a>
 ## Ambientar y organizar la escena

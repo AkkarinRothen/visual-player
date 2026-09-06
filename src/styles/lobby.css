@@ -292,6 +292,139 @@
   border-color: var(--border-gold);
 }
 
+.camera-prompt-modal {
+  width: min(420px, calc(100vw - 24px));
+}
+
+.camera-dialog-intro {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.camera-dialog-icon,
+.camera-error-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.camera-dialog-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.camera-dialog-copy {
+  margin: 0 0 20px;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.camera-dialog-actions,
+.camera-error-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.camera-primary-action,
+.camera-secondary-action {
+  width: 100%;
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.camera-primary-action {
+  border: 0;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.camera-secondary-action {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+}
+
+.camera-error-panel {
+  padding: 12px 0 4px;
+  text-align: center;
+}
+
+.camera-error-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.camera-error-panel h3 {
+  margin: 0 0 8px;
+  color: #f87171;
+  font-size: 1.05rem;
+}
+
+.camera-error-panel p {
+  margin: 0 auto 20px;
+  max-width: 340px;
+  color: #cbd5e1;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.camera-error-actions {
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.scanner-fallback-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.scanner-fallback-row span {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.scanner-fallback-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: #60a5fa;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 /* Interrupted session recovery banner */
 .recovery-banner {
   width: 100%;

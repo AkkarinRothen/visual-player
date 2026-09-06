@@ -588,6 +588,9 @@ export interface DMFavoriteItem {
   color?: string;
   targetId?: string; // Scene ID, Macro ID, SFX ID, etc.
   params?: Record<string, unknown>;
+  sceneId?: string; // ID de la escena a la que está vinculado específicamente este favorito
+  contextTags?: string[]; // Etiquetas temáticas para emparejamiento contextual
+  isDynamicSuggestion?: boolean; // Indica si fue generado dinámicamente según el contexto de la escena actual
 }
 
 export type KnowledgeType = 'npc_identity' | 'npc_appearance' | 'clue' | 'secret';

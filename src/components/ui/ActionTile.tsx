@@ -1,8 +1,14 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
-import { IonRippleEffect } from '@ionic/react';
+import { IonRippleEffect, setupIonicReact } from '@ionic/react';
+import '@ionic/react/css/core.css';
+import '@ionic/react/css/normalize.css';
+import '@ionic/react/css/structure.css';
+import '@ionic/react/css/typography.css';
 import { Button } from 'react-aria-components';
 import { FloatingHint } from './FloatingHint';
+
+setupIonicReact({ mode: 'md' });
 
 interface ActionTileProps {
   icon: React.ReactNode;

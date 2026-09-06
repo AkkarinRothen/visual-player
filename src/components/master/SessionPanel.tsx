@@ -58,6 +58,7 @@ import { CinematicDialogueDock } from './CinematicDialogueDock';
 import { calculateRemainingTimerSeconds } from '../../domain/combat/combatTimerCoordinator';
 import { LiveModularControlPanel } from './modularControl/LiveModularControlPanel';
 import { ComposerDialogueQuickModal } from './composer/ComposerDialogueQuickModal';
+import { LiveQuickSessionView } from './LiveQuickSessionView';
 
 interface SessionPanelProps {
   campaign: Campaign | null;
@@ -164,7 +165,12 @@ interface SessionPanelProps {
   /** Estado del respaldo externo de la sesión. */
   backupStatus?: BackupStatus;
   lastExportIsComplete?: boolean;
-  initialViewMode?: 'modular' | 'console';
+  initialViewMode?: 'quick' | 'modular' | 'console';
+  hasRunningMacro?: boolean;
+  runningMacroName?: string;
+  onCancelMacro?: () => void;
+  isMuted?: boolean;
+  onToggleMuteTotal?: () => void;
   onUpdateCharacter?: (
     id: string,
     updates: Partial<CharacterOnScreen>,
@@ -272,6 +278,11 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
   onToggleCombatantCondition,
   onStartCombat,
   onEndCombat,
+  hasRunningMacro = false,
+  runningMacroName,
+  onCancelMacro,
+  isMuted = false,
+  onToggleMuteTotal,
 }) => {
   const [publishStatus, setPublishStatus] = useState<ActionExecutionStatus>('idle');
   const [confirmOverwriteStaging, setConfirmOverwriteStaging] = useState<Scene | null>(null);
@@ -411,10 +422,10 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
     combat ? calculateRemainingTimerSeconds(combat) : 60
   );
 
-  const [controlViewMode, setControlViewMode] = useState<'modular' | 'console'>(() => {
+  const [controlViewMode, setControlViewMode] = useState<'quick' | 'modular' | 'console'>(() => {
     if (initialViewMode) return initialViewMode;
     if (typeof window !== 'undefined' && window.innerWidth <= 768) {
-      return 'modular';
+      return 'quick';
     }
     return 'console';
   });
@@ -460,8 +471,18 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
         onEvaluateReadiness={onEvaluateReadiness}
       />
 
-      {/* SELECTOR DE VISTA DE SESIÓN (PANEL MODULAR EN VIVO / CONSOLA CLÁSICA) */}
+      {/* SELECTOR DE VISTA DE SESIÓN (HOY JUEGO / PANEL MODULAR / CONSOLA CLÁSICA) */}
       <div className="session-view-mode-selector" role="tablist" aria-label="Modo de vista de control">
+        <button
+          type="button"
+          className={`session-view-tab ${controlViewMode === 'quick' ? 'active' : ''}`}
+          onClick={() => setControlViewMode('quick')}
+          role="tab"
+          aria-selected={controlViewMode === 'quick'}
+        >
+          <Zap size={15} />
+          <span>Hoy juego</span>
+        </button>
         <button
           type="button"
           className={`session-view-tab ${controlViewMode === 'modular' ? 'active' : ''}`}
@@ -484,7 +505,36 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
         </button>
       </div>
 
-      {controlViewMode === 'modular' ? (
+      {controlViewMode === 'quick' ? (
+        <LiveQuickSessionView
+          campaign={campaign}
+          liveState={liveState}
+          stagedState={stagedState}
+          pendingChangesCount={pendingChangesCount}
+          isConnected={connectionStatus === 'connected'}
+          onSelectScene={onSelectScene}
+          onPrepareSceneInStaging={onPrepareSceneInStaging}
+          onPublishAllStaged={handlePublishClick}
+          onDiscardStaged={onDiscardStaged}
+          onTriggerLightning={onTriggerLightning}
+          onTriggerShake={onTriggerShake}
+          onToggleBlackout={onToggleBlackout}
+          onToggleBanner={onToggleBanner}
+          onToggleAmbientAudio={onToggleAmbientAudio}
+          onExecuteFavorite={onExecuteFavorite}
+          onOpenManageFavorites={onOpenManageFavorites}
+          onStartCombat={onStartCombat || (() => onSwitchToTab('combat'))}
+          onEndCombat={onEndCombat || (() => {})}
+          onNextCombatTurn={onNextCombatTurn || (() => {})}
+          onPrevCombatTurn={onPrevCombatTurn || (() => {})}
+          onOpenCombatTab={() => onSwitchToTab('combat')}
+          hasRunningMacro={hasRunningMacro}
+          runningMacroName={runningMacroName}
+          onCancelMacro={onCancelMacro}
+          isMuted={isMuted}
+          onToggleMuteTotal={onToggleMuteTotal}
+        />
+      ) : controlViewMode === 'modular' ? (
         <>
           <LiveModularControlPanel
             campaign={campaign}

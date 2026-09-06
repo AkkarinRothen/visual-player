@@ -84,8 +84,7 @@ export const ComposerModals: React.FC<ComposerModalsProps> = ({
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(5, 8, 15, 0.85)',
-            backdropFilter: 'blur(6px)',
+            background: 'rgba(5, 8, 15, 0.92)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

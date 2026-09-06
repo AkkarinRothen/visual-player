@@ -410,5 +410,44 @@ describe('Phase 1: Session Panel, Emergency Dock & DM Favorites Suite', () => {
       // Verify classical console section is now rendered
       expect(screen.getByText(/ESCENA EN MESA/i)).toBeDefined();
     });
+
+    it('renders LiveQuickSessionView when initialViewMode is "quick" and allows switching', () => {
+      render(
+        <SessionPanel
+          campaign={dummyCampaign}
+          liveState={dummyState}
+          stagedState={dummyState}
+          operationMode="live"
+          pendingChangesCount={0}
+          connectionStatus="connected"
+          latencyMs={24}
+          roomCode="DEMO1"
+          initialViewMode="quick"
+          onSelectScene={vi.fn()}
+          onPrepareSceneInStaging={vi.fn()}
+          onPublishAllStaged={vi.fn()}
+          onOpenSelectivePublish={vi.fn()}
+          onDiscardStaged={vi.fn()}
+          onToggleOperationMode={vi.fn()}
+          onTriggerLightning={vi.fn()}
+          onTriggerShake={vi.fn()}
+          onToggleBlackout={vi.fn()}
+          onToggleBanner={vi.fn()}
+          onToggleAmbientAudio={vi.fn()}
+          onExecuteFavorite={vi.fn()}
+          onOpenManageFavorites={vi.fn()}
+          onSwitchToTab={vi.fn()}
+          onToggleClassicView={vi.fn()}
+        />
+      );
+
+      // Verify Hoy juego view is rendered
+      expect(screen.getByRole('region', { name: /Pantalla Hoy juego/i })).toBeDefined();
+      expect(screen.getByText('En Mesa')).toBeDefined();
+
+      // Click "Hoy juego" active tab check
+      const quickTab = screen.getByRole('tab', { name: /Hoy juego/i });
+      expect(quickTab.getAttribute('aria-selected')).toBe('true');
+    });
   });
 });

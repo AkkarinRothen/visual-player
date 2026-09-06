@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { X, Upload, Image as ImageIcon, Search, Check, Link as LinkIcon, RefreshCw, FolderHeart, Sparkles, AlertCircle, Film, Play, Package } from 'lucide-react';
 import { db, registerImmutableAsset, registerOptimizedAsset, type StoredAsset } from '../../db';
 import { optimizeUploadedImage, formatBytes, type OptimizedImageResult } from '../../utils/imageOptimizer';
 import { validateVideoFile, extractVideoPoster, formatVideoDuration, type VideoValidationResult } from '../../utils/videoOptimizer';
 import { ResourcePacksModal } from '../master/modals/ResourcePacksModal';
+import { ModalErrorBoundary } from './ModalErrorBoundary';
 
 export interface SelectedAssetResult {
   url: string;
@@ -65,7 +67,8 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
       setKeepOriginal(false);
       setErrorMessage(null);
       setVisibleCount(24);
-      setActiveTab('device');
+      // Al elegir retrato de personaje, abrir directamente en la biblioteca
+      setActiveTab(mode === 'character' ? 'library' : 'device');
       setIsVideoSelected(false);
       setVideoFile(null);
       setVideoValidation(null);
@@ -83,24 +86,55 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
         URL.revokeObjectURL(videoObjectUrl);
       }
     };
-  }, [isOpen, currentUrl]);
+  }, [isOpen, currentUrl, mode]);
 
   const loadStoredAssets = async () => {
     try {
-      let assets: StoredAsset[];
+      let rawAssets: StoredAsset[];
       if (mode === 'character' || mode === 'prop') {
-        assets = await db.assets.where('type').equals('image').reverse().sortBy('createdAt');
+        rawAssets = await db.assets.where('type').equals('image').reverse().sortBy('createdAt');
       } else {
-        assets = await db.assets.reverse().sortBy('createdAt');
-        assets = assets.filter((a) => a.type === 'image' || a.type === 'video');
+        rawAssets = await db.assets.reverse().sortBy('createdAt');
+        rawAssets = rawAssets.filter((a) => a.type === 'image' || a.type === 'video');
       }
-      setStoredAssets(assets);
+
+      // Optimización crítica de memoria en móviles:
+      // Conservamos solo metadatos y miniaturas en el estado React para no saturar memoria RAM (ahorra ~50MB+)
+      const lightweightAssets: StoredAsset[] = rawAssets.map((a) => ({
+        id: a.id,
+        name: a.name || 'Sin nombre',
+        type: a.type || 'image',
+        thumbnailUrl: a.thumbnailUrl || a.dataUrl,
+        // Usar la miniatura ligera como placeholder de dataUrl en el estado para liberar decenas de MB de RAM
+        dataUrl: a.thumbnailUrl || a.dataUrl || '',
+        category: a.category,
+        tags: a.tags || [],
+        packId: a.packId,
+        packName: a.packName,
+        createdAt: a.createdAt,
+        durationSeconds: a.durationSeconds,
+        posterDataUrl: a.posterDataUrl,
+      }));
+
+      setStoredAssets(lightweightAssets);
+
+      // Pre-filtrado automático por pack de personajes si existe
+      if (mode === 'character') {
+        const charPack = lightweightAssets.find(
+          (a) =>
+            a.packId &&
+            ((a.category && ['character', 'portrait', 'token'].includes(a.category)) ||
+              (a.packName && /avatar|retrato|portrait|personaje|heroe|hero|fabula/i.test(a.packName)) ||
+              (a.name && /avatar|hero|guerrero|mago|clerigo|ladron|personaje/i.test(a.name)))
+        );
+        if (charPack && charPack.packId) {
+          setSelectedPackFilter(charPack.packId);
+        }
+      }
     } catch (err) {
       console.warn('Error cargando assets de IndexedDB:', err);
     }
   };
-
-  if (!isOpen) return null;
 
   const modalTitle =
     title ||
@@ -256,17 +290,34 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
     }
   };
 
-  // Seleccionar directamente desde la biblioteca
-  const handleSelectFromLibrary = (asset: StoredAsset) => {
-    onSelectAsset({
-      url: asset.dataUrl,
-      name: asset.name,
-      type: asset.type === 'video' ? 'video' : 'image',
-      videoAssetId: asset.type === 'video' ? asset.id : undefined,
-      posterUrl: asset.posterDataUrl || asset.thumbnailUrl || asset.dataUrl,
-      durationSeconds: asset.durationSeconds,
-    });
-    onClose();
+  // Seleccionar directamente desde la biblioteca (con resolución asíncrona de dataUrl bajo demanda)
+  const handleSelectFromLibrary = async (asset: StoredAsset) => {
+    try {
+      let finalUrl = asset.dataUrl;
+      if (!finalUrl) {
+        // Cargar el dataUrl completo desde IndexedDB bajo demanda
+        const full = await db.assets.get(asset.id);
+        finalUrl = full?.dataUrl || asset.thumbnailUrl || '';
+      }
+      onSelectAsset({
+        url: finalUrl,
+        name: asset.name || 'Recurso',
+        type: asset.type === 'video' ? 'video' : 'image',
+        videoAssetId: asset.type === 'video' ? asset.id : undefined,
+        posterUrl: asset.posterDataUrl || asset.thumbnailUrl || finalUrl,
+        durationSeconds: asset.durationSeconds,
+      });
+      onClose();
+    } catch (err) {
+      console.error('Error al resolver recurso:', err);
+      // Fallback a miniatura disponible
+      onSelectAsset({
+        url: asset.thumbnailUrl || asset.dataUrl || '',
+        name: asset.name || 'Recurso',
+        type: asset.type === 'video' ? 'video' : 'image',
+      });
+      onClose();
+    }
   };
 
   // Confirmar URL externa
@@ -310,23 +361,36 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [storedAssets]);
 
-  // Filtrar assets de la biblioteca
-  const filteredAssets = storedAssets.filter((a) => {
-    const matchesSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase());
-    if (!matchesSearch) return false;
-    if (filterType === 'image') return a.type === 'image' || !a.type;
-    if (filterType === 'video') return a.type === 'video';
-    if (selectedPackFilter !== 'all') {
-      if (selectedPackFilter === 'none') return !a.packId;
-      return a.packId === selectedPackFilter;
-    }
-    return true;
-  });
+  // Filtrar assets de la biblioteca con búsqueda segura y coincidencia flexible (nombre, pack, tags)
+  const filteredAssets = useMemo(() => {
+    const q = (searchQuery || '').trim().toLowerCase();
+    return storedAssets.filter((a) => {
+      const safeName = (a.name || '').toLowerCase();
+      const safePack = (a.packName || '').toLowerCase();
+      const matchesSearch =
+        !q ||
+        safeName.includes(q) ||
+        safePack.includes(q) ||
+        (Array.isArray(a.tags) && a.tags.some((t) => (t || '').toLowerCase().includes(q)));
 
-  return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 10000 }}>
-      <div
-        className="modal-content asset-picker-modal"
+      if (!matchesSearch) return false;
+      if (filterType === 'image') return a.type === 'image' || !a.type;
+      if (filterType === 'video') return a.type === 'video';
+      if (selectedPackFilter !== 'all') {
+        if (selectedPackFilter === 'none') return !a.packId;
+        return a.packId === selectedPackFilter;
+      }
+      return true;
+    });
+  }, [storedAssets, searchQuery, filterType, selectedPackFilter]);
+
+  if (!isOpen) return null;
+
+  const modalContent = (
+    <ModalErrorBoundary modalTitle={modalTitle} onClose={onClose}>
+      <div className="modal-overlay asset-picker-overlay" onClick={onClose} style={{ zIndex: 10000 }}>
+        <div
+          className="modal-content asset-picker-modal"
         onClick={(e) => e.stopPropagation()}
         style={{
           maxWidth: '640px',
@@ -1097,5 +1161,11 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
         onAssetsChanged={loadStoredAssets}
       />
     </div>
+    </ModalErrorBoundary>
   );
+
+  if (typeof document !== 'undefined') {
+    return ReactDOM.createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

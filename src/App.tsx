@@ -7,6 +7,50 @@ const PlayerDisplay = lazy(() => import('./components/display/PlayerDisplay').th
 const MasterController = lazy(() => import('./components/master/MasterController').then((module) => ({ default: module.MasterController })));
 const WorkshopView = lazy(() => import('./components/master/workshop/WorkshopView').then((module) => ({ default: module.WorkshopView })));
 
+interface InitialRoute {
+  role: Role;
+  roomCode: string;
+  pairingSecret: string;
+  shouldScrubUrl: boolean;
+}
+
+const getInitialRoute = (): InitialRoute => {
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : '';
+  const hashParams = new URLSearchParams(hash);
+  const hashJoin = hashParams.get('join');
+  const hashSecret = hashParams.get('secret');
+
+  if (hashJoin) {
+    return {
+      role: 'master',
+      roomCode: hashJoin.toUpperCase(),
+      pairingSecret: hashSecret || '',
+      shouldScrubUrl: true,
+    };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const joinCode = params.get('join');
+  const secretParam = params.get('secret');
+  const roleParam = params.get('role');
+
+  if (joinCode) {
+    return {
+      role: 'master',
+      roomCode: joinCode.toUpperCase(),
+      pairingSecret: secretParam || '',
+      shouldScrubUrl: true,
+    };
+  }
+
+  return {
+    role: roleParam === 'display' || roleParam === 'workshop' ? roleParam : 'lobby',
+    roomCode: '',
+    pairingSecret: '',
+    shouldScrubUrl: false,
+  };
+};
+
 const AppLoading: React.FC = () => (
   <div className="app-loading-screen">
     <div className="app-loading-mark" />
@@ -15,48 +59,16 @@ const AppLoading: React.FC = () => (
 );
 
 export const App: React.FC = () => {
-  const [role, setRole] = useState<Role>('lobby');
-  const [roomCode, setRoomCode] = useState<string>('');
-  const [pairingSecret, setPairingSecret] = useState<string>('');
+  const [initialRoute] = useState<InitialRoute>(() => getInitialRoute());
+  const [role, setRole] = useState<Role>(initialRoute.role);
+  const [roomCode, setRoomCode] = useState<string>(initialRoute.roomCode);
+  const [pairingSecret] = useState<string>(initialRoute.pairingSecret);
 
   useEffect(() => {
-    // 1. Check Fragment Hash (#join=VP-XXXX&secret=HEX128) for secure Zero-Leak pairing
-    const hash = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : '';
-    const hashParams = new URLSearchParams(hash);
-    const hashJoin = hashParams.get('join');
-    const hashSecret = hashParams.get('secret');
-
-    if (hashJoin) {
-      setRoomCode(hashJoin.toUpperCase());
-      if (hashSecret) {
-        setPairingSecret(hashSecret);
-      }
-      setRole('master');
-
-      // Immediately scrub the secret from the browser address bar & history
+    if (initialRoute.shouldScrubUrl) {
       window.history.replaceState(null, '', window.location.pathname);
-      return;
     }
-
-    // 2. Fallback to standard query parameters
-    const params = new URLSearchParams(window.location.search);
-    const joinCode = params.get('join');
-    const secretParam = params.get('secret');
-    const roleParam = params.get('role');
-
-    if (joinCode) {
-      setRoomCode(joinCode.toUpperCase());
-      if (secretParam) {
-        setPairingSecret(secretParam);
-      }
-      setRole('master');
-      window.history.replaceState(null, '', window.location.pathname);
-    } else if (roleParam === 'display') {
-      setRole('display');
-    } else if (roleParam === 'workshop') {
-      setRole('workshop');
-    }
-  }, []);
+  }, [initialRoute.shouldScrubUrl]);
 
   const handleSelectRole = (selectedRole: Role, code?: string) => {
     if (code) {

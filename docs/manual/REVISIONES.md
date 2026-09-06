@@ -2,6 +2,65 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-065: Overhaul Visual de Hoy Juego
+
+- **Walkthrough y entorno:** revisión en código de la vista **Hoy juego**, compilación de producción con `npm run build` correcta y pruebas enfocadas con `npx vitest run src\components\master\LiveQuickSessionView.test.tsx src\components\master\SessionPanel.test.tsx` (16/16 aprobadas en 2 archivos). Lint enfocado sobre `LiveQuickSessionView.tsx` y `liveQuickSession.css` sin errores. No se realizó walkthrough visual en Android físico ni prueba con Mesa conectada durante esta tanda.
+- **Funciones y componentes afectados:**
+  1. **Estado de mesa (`LiveQuickSessionView.tsx`, `liveQuickSession.css`):** la escena activa ocupa un bloque visual más protagonista, con proporción 16:9 estable, estado **En Mesa**, chip **Sincronizado/Offline**, subtítulo y chips de resumen para personajes, iluminación y clima.
+  2. **Transición rápida:** añadida una lectura clara **Ahora / Después** antes de publicar, para distinguir la escena visible de la preparación pendiente sin cambiar el flujo de envío.
+  3. **Acción primaria:** el botón **ENVIAR A LA MESA AHORA** conserva estados de envío/ACK, pero gana prioridad visual y usa color ámbar cuando hay cambios preparados.
+  4. **Escenas, acciones y emergencia:** carrusel, acciones rápidas, combate y dock de emergencia se ajustaron a un lenguaje visual más consistente, con bordes menos ruidosos, radios homogéneos y comportamiento responsive para pantallas angostas.
+- **Manual:** sin cambios de pasos de uso; **Hoy juego** conserva los mismos controles y nombres.
+- **Evidencia técnica:** build correcto, 2 archivos de test aprobados, lint enfocado sin errores. Vitest mantiene el aviso conocido de `HTMLCanvasElement.getContext()` no implementado en jsdom, sin fallo de pruebas.
+- **Límites:** pendiente capturas y comprobación táctil real en Android, especialmente lectura del bloque **Ahora / Después**, carrusel de escenas y dock de emergencia con contenido largo.
+- **Resultado:** primera pantalla central de partida alineada con el nuevo overhaul visual.
+
+## 2026-09-06 — MAN-064: Overhaul Visual del Lobby y Carga Diferida por Pantallas
+
+- **Walkthrough y entorno:** revisión en código del Lobby y compilación de producción con `npm run build` correcta. Lint enfocado sobre `App.tsx`, `Lobby.tsx` y estilos del Lobby sin errores; quedan advertencias no bloqueantes sobre recuperación de sesión en un efecto del Lobby. No se realizó comprobación visual en Android físico ni Mesa conectada durante esta tanda.
+- **Funciones y componentes afectados:**
+  1. **Carga por pantallas (`App.tsx`):** `Lobby`, `PlayerDisplay`, `MasterController` y `WorkshopView` se cargan con `React.lazy` y `Suspense`, reduciendo el costo inicial de abrir la app. La ruta inicial por `join`, `secret` o `role` se calcula antes del primer render y conserva el borrado seguro de secretos en la URL.
+  2. **Escaneo QR diferido (`Lobby.tsx`):** `html5-qrcode` deja de cargarse al abrir el Lobby y se importa solo al activar la cámara o subir una foto del QR.
+  3. **Lobby visual (`Lobby.tsx`, `lobby.css`, `base.css`):** el inicio usa la imagen existente `hero.png` como fondo ambiental, cards más sobrias, jerarquía más clara para **Control Remoto** y pantalla de carga propia de Visual Player.
+  4. **Diálogos de cámara (`Lobby.tsx`, `VisualDialog.tsx`, `lobby.css`):** el permiso de cámara, error de cámara y fallback de foto QR pasan al nuevo diálogo accesible compartido, eliminando estilos inline principales.
+  5. **Code splitting de vendors (`vite.config.ts`):** los paquetes grandes del overhaul se separan en chunks por familia (`react`, `mui`, `ionic`, `radix`, `floating`, `aria`, `material`, canvas y runtime) para controlar mejor el costo de carga en Android.
+- **Manual:** sin cambios de pasos de uso; se conserva la guía existente de **Escanear Código QR** y **Subir Foto del Código QR** porque las acciones no cambiaron.
+- **Evidencia técnica:** `npm run build` completó correctamente y generó chunks separados para `Lobby`, `PlayerDisplay`, `WorkshopView`, `MasterController` y vendors principales. Vite mantiene advertencias sobre chunks grandes en `runtime-vendor`, `MasterController` e `ionic-vendor`.
+- **Límites:** pendiente walkthrough visual del Lobby en teléfono Android, prueba de permiso de cámara, lectura real de QR y conexión con Mesa.
+- **Resultado:** overhaul visual inicial aplicado al Lobby y mejora de performance de arranque integrada.
+
+## 2026-09-06 — MAN-063: Corrección de Pantalla Negra al Elegir Retrato y Optimización de Memoria en Biblioteca
+
+- **Walkthrough y entorno:** diagnóstico en vivo mediante Chrome DevTools Protocol (CDP) conectado a hardware Android físico (Motorola One Fusion y Samsung Galaxy Tab A8). Se identificó que al presionar «Elegir Retrato (Fotos / Biblioteca)», el modal `AssetPickerModal` infringía las reglas de Hooks de React (`Error: Minified React error #310` por retornos anticipados previos a `useMemo`), provocando que React desmontara por completo el contenedor raíz (`#root`) y dejara la pantalla totalmente en negro. Adicionalmente, el consumo de memoria con cientos de imágenes en base64 saturaba el renderizado en dispositivos móviles.
+- **Funciones y componentes afectados:**
+  1. **Selector de Recursos (`AssetPickerModal.tsx`):**
+     - Subsanación del orden de Hooks: movidos todos los `useMemo` (`availablePacks`, `filteredAssets`) antes del control de visualización `if (!isOpen) return null;`, eliminando de raíz el error 310 de React.
+     - Carga ligera de memoria: `loadStoredAssets` ahora mapea miniaturas optimizadas (`thumbnailUrl` ~3KB) para el grid en lugar de almacenar strings completos de resolución completa (`dataUrl` ~800KB), reduciendo el consumo de RAM en más del 99%. La imagen de alta resolución solo se recupera al seleccionar el activo.
+     - Apertura directa y pre-filtrado: al abrirse en modo `character` (retratos), entra automáticamente en la pestaña **Mi Biblioteca** (`library`) y preselecciona los packs de avatares/personajes disponibles, manteniendo la opción de explorar todas las colecciones.
+     - Búsqueda tolerante y protegida: comprobación defensiva de `name`, `packName` y `tags` para evitar excepciones al filtrar activos con metadatos nulos.
+     - Renderizado en Portal: integración con `ReactDOM.createPortal(..., document.body)` para desacoplar el overlay de contenedores con scroll o overflow.
+  2. **Barrera de Contención de Errores (`ModalErrorBoundary.tsx`):**
+     - Nuevo componente de contención que envuelve `AssetPickerModal` y `CharacterEditModal` para garantizar que ningún fallo aislado en la selección de recursos desmonte la interfaz general de la app.
+  3. **Compositor CSS Móvil (`mobile.css`):**
+     - Desactivación de `backdrop-filter` anidados en la capa modal para Android WebView (`backdrop-filter: none !important`), empleando fondo opaco armonizado (`rgba(8, 12, 20, 0.92)`) que previene congelamientos en la GPU móvil.
+- **Manual:** actualizada la sección «Crear y mostrar un personaje» en `docs/manual/README.md` detallando la apertura directa en la pestaña «Mi Biblioteca», la navegación ligera por colecciones y el filtrado por nombre/etiqueta.
+- **Evidencia técnica:** 470/470 tests en Vitest aprobados (82 suites, incluyendo `AssetPickerModal.test.tsx`), compilación exitosa con `npm run build`, sincronización Capacitor `npm run android:build`, generación de APK de producción `app-prod-debug.apk` (6.45 MB) y despliegue exitoso por ADB a Motorola One Fusion y Samsung Galaxy Tab A8. Verificación automatizada vía CDP comprobando carga correcta de la interfaz, overlay modal activo con 2 activos en grid, búsqueda en vivo y cero excepciones de consola.
+- **Resultado:** corrección P0 validada en hardware real; la biblioteca de retratos abre de inmediato sin pantallas negras ni ralentizaciones.
+
+## 2026-09-05 — MAN-062: Fase 2 ("Hoy juego" — Partida en Vivo Simplificada y Ergonómica)
+
+- **Walkthrough y entorno:** validación en código, 466 tests unitarios aprobados (81 suites), compilación limpia con Vite y TypeScript, sincronización Capacitor (`npm run android:build`) y generación de APK de producción `app-prod-debug.apk` desplegada a hardware físico Android (Motorola One Fusion y Samsung Galaxy Tab A8).
+- **Funciones y componentes afectados:**
+  1. **Vista "Hoy juego" (`LiveQuickSessionView.tsx`, `liveQuickSession.css`):** nueva pantalla en vivo diseñada para uso ágil con una mano y el pulgar. Incluye cabecera de estado en mesa con miniatura 16:9, distintivo **En Mesa** (LIVE pulsante), conmutadores rápidos para **Cartel (ON/OFF)** y **Música (ON/OFF)**, y acciones de ambientación rápida de 1 toque (**Relámpago**, **Sacudir**, **Cartel**, **Combate**).
+  2. **Transición Rápida (Ahora vs Próxima):** carrusel táctil de escenas de campaña para preparar en Staging con un toque sin alterar la mesa de los jugadores, enlace para **Descartar** cambios y botón primario destacado **«ENVIAR A LA MESA AHORA»** con estado de envío, animación háptica y confirmación de entrega (ACK).
+  3. **Favoritos inteligentes por escena (`smartFavorites.ts`, `SessionFavoritesBar.tsx`):** motor contextual que prioriza automáticamente NPCs presentes en escena (para enfocarlos), macros temáticos relacionados y escenas siguientes sugeridas (con distintivo *Sugerido*), completando con los favoritos globales del director.
+  4. **Control Rápido de Combate:** mini-banner con ronda actual y combatiente en turno, botones para rotar iniciativa (**◀ Ant** / **Sig ▶**) y finalizar combate (**Fin**), o iniciar combate directo.
+  5. **Dock de Emergencia Persistente:** barra de seguridad siempre visible con **Mute Total**, **Blackout** con doble toque de seguridad anti-spoilers (`¿Confirmar?`) y **Parar Momento** si hay secuencias en ejecución.
+  6. **Selector Tripartito en Sesión (`SessionPanel.tsx`):** en celulares y pantallas táctiles (`innerWidth <= 768`), la sesión inicia por defecto en **Hoy juego**, permitiendo alternar fluidamente entre **Hoy juego**, **Panel Modular** y **Consola Clásica**.
+- **Manual:** actualizadas las indicaciones de uso del modo "Hoy juego" y la navegación en vivo en `docs/manual/README.md`.
+- **Evidencia técnica:** 466/466 tests en Vitest aprobados (`LiveQuickSessionView.test.tsx`, `smartFavorites.test.ts`, `SessionPanel.test.tsx`), compilación exitosa con `npm run build` y APK `VisualPlayer-debug.apk` (6.09 MB) instalada en dispositivos Android reales.
+- **Resultado:** Fase 2 completada e integrada con éxito.
+
 ## 2026-09-05 — MAN-061: Compatibilidad de Selección de Packs (.vppack) en Android SAF y Google Drive
 
 - **Walkthrough y entorno:** comprobación de selector de archivos nativo de Android (Storage Access Framework y proveedor de Google Drive) desde la aplicación compilada en Android (`com.akkarinrothen.visualplayer`). Se identificó que archivos `.vppack` almacenados en Google Drive o descargas aparecían atenuados / deshabilitados como `Archivo BIN` debido a filtros MIME estrictos (`accept=".vppack,.json"`).
