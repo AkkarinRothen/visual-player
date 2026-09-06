@@ -2,6 +2,23 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-080: Modularización de Biblioteca de Encuentros de Combate (SavedEncountersModal.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.71s y ejecución completa de suites de pruebas con `npm test -- --run` (93 suites aprobadas, 507 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Biblioteca de Encuentros de Combate (`SavedEncountersModal.tsx` y submódulos en `src/components/master/encounters/`):** el modal monolítico de 618 líneas se redujo a 93 líneas desacoplando la cuadrícula de encuentros, diálogo de iniciativa y editor de plantillas en subcomponentes modulares y un hook dedicado:
+     - `savedEncountersTypes.ts`: contratos de tipado compartido para propiedades del modal, tarjetas de encuentro, cuadrícula, diálogo de lanzamiento y editor.
+     - `useSavedEncounters.ts`: hook de estado y operaciones (243 líneas) que gestiona la apertura y edición de encuentros, cálculo y re-tirada de iniciativas d20 con ordenamiento automático descendente, confirmación transaccional con advertencia de combate activo en curso, agregación de combatientes desde la biblioteca de personajes de campaña o monstruos genéricos, y eliminación con confirmación.
+     - `EncounterHeader.tsx`: cabecera temática con icono de espadas cruzadas en ámbar, título de la biblioteca, subtítulo explicativo de plantillas tácticas e iniciativas calculables y botón accesible de cierre.
+     - `EncounterCard.tsx`: tarjeta táctica individual con distintivo de dificultad cromática (Fácil, Medio, Difícil, Letal), píldoras de conteo de combatientes iniciales y oleadas de refuerzo, previsualización de avatares con indicador visual de oleada, resumen de recompensas y botones de acción rápida ("Iniciar Ahora" en vivo, "Borrador" en Staging, Editar y Eliminar).
+     - `EncounterGrid.tsx`: barra superior con contador de encuentros guardados y botón de creación rápida (+ Nuevo Encuentro), junto con la cuadrícula responsiva y estado vacío descriptivo.
+     - `EncounterLaunchDialog.tsx`: diálogo modal de resolución de iniciativa con herramienta de re-tirada d20 masiva, lista de combatientes con edición numérica interactiva y reordenamiento automático en tiempo real, y botones de confirmación adaptativos según el modo ("Desplegar Combate en Pantalla" vs "Montar en Preparación").
+     - `EncounterEditorModal.tsx`: submodal para la creación y edición de plantillas de combate con campos de nombre, selector de dificultad, ambientación, recompensas, notas secretas del DM, barra de agregado rápido desde la biblioteca de personajes y lista de combatientes con edición de puntos de golpe, modificador de iniciativa y asignación a oleadas con ronda de activación.
+  2. **Pruebas unitarias (`SavedEncountersModal.test.tsx`):** suite de 5 pruebas cubriendo el renderizado de la biblioteca con insignias y píldoras, apertura y re-tirada en el diálogo de iniciativa con lanzamiento en vivo, apertura y guardado del formulario con combatientes de biblioteca, confirmación de borrado y cierre accesible.
+- **Manual:** sin cambios de uso; todas las herramientas de gestión de encuentros tácticos, tirada de iniciativas, oleadas de refuerzo y edición conservan idénticos controles, etiquetas y resultados.
+- **Evidencia técnica:** 93 suites aprobadas, 507/507 tests pasando en Vitest (5/5 tests unitarios nuevos en `SavedEncountersModal.test.tsx`), compilación `tsc -b` y bundle de producción Vite en 1.71s sin errores.
+- **Resultado:** modularización de la biblioteca de encuentros de combate completada con éxito.
+
 ## 2026-09-06 — MAN-079: Modularización de Presets de Composición de Escena (ScenePresetModal.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.62s y ejecución completa de suites de pruebas con `npm test -- --run` (92 suites aprobadas, 502 tests superados al 100%).
