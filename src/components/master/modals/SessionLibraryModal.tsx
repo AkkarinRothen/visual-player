@@ -11,25 +11,6 @@ import type {
   NextSessionOptions,
   NewGroupSessionOptions,
 } from '../../../types';
-import {
-  X,
-  Plus,
-  Library,
-  Upload,
-  FileText,
-  Search,
-  CheckCircle2,
-  PlayCircle,
-  BookTemplate,
-  Trash2,
-  Archive,
-  RefreshCw,
-  AlertTriangle,
-  FolderSync,
-  Tag,
-  GitCompare,
-  HardDrive,
-} from 'lucide-react';
 import { SessionReadinessModal } from './SessionReadinessModal';
 import { GranularTemplateUpdateModal } from './GranularTemplateUpdateModal';
 import { StorageAuditModal } from './StorageAuditModal';
@@ -37,8 +18,10 @@ import { useGameSession } from '../../../hooks/useGameSession';
 import { gameSessionService } from '../../../services/gameSessionService';
 import { db, createSessionFromTemplate } from '../../../db';
 import type { LibraryTab } from './sessionLibrary/types';
-import { formatRelativeDate } from './sessionLibrary/types';
-import { SessionCard } from './sessionLibrary/SessionCard';
+import { SessionLibraryHeader } from './sessionLibrary/SessionLibraryHeader';
+import { SessionLibraryFilterBar } from './sessionLibrary/SessionLibraryFilterBar';
+import { SessionLibraryList } from './sessionLibrary/SessionLibraryList';
+import { SessionLibraryTemplatesSection } from './sessionLibrary/SessionLibraryTemplatesSection';
 import { PreflightExportDialog } from './sessionLibrary/PreflightExportDialog';
 import { DiffReviewDialog } from './sessionLibrary/DiffReviewDialog';
 import { SessionCheckpointsDialog } from './sessionLibrary/SessionCheckpointsDialog';
@@ -51,29 +34,13 @@ import {
   CreateNewGroupSessionDialog,
 } from './sessionLibrary/SessionActionDialogs';
 
-interface SessionLibraryModalProps {
+export interface SessionLibraryModalProps {
   isOpen: boolean;
   onClose: () => void;
   campaignId: string;
   /** Llamado cuando el director decide cargar una sesión (Continuar o Abrir preparación). */
   onLoadSession: (session: GameSession, mode: 'live' | 'staged') => void;
 }
-
-const TAB_LABELS: Record<LibraryTab, string> = {
-  preparing: 'En preparación',
-  active: 'En curso',
-  completed: 'Finalizadas',
-  archived: 'Archivadas',
-  trash: 'Papelera',
-};
-
-const TAB_STATUS_ICONS: Record<LibraryTab, React.ReactNode> = {
-  preparing: <FileText size={14} />,
-  active: <PlayCircle size={14} />,
-  completed: <CheckCircle2 size={14} />,
-  archived: <Archive size={14} />,
-  trash: <Trash2 size={14} />,
-};
 
 export const SessionLibraryModal: React.FC<SessionLibraryModalProps> = ({
   isOpen,
@@ -414,288 +381,95 @@ export const SessionLibraryModal: React.FC<SessionLibraryModalProps> = ({
   return (
     <div className="modal-overlay session-library-overlay" role="dialog" aria-modal="true" aria-label="Biblioteca de Sesiones">
       <div className="session-library-modal">
-        {/* Header */}
-        <div className="session-library-header">
-          <div className="session-library-title">
-            <Library size={20} />
-            <h2>Biblioteca de Preparaciones</h2>
-          </div>
-          <div className="session-library-header-actions">
-            <label className="btn-import-session" title="Importar preparación (.vpp.json) con inspección de diferencias">
-              <Upload size={14} />
-              <span>Importar</span>
-              <input
-                ref={importFileRef}
-                type="file"
-                accept="*/*,.vpp.json,.json,application/json,application/octet-stream"
-                onChange={handleFileChosen}
-                className="sr-only"
-                aria-label="Seleccionar archivo de sesión para importar"
-              />
-            </label>
-            <button
-              className="btn-import-session"
-              onClick={() => setShowStorageAudit(true)}
-              title="Auditar espacio ocupado y purgar archivos huérfanos"
-              style={{ background: 'rgba(255, 255, 255, 0.06)' }}
-            >
-              <HardDrive size={13} />
-              <span>Espacio</span>
-            </button>
-            <button className="modal-close-btn" onClick={onClose} aria-label="Cerrar biblioteca">
-              <X size={20} />
-            </button>
-          </div>
-        </div>
+        <SessionLibraryHeader
+          onClose={onClose}
+          onOpenFileChosen={handleFileChosen}
+          importFileRef={importFileRef}
+          onOpenStorageAudit={() => setShowStorageAudit(true)}
+          importError={importError}
+          onClearImportError={() => setImportError(null)}
+          importSuccess={importSuccess}
+        />
 
-        {importError && (
-          <div className="session-library-alert error">
-            <AlertTriangle size={14} />
-            <span>{importError}</span>
-            <button className="alert-close" onClick={() => setImportError(null)}><X size={12} /></button>
-          </div>
-        )}
-        {importSuccess && (
-          <div className="session-library-alert success">
-            <CheckCircle2 size={14} />
-            <span>Preparación importada con éxito</span>
-          </div>
-        )}
+        <SessionLibraryFilterBar
+          activeTab={activeTab}
+          onSelectTab={(tab) => {
+            setActiveTab(tab);
+            setActiveMenuId(null);
+          }}
+          tabCounts={tabCounts}
+          newSessionName={newSessionName}
+          onChangeNewSessionName={setNewSessionName}
+          onCreateNew={handleCreateNew}
+          isCreatingNew={isCreatingNew}
+          selectedCampaignId={selectedCampaignId}
+          onSelectCampaign={(val) => {
+            setSelectedCampaignId(val);
+            localStorage.setItem('vp_library_campaign_filter', val);
+            refreshSessions(val);
+          }}
+          currentCampaignId={campaignId}
+          campaignsList={campaignsList}
+          searchQuery={searchQuery}
+          onChangeSearchQuery={setSearchQuery}
+          onClearSearchQuery={() => setSearchQuery('')}
+          availableTags={availableTags}
+          selectedTag={selectedTag}
+          onSelectTag={setSelectedTag}
+          trashedCount={trashedSessions.length}
+          onEmptyTrashClick={() => setShowEmptyTrashConfirm(true)}
+        />
 
-        {/* New Session Bar (only on preparing tab) */}
-        {activeTab === 'preparing' && (
-          <div className="session-library-new-bar">
-            <input
-              type="text"
-              className="session-new-input"
-              placeholder="Nombre de la nueva preparación…"
-              value={newSessionName}
-              onChange={(e) => setNewSessionName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleCreateNew()}
-              maxLength={60}
-              aria-label="Nombre de la nueva sesión"
-            />
-            <button
-              className="btn-create-session"
-              onClick={handleCreateNew}
-              disabled={!newSessionName.trim() || isCreatingNew}
-            >
-              <Plus size={15} />
-              <span>Nueva Preparación</span>
-            </button>
-          </div>
-        )}
+        <SessionLibraryList
+          isLoading={isLoading}
+          activeTab={activeTab}
+          sessions={filteredSessions}
+          selectedCampaignId={selectedCampaignId}
+          campaignMap={campaignMap}
+          activeMenuId={activeMenuId}
+          onToggleMenu={(id) => setActiveMenuId(activeMenuId === id ? null : id)}
+          getBackupStatus={getBackupStatus}
+          onLoadLive={(session) => handleLoadSession(session, 'live')}
+          onLoadDraft={(session) => handleLoadSession(session, 'staged')}
+          onDuplicate={(session) => {
+            setDuplicateOptions({ excludeCombatProgress: true, excludeConditions: true, restoreNpcHp: true, newName: `${session.name} (Copia)` });
+            setShowDuplicateDialog(session.id);
+            setActiveMenuId(null);
+          }}
+          onSaveTemplate={(session) => {
+            setTemplateName(`Plantilla: ${session.name}`);
+            setShowTemplateDialog(session.id);
+            setActiveMenuId(null);
+          }}
+          onOpenCheckpoints={(session) => {
+            handleOpenCheckpoints(session);
+            setActiveMenuId(null);
+          }}
+          onArchive={(id) => handleArchive(id)}
+          onTrash={(id) => handleTrash(id)}
+          onRestoreTrash={(id) => handleRestoreFromTrash(id)}
+          onExport={(session) => {
+            handleOpenExportPreflight(session);
+            setActiveMenuId(null);
+          }}
+          onDelete={(id) => {
+            setShowDeleteConfirm(id);
+            setActiveMenuId(null);
+          }}
+          onPrepareNextSession={(session) => handleOpenPrepareNext(session)}
+          onCreateForNewGroup={(session) => handleOpenNewGroup(session)}
+          onEvaluateReadiness={(session) => setEvaluatingReadinessSession(session)}
+        />
 
-        {/* Filter & Search Bar with Campaign Selector */}
-        <div className="session-library-filter-row">
-          <div className="session-library-campaign-selector" title="Filtrar preparaciones por campaña">
-            <FolderSync size={13} className="text-purple-400" />
-            <select
-              className="session-library-campaign-select"
-              value={selectedCampaignId}
-              onChange={(e) => {
-                const val = e.target.value;
-                setSelectedCampaignId(val);
-                localStorage.setItem('vp_library_campaign_filter', val);
-                refreshSessions(val);
-              }}
-              aria-label="Filtrar por campaña"
-            >
-              <option value="all">Todas las campañas ({campaignsList.length})</option>
-              {campaignsList.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.title} {c.id === campaignId ? '(Actual)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="session-library-search-bar" style={{ flex: 1 }}>
-            <Search size={14} className="search-icon" />
-            <input
-              type="text"
-              className="session-search-input"
-              placeholder="Buscar por nombre, notas, escenas o personajes…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Buscar sesión"
-            />
-            {searchQuery && (
-              <button className="search-clear-btn" onClick={() => setSearchQuery('')} aria-label="Limpiar búsqueda">
-                <X size={12} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Tag chips row if tags exist */}
-        {availableTags.length > 0 && (
-          <div className="session-library-tags-row">
-            <Tag size={12} className="text-zinc-400" />
-            <button
-              className={`tag-chip ${!selectedTag ? 'active' : ''}`}
-              onClick={() => setSelectedTag(null)}
-            >
-              Todas las etiquetas
-            </button>
-            {availableTags.map((tag) => (
-              <button
-                key={tag}
-                className={`tag-chip ${selectedTag === tag ? 'active' : ''}`}
-                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-              >
-                #{tag}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Status Tabs Navigation */}
-        <nav className="session-library-tabs" aria-label="Filtrar por estado">
-          {(Object.keys(TAB_LABELS) as LibraryTab[]).map((tabKey) => {
-            const count = tabCounts[tabKey];
-            return (
-              <button
-                key={tabKey}
-                className={`session-tab-btn ${activeTab === tabKey ? 'active' : ''} ${tabKey === 'trash' ? 'tab-trash' : ''}`}
-                onClick={() => {
-                  setActiveTab(tabKey);
-                  setActiveMenuId(null);
-                }}
-              >
-                {TAB_STATUS_ICONS[tabKey]}
-                <span>{TAB_LABELS[tabKey]}</span>
-                {count > 0 && <span className="tab-count-badge">{count}</span>}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Trash header action */}
-        {activeTab === 'trash' && trashedSessions.length > 0 && (
-          <div className="session-trash-banner">
-            <span>Sesiones eliminadas (conservadas para evitar pérdidas accidentales).</span>
-            <button className="btn-empty-trash" onClick={() => setShowEmptyTrashConfirm(true)}>
-              <Trash2 size={13} />
-              <span>Vaciar papelera</span>
-            </button>
-          </div>
-        )}
-
-        {/* Session List */}
-        <div
-          className="session-library-list"
-          role="region"
-          aria-live="polite"
-          aria-label={TAB_LABELS[activeTab]}
-        >
-          {isLoading ? (
-            <div className="session-library-loading">
-              <RefreshCw size={20} className="animate-spin" />
-              <span>Cargando sesiones…</span>
-            </div>
-          ) : filteredSessions.length === 0 ? (
-            <div className="session-library-empty">
-              <Library size={32} />
-              <p>No hay sesiones en {TAB_LABELS[activeTab].toLowerCase()}</p>
-              {activeTab === 'preparing' && (
-                <p className="session-library-empty-hint">
-                  Crea una nueva preparación con el campo de arriba
-                </p>
-              )}
-            </div>
-          ) : (
-            filteredSessions.map((session) => (
-              <SessionCard
-                key={session.id}
-                session={session}
-                activeTab={activeTab}
-                backupStatus={getBackupStatus(session)}
-                campaignTitle={selectedCampaignId === 'all' ? campaignMap[session.campaignId] : undefined}
-                isMenuOpen={activeMenuId === session.id}
-                onToggleMenu={() => setActiveMenuId(activeMenuId === session.id ? null : session.id)}
-                onLoadLive={() => handleLoadSession(session, 'live')}
-                onLoadDraft={() => handleLoadSession(session, 'staged')}
-                onDuplicate={() => {
-                  setDuplicateOptions({ excludeCombatProgress: true, excludeConditions: true, restoreNpcHp: true, newName: `${session.name} (Copia)` });
-                  setShowDuplicateDialog(session.id);
-                  setActiveMenuId(null);
-                }}
-                onSaveTemplate={() => {
-                  setTemplateName(`Plantilla: ${session.name}`);
-                  setShowTemplateDialog(session.id);
-                  setActiveMenuId(null);
-                }}
-                onOpenCheckpoints={() => {
-                  handleOpenCheckpoints(session);
-                  setActiveMenuId(null);
-                }}
-                onArchive={() => handleArchive(session.id)}
-                onTrash={() => handleTrash(session.id)}
-                onRestoreTrash={() => handleRestoreFromTrash(session.id)}
-                onExport={() => {
-                  handleOpenExportPreflight(session);
-                  setActiveMenuId(null);
-                }}
-                onDelete={() => {
-                  setShowDeleteConfirm(session.id);
-                  setActiveMenuId(null);
-                }}
-                onPrepareNextSession={activeTab === 'active' || activeTab === 'completed' ? () => handleOpenPrepareNext(session) : undefined}
-                onCreateForNewGroup={activeTab === 'active' || activeTab === 'completed' ? () => handleOpenNewGroup(session) : undefined}
-                onEvaluateReadiness={() => setEvaluatingReadinessSession(session)}
-              />
-            ))
-          )}
-        </div>
-
-        {/* Templates section */}
-        {activeTab !== 'trash' && filteredTemplates.length > 0 && (
-          <div className="session-library-templates">
-            <h3 className="session-library-section-title">
-              <BookTemplate size={14} />
-              Plantillas Limpias ({filteredTemplates.length})
-            </h3>
-            <div className="session-templates-list">
-              {filteredTemplates.map((tpl) => (
-                <div key={tpl.id} className="session-template-card">
-                  <div className="template-info">
-                    <div className="flex-align-gap">
-                      <span className="template-name">{tpl.name}</span>
-                      {selectedCampaignId === 'all' && campaignMap[tpl.campaignId] && (
-                        <span className="session-card-campaign-badge">
-                          {campaignMap[tpl.campaignId]}
-                        </span>
-                      )}
-                    </div>
-                    {tpl.description && <span className="template-desc">{tpl.description}</span>}
-                    <span className="template-date">{formatRelativeDate(tpl.createdAt)}</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {currentSession && (
-                      <button
-                        className="btn-use-template"
-                        onClick={() => setGranularUpdateTemplate(tpl)}
-                        title="Comparar diferencias e incorporar selectivamente a tu preparación activa"
-                        style={{ background: 'rgba(139, 92, 246, 0.15)', borderColor: 'rgba(139, 92, 246, 0.35)', color: '#c4b5fd' }}
-                      >
-                        <GitCompare size={12} />
-                        <span>Actualizar Sesión Activa</span>
-                      </button>
-                    )}
-                    <button
-                      className="btn-use-template"
-                      onClick={() => handleUseTemplate(tpl)}
-                      title="Crear nueva sesión basada en esta plantilla para la campaña actual"
-                    >
-                      <Plus size={12} />
-                      <span>Usar Plantilla</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {activeTab !== 'trash' && (
+          <SessionLibraryTemplatesSection
+            templates={filteredTemplates}
+            hasCurrentSession={!!currentSession}
+            selectedCampaignId={selectedCampaignId}
+            campaignMap={campaignMap}
+            onSelectGranularUpdate={(tpl) => setGranularUpdateTemplate(tpl)}
+            onUseTemplate={handleUseTemplate}
+          />
         )}
       </div>
 
@@ -721,12 +495,10 @@ export const SessionLibraryModal: React.FC<SessionLibraryModalProps> = ({
         />
       )}
 
-      {/* Storage Audit Dialog */}
       {showStorageAudit && (
         <StorageAuditModal onClose={() => setShowStorageAudit(false)} />
       )}
 
-      {/* Readiness Check Dialog */}
       {evaluatingReadinessSession && (
         <SessionReadinessModal
           sessionId={evaluatingReadinessSession.id}
@@ -735,7 +507,6 @@ export const SessionLibraryModal: React.FC<SessionLibraryModalProps> = ({
         />
       )}
 
-      {/* Granular Template Update Dialog */}
       {granularUpdateTemplate && currentSession && (
         <GranularTemplateUpdateModal
           sessionId={currentSession.id}

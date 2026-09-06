@@ -2,6 +2,21 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-070: Modularización de Biblioteca de Sesiones (SessionLibraryModal.tsx)
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.65s y ejecución completa de la suite de pruebas con `npm test -- --run` (84 suites aprobadas, 476 tests superados al 100%).
+- **Funciones y componentes afectados:**
+  1. **Biblioteca de Sesiones (`SessionLibraryModal.tsx` y subcomponentes en `src/components/master/modals/sessionLibrary/`):** el componente monolítico de 818 líneas se redujo a 427 líneas aislando sus secciones visuales y lógicas en submódulos modulares y fuertemente tipados:
+     - `SessionLibraryHeader.tsx`: cabecera del modal con título, acciones de importación (.vpp.json), botón de auditoría de espacio/almacenamiento, botón de cierre y gestión visual de alertas de estado.
+     - `SessionLibraryFilterBar.tsx`: barra de alta rápida de nueva preparación, selector de campaña activa/todas, campo de búsqueda predictiva por notas/escenas/personajes con botón de limpieza, chips de etiquetas (tags), pestañas de ciclo de vida (En preparación, En curso, Finalizadas, Archivadas, Papelera) con contadores de elementos y banner de vaciado de papelera.
+     - `SessionLibraryList.tsx`: contenedor de lista de preparaciones con estados de carga (`isLoading`), vista vacía contextual y orquestación de tarjetas `SessionCard` con menú de acciones contextuales.
+     - `SessionLibraryTemplatesSection.tsx`: sección de plantillas limpias con badges de campaña, formato de fecha relativa, botón de actualización granular de sesión activa y botón para instanciar nueva sesión desde plantilla.
+     - `types.ts`: enriquecido con la constante `TAB_LABELS` compartida y corrección del cálculo de minutos en `formatRelativeDate`.
+  2. **Pruebas unitarias (`SessionLibraryModal.test.tsx`):** incorporación de 3 tests específicos cubriendo renderizado condicional cuando `isOpen` es falso, apertura con pestañas e input de nueva preparación, y alternancia entre pestañas hacia la papelera con botón de vaciado.
+- **Manual:** sin cambios de uso; todas las pestañas, botones, selectores de campaña, filtros y diálogos de sesión mantienen idénticos flujos y comportamiento funcional.
+- **Evidencia técnica:** 476 tests superados en Vitest (`SessionLibraryModal.test.tsx` 3/3 pasados), 0 errores en `tsc -b`, bundle de producción Vite exitoso en 1.65s.
+- **Resultado:** modularización de la biblioteca de sesiones completada con éxito sin regresiones.
+
 ## 2026-09-06 — MAN-069: Modularización de Consola de Combate (CombatTab.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.76s y ejecución completa de la suite de pruebas con `npm test -- --run` (83 archivos aprobados, 473 tests superados al 100%).
