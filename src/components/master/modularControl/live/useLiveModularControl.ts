@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type {
   Campaign,
   Character,
@@ -9,6 +9,12 @@ import type {
 } from '../../../../types';
 import type { SelectedAssetResult } from '../../../common/AssetPickerModal';
 import type { StoredAsset } from '../../../../db';
+import {
+  alignBattleRanks,
+  snapCharactersToGrid,
+  distributeHorizontally,
+} from '../../../../domain/display/tacticalFormations';
+import { DEFAULT_TACTICAL_GRID } from '../../../../domain/display/sceneLayoutTemplates';
 
 interface UseLiveModularControlProps {
   campaign: Campaign | null;
@@ -48,7 +54,28 @@ export function useLiveModularControl({
   onToggleBanner,
 }: UseLiveModularControlProps) {
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
-  const [isTacticalModeActive, setIsTacticalModeActive] = useState(false);
+  const [isTacticalModeActive, setIsTacticalModeActiveState] = useState(
+    () => !!liveState.tacticalGrid?.enabled
+  );
+
+  useEffect(() => {
+    if (liveState.tacticalGrid?.enabled !== undefined) {
+      setIsTacticalModeActiveState(liveState.tacticalGrid.enabled);
+    }
+  }, [liveState.tacticalGrid?.enabled]);
+
+  const setIsTacticalModeActive: React.Dispatch<React.SetStateAction<boolean>> = (value) => {
+    setIsTacticalModeActiveState((prev) => {
+      const next = typeof value === 'function' ? value(prev) : value;
+      const currentGrid = liveState.tacticalGrid || DEFAULT_TACTICAL_GRID;
+      onUpdateDisplayField?.(
+        'tacticalGrid',
+        { ...currentGrid, enabled: next },
+        next ? 'Activar cuadrícula táctica' : 'Desactivar cuadrícula táctica'
+      );
+      return next;
+    });
+  };
   const [isCreatingCharacter, setIsCreatingCharacter] = useState(false);
   const [charToEditInModal, setCharToEditInModal] = useState<Character | null>(null);
   const [isBgPickerOpen, setIsBgPickerOpen] = useState(false);
@@ -151,7 +178,7 @@ export function useLiveModularControl({
     const char = liveState.characters.find((c) => c.id === id);
     if (!char) return;
     const currentScale = char.scale || 1.0;
-    const newScale = Math.max(0.4, Math.min(2.5, Math.round((currentScale + delta) * 10) / 10));
+    const newScale = Math.max(0.15, Math.min(2.5, Math.round((currentScale + delta) * 10) / 10));
     onUpdateCharacter?.(id, { scale: newScale }, `Escala de ${char.name}: ${Math.round(newScale * 100)}%`);
   };
 
@@ -162,8 +189,93 @@ export function useLiveModularControl({
     }
     const char = liveState.characters.find((c) => c.id === id);
     if (!char) return;
-    const clampedScale = Math.max(0.4, Math.min(2.5, Math.round(scale * 100) / 100));
+    const clampedScale = Math.max(0.15, Math.min(2.5, Math.round(scale * 100) / 100));
     onUpdateCharacter?.(id, { scale: clampedScale }, `Escala de ${char.name}: ${Math.round(clampedScale * 100)}%`);
+  };
+
+  const handleApplyBattleRanks = () => {
+    if (!liveState.characters || liveState.characters.length === 0) return;
+    const formatted = alignBattleRanks(
+      liveState.characters,
+      liveState.tacticalGrid?.columns || 12
+    );
+    if (onUpdateDisplayField) {
+      onUpdateDisplayField('characters', formatted, 'Formación: Fila de batalla JRPG');
+    } else if (onUpdateCharacter) {
+      formatted.forEach((c) => {
+        onUpdateCharacter(
+          c.id,
+          {
+            normalizedX: c.normalizedX,
+            normalizedY: c.normalizedY,
+            scale: c.scale,
+            isFlipped: c.isFlipped,
+          },
+          'Formación: Fila de batalla'
+        );
+      });
+    }
+  };
+
+  const handleSnapAllToGrid = () => {
+    if (!liveState.characters || liveState.characters.length === 0) return;
+    const cols = liveState.tacticalGrid?.columns || 10;
+    const snapped = snapCharactersToGrid(liveState.characters, cols, false);
+    if (onUpdateDisplayField) {
+      onUpdateDisplayField('characters', snapped, 'Alinear a cuadrícula');
+    } else if (onUpdateCharacter) {
+      snapped.forEach((c) => {
+        onUpdateCharacter(
+          c.id,
+          { normalizedX: c.normalizedX, normalizedY: c.normalizedY },
+          'Alinear a cuadrícula'
+        );
+      });
+    }
+  };
+
+  const handleDistributeHorizontally = () => {
+    if (!liveState.characters || liveState.characters.length === 0) return;
+    const distributed = distributeHorizontally(
+      liveState.characters,
+      liveState.groundLineY || 10
+    );
+    if (onUpdateDisplayField) {
+      onUpdateDisplayField('characters', distributed, 'Distribuir en línea');
+    } else if (onUpdateCharacter) {
+      distributed.forEach((c) => {
+        onUpdateCharacter(
+          c.id,
+          {
+            normalizedX: c.normalizedX,
+            normalizedY: c.normalizedY,
+            scale: c.scale,
+          },
+          'Distribuir en línea'
+        );
+      });
+    }
+  };
+
+  const handleFitScaleToGrid = () => {
+    if (!liveState.characters || liveState.characters.length === 0) return;
+    const cols = liveState.tacticalGrid?.columns || 10;
+    const scaled = snapCharactersToGrid(liveState.characters, cols, true);
+    if (onUpdateDisplayField) {
+      onUpdateDisplayField('characters', scaled, 'Ajustar tamaño a casilla');
+    } else if (onUpdateCharacter) {
+      scaled.forEach((c) => {
+        onUpdateCharacter(
+          c.id,
+          {
+            normalizedX: c.normalizedX,
+            normalizedY: c.normalizedY,
+            scale: c.scale,
+          },
+          'Ajustar tamaño a casilla'
+        );
+      });
+    }
   };
 
   const handleOpenCreateCharacter = () => {
@@ -374,5 +486,9 @@ export function useLiveModularControl({
     handleWeatherIntensityChange,
     handleLightingChange,
     handleAudioVolumeChange,
+    handleApplyBattleRanks,
+    handleSnapAllToGrid,
+    handleDistributeHorizontally,
+    handleFitScaleToGrid,
   };
 }

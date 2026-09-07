@@ -274,6 +274,7 @@ export const StageViewport: React.FC<StageViewportProps> = ({
         combatState={state.combatState}
         nameDisplayMode={state.nameDisplayMode}
         groundLineY={state.groundLineY}
+        tacticalGrid={state.tacticalGrid}
       />
     </div>
   );

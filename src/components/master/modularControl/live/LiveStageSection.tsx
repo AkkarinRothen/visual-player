@@ -3,6 +3,7 @@ import { Grid, Maximize2 } from 'lucide-react';
 import type { DisplayState } from '../../../../types';
 import { StageViewport } from '../../../display/StageViewport';
 import { StageTouchOverlay } from '../StageTouchOverlay';
+import { StageFormationActionsMenu } from './StageFormationActionsMenu';
 
 interface LiveStageSectionProps {
   liveState: DisplayState;
@@ -13,6 +14,10 @@ interface LiveStageSectionProps {
   setSelectedCharId: (id: string | null) => void;
   onMoveCharacter: (id: string, normalizedX: number, normalizedY: number) => void;
   onOpenFullScreen?: () => void;
+  onApplyBattleRanks?: () => void;
+  onSnapAllToGrid?: () => void;
+  onDistributeHorizontally?: () => void;
+  onFitScaleToGrid?: () => void;
 }
 
 export const LiveStageSection: React.FC<LiveStageSectionProps> = ({
@@ -24,6 +29,10 @@ export const LiveStageSection: React.FC<LiveStageSectionProps> = ({
   setSelectedCharId,
   onMoveCharacter,
   onOpenFullScreen,
+  onApplyBattleRanks,
+  onSnapAllToGrid,
+  onDistributeHorizontally,
+  onFitScaleToGrid,
 }) => {
   return (
     <section className="modular-stage-wrapper" aria-label="Escenario en vivo 16:9">
@@ -50,6 +59,17 @@ export const LiveStageSection: React.FC<LiveStageSectionProps> = ({
         >
           <Grid size={18} />
         </button>
+
+        {onApplyBattleRanks && onSnapAllToGrid && onDistributeHorizontally && onFitScaleToGrid && (
+          <StageFormationActionsMenu
+            onApplyBattleRanks={onApplyBattleRanks}
+            onSnapAllToGrid={onSnapAllToGrid}
+            onDistributeHorizontally={onDistributeHorizontally}
+            onFitScaleToGrid={onFitScaleToGrid}
+            disabled={!liveState.characters || liveState.characters.length === 0}
+          />
+        )}
+
         {onOpenFullScreen && (
           <button
             type="button"

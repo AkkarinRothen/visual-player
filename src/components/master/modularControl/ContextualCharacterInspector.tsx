@@ -28,6 +28,7 @@ export interface ContextualCharacterInspectorProps {
   onOpenQuickDialogue?: () => void;
   onDismissCharacter?: (id: string) => void;
   onEditCharacterSheet?: (characterId: string) => void;
+  onUpdateDisplayStyle?: (id: string, style: 'auto' | 'standee' | 'token') => void;
 }
 
 export const ContextualCharacterInspector: React.FC<ContextualCharacterInspectorProps> = ({
@@ -42,6 +43,7 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
   onOpenQuickDialogue,
   onDismissCharacter,
   onEditCharacterSheet,
+  onUpdateDisplayStyle,
 }) => {
   const meta = campaignCharacters.find(
     (c) => c.id === character.characterId || c.name === character.name
@@ -53,6 +55,7 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
   const currentLayer = character.zIndex || 1;
 
   const getScaleLabel = (scale: number): string => {
+    if (scale <= 0.35) return 'Mini';
     if (scale <= 0.75) return 'Pequeño';
     if (scale >= 1.35) return 'Grande';
     return 'Mediano';
@@ -138,7 +141,7 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
               </button>
               <input
                 type="range"
-                min="0.4"
+                min="0.15"
                 max="2.5"
                 step="0.05"
                 value={currentScale}
@@ -167,7 +170,8 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
             {/* Presets de tamaño D&D */}
             <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
               {[
-                { label: 'Peq', scale: 0.7 },
+                { label: 'Mini', scale: 0.25 },
+                { label: 'Peq', scale: 0.6 },
                 { label: 'Med', scale: 1.0 },
                 { label: 'Gra', scale: 1.4 },
                 { label: 'Enor', scale: 1.9 },
@@ -231,6 +235,37 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
                 <ChevronUp size={17} />
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* 2.5 Formato Visual: Auto / Standee / Token */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(15, 23, 42, 0.5)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)', marginBottom: '10px' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#cbd5e1' }}>Formato visual:</span>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {(['auto', 'standee', 'token'] as const).map((mode) => {
+              const currentMode = character.displayStyle || 'auto';
+              const isActive = currentMode === mode;
+              const labels = { auto: 'Auto', standee: 'Standee', token: 'Token' };
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => onUpdateDisplayStyle?.(character.id, mode)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: isActive ? 700 : 500,
+                    backgroundColor: isActive ? 'rgba(56, 189, 248, 0.25)' : 'rgba(30, 41, 59, 0.6)',
+                    border: isActive ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
+                    color: isActive ? '#38bdf8' : '#94a3b8',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {labels[mode]}
+                </button>
+              );
+            })}
           </div>
         </div>
 

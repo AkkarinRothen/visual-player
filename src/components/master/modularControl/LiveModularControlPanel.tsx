@@ -144,6 +144,10 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
     handleWeatherIntensityChange,
     handleLightingChange,
     handleAudioVolumeChange,
+    handleApplyBattleRanks,
+    handleSnapAllToGrid,
+    handleDistributeHorizontally,
+    handleFitScaleToGrid,
   } = useLiveModularControl(props);
 
   return (
@@ -158,6 +162,10 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
         setSelectedCharId={setSelectedCharId}
         onMoveCharacter={handleMoveCharacter}
         onOpenFullScreen={onOpenFullScreen}
+        onApplyBattleRanks={handleApplyBattleRanks}
+        onSnapAllToGrid={handleSnapAllToGrid}
+        onDistributeHorizontally={handleDistributeHorizontally}
+        onFitScaleToGrid={handleFitScaleToGrid}
       />
 
       {/* 2. BODY: FLUID TRANSITION BETWEEN MODULAR CARDS & INSPECTOR */}
@@ -169,6 +177,13 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
           onToggleVisibility={handleToggleCharacterVisibility}
           onScaleChange={handleScaleChange}
           onSetExactScale={handleSetExactScale}
+          onUpdateDisplayStyle={(id, style) =>
+            props.onUpdateCharacter?.(
+              id,
+              { displayStyle: style },
+              `Formato de figura: ${style === 'auto' ? 'Automático' : style === 'standee' ? 'Standee' : 'Token'}`
+            )
+          }
           onEditCharacterSheet={handleOpenEditCharacterSheet}
           onLayerChange={handleLayerChange}
           onToggleMirror={handleToggleMirror}

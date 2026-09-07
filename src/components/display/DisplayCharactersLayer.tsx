@@ -7,7 +7,9 @@ import type {
   SceneProp,
   SceneOcclusionRegion,
   CombatState,
+  TacticalGridConfig,
 } from '../../types';
+import { shouldRenderAsToken } from '../../domain/display/tacticalFormations';
 
 interface DisplayCharactersLayerProps {
   characters: CharacterOnScreen[];
@@ -19,6 +21,7 @@ interface DisplayCharactersLayerProps {
   combatState?: CombatState;
   nameDisplayMode?: 'always' | 'speaker_only' | 'hidden';
   groundLineY?: number;
+  tacticalGrid?: TacticalGridConfig;
 }
 
 function getSlotPositionPercent(pos: CharacterPosition): number {
@@ -57,6 +60,7 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
   combatState,
   nameDisplayMode = 'always',
   groundLineY = 0,
+  tacticalGrid,
 }) => {
   const hasSpeaking = characters.some((c) => c.isSpeaking);
 
@@ -193,6 +197,115 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
             .map((cond: string) => `aura-${cond.toLowerCase()}`)
             .join(' ');
           const isBloodied = !!combatant && !!combatant.maxHp && (combatant.currentHp <= combatant.maxHp * 0.5);
+          const isToken = shouldRenderAsToken(char, !!tacticalGrid?.enabled);
+
+          const isIdentityHidden = char.revelation && !char.revelation.isIdentityRevealed;
+          const publicDisplayName = isIdentityHidden
+            ? (char.revelation?.publicAlias || 'Desconocido')
+            : char.name;
+          const isAppearanceHidden = char.revelation && !char.revelation.isAppearanceRevealed;
+          const fallbackInitial = isAppearanceHidden ? '?' : (publicDisplayName ? publicDisplayName.charAt(0).toUpperCase() : '?');
+
+          if (isToken) {
+            const cols = Math.max(2, tacticalGrid?.columns || 10);
+            const cellWidthVw = 100 / cols;
+            const footprint = char.tokenSizeInCells || 1;
+            const tokenSizeStyle = `clamp(26px, calc(var(--stage-width, 100vw) * ${((cellWidthVw * footprint * 0.88) / 100) * effectiveScale}), 140px)`;
+            const teamBorderColor =
+              char.tacticalTeam === 'enemies'
+                ? '#ef4444'
+                : char.tacticalTeam === 'allies'
+                ? '#22c55e'
+                : '#fbbf24';
+
+            return (
+              <div
+                key={char.id}
+                data-character-id={char.id}
+                className="stage-item-pos-wrapper character-display-wrapper"
+                style={{
+                  position: 'absolute',
+                  left: `${posX}%`,
+                  bottom: `${posY}%`,
+                  zIndex: item.zIndex,
+                  pointerEvents: 'none',
+                  transform: 'translate(-50%, 50%)',
+                  transition: 'left 0.4s cubic-bezier(0.16, 1, 0.3, 1), bottom 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              >
+                <div
+                  className={`tactical-display-token ${char.isSpeaking ? 'is-speaking' : ''} ${isDimmed ? 'is-dimmed' : ''}`}
+                  style={{ width: tokenSizeStyle }}
+                >
+                  <div
+                    className="tactical-token-ground-shadow"
+                    style={{
+                      width: `calc(${tokenSizeStyle} * 1.15)`,
+                      height: `calc(${tokenSizeStyle} * 0.35)`,
+                    }}
+                    aria-hidden="true"
+                  />
+
+                  {combatant && combatant.maxHp && combatant.maxHp > 0 && (
+                    <div className="tactical-token-hp-container">
+                      <div
+                        className="tactical-token-hp-fill"
+                        style={{
+                          width: `${Math.max(0, Math.min(100, (combatant.currentHp / combatant.maxHp) * 100))}%`,
+                          backgroundColor:
+                            combatant.currentHp <= combatant.maxHp * 0.25
+                              ? '#ef4444'
+                              : combatant.currentHp <= combatant.maxHp * 0.5
+                              ? '#f59e0b'
+                              : '#22c55e',
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <div
+                    className={`tactical-token-disc ${isActiveCombatant ? 'ring-2 ring-amber-400' : ''}`}
+                    style={{
+                      width: tokenSizeStyle,
+                      height: tokenSizeStyle,
+                      borderColor: teamBorderColor,
+                      borderWidth: isActiveCombatant ? '3px' : '2.5px',
+                      borderStyle: 'solid',
+                    }}
+                  >
+                    {failedAvatarUrls.has(char.avatarUrl) || isAppearanceHidden ? (
+                      <div className="w-full h-full flex items-center justify-center font-bold text-amber-300 bg-slate-900 text-sm">
+                        {fallbackInitial}
+                      </div>
+                    ) : (
+                      <img
+                        src={char.avatarUrl}
+                        alt={publicDisplayName}
+                        className="tactical-token-img"
+                        loading="eager"
+                        onError={() => setFailedAvatarUrls((prev) => new Set(prev).add(char.avatarUrl))}
+                      />
+                    )}
+                  </div>
+
+                  {char.isSpeaking && (
+                    <div
+                      className="speaking-indicator"
+                      style={{ position: 'absolute', top: '-14px', right: '-4px' }}
+                    >
+                      <Sparkles size={14} className="text-amber-400 animate-pulse" />
+                    </div>
+                  )}
+
+                  {(nameDisplayMode === 'always' || (nameDisplayMode === 'speaker_only' && char.isSpeaking)) && (
+                    <div className="tactical-token-label-pill">
+                      {publicDisplayName}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          }
 
           return (
             /* 1. OUTER WRAPPER: Coordinates and displacement */
@@ -214,8 +327,8 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
                 <div
                   className={`character-ground-shadow ${char.shadowPreset === 'elongated' ? 'elongated' : ''}`}
                   style={{
-                    width: `${Math.max(42, effectiveScale * 84)}px`,
-                    height: `${Math.max(14, effectiveScale * 24)}px`,
+                    width: `${Math.max(16, effectiveScale * 84)}px`,
+                    height: `${Math.max(6, effectiveScale * 24)}px`,
                     opacity: Math.max(0.15, 0.68 - (posY * 0.007)),
                   }}
                   aria-hidden="true"

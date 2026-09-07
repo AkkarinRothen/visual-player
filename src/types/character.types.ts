@@ -53,7 +53,9 @@ export interface CharacterOnScreen {
   position: CharacterPosition;
   normalizedX?: number; // 0-100% (center-bottom anchor)
   normalizedY?: number; // 0-100% (bottom ground line anchor)
-  scale?: number; // 0.5 - 2.0 (default 1.0)
+  scale?: number; // 0.15 - 2.5 (default 1.0)
+  displayStyle?: 'auto' | 'standee' | 'token'; // Visual representation: automatic from scene, forced standee, or circular VTT token
+  tokenSizeInCells?: number; // Tactical grid footprint in cells (default 1 for 1x1, 2 for 2x2 large creature)
   isFlipped?: boolean; // Horizontal mirror (default false)
   zIndex?: number; // Stacking layer 1-50 (default 1)
   isLocked?: boolean; // Prevent accidental drag

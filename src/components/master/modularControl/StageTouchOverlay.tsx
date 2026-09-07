@@ -1,6 +1,11 @@
 import React, { useRef, useState, useMemo } from 'react';
 import type { CharacterOnScreen, TacticalGridConfig } from '../../../types';
 import { tacticalDistanceInCells } from '../../../domain/display/tacticalDistance';
+import {
+  shouldRenderAsToken,
+  findContextualMagneticSnap,
+  snapToCellCenter,
+} from '../../../domain/display/tacticalFormations';
 
 export interface StageTouchOverlayProps {
   characters: CharacterOnScreen[];
@@ -43,8 +48,6 @@ export const StageTouchOverlay: React.FC<StageTouchOverlayProps> = ({
 
   const columns = Math.max(2, activeGrid.columns || 10);
   const rows = Math.max(2, Math.round((columns * 9) / 16));
-  const stepX = 100 / columns;
-  const stepY = 100 / rows;
 
   const handlePointerDown = (
     char: CharacterOnScreen,
@@ -93,20 +96,32 @@ export const StageTouchOverlay: React.FC<StageTouchOverlayProps> = ({
       const deltaPercentX = (deltaPixelX / rect.width) * 100;
       const deltaPercentY = -(deltaPixelY / rect.height) * 100;
 
-      const newX = Math.max(0, Math.min(100, Math.round(drag.initialNormX + deltaPercentX)));
-      const newY = Math.max(0, Math.min(100, Math.round(drag.initialNormY + deltaPercentY)));
+      const rawX = Math.max(0, Math.min(100, Math.round(drag.initialNormX + deltaPercentX)));
+      const rawY = Math.max(0, Math.min(100, Math.round(drag.initialNormY + deltaPercentY)));
 
-      drag.currentNormX = newX;
-      drag.currentNormY = newY;
+      const activeGrid = isTacticalMode ? (gridConfig || { enabled: true, columns, type: 'square', opacity: 0.5 }) : undefined;
+      const snapResult = findContextualMagneticSnap(
+        rawX,
+        rawY,
+        characters,
+        drag.charId,
+        activeGrid
+      );
+
+      const targetX = snapResult.snapped ? snapResult.x : rawX;
+      const targetY = snapResult.snapped ? snapResult.y : rawY;
+
+      drag.currentNormX = targetX;
+      drag.currentNormY = targetY;
 
       if (isTacticalMode) {
         setDragState({
           charId: drag.charId,
-          currentNormX: newX,
-          currentNormY: newY,
+          currentNormX: targetX,
+          currentNormY: targetY,
         });
       } else {
-        onMoveCharacter(drag.charId, newX, newY);
+        onMoveCharacter(drag.charId, targetX, targetY);
       }
     }
   };
@@ -120,11 +135,19 @@ export const StageTouchOverlay: React.FC<StageTouchOverlayProps> = ({
       if (!drag.hasMoved) {
         // Tap/click => select
         onSelectCharacter(char.id);
-      } else if (isTacticalMode && onMoveCharacter) {
-        // Snap to grid center on release
-        const snappedX = Math.max(0, Math.min(100, Math.round(drag.currentNormX / stepX) * stepX));
-        const snappedY = Math.max(0, Math.min(100, Math.round(drag.currentNormY / stepY) * stepY));
-        onMoveCharacter(char.id, snappedX, snappedY);
+      } else if (onMoveCharacter) {
+        if (isTacticalMode) {
+          const snapped = snapToCellCenter(drag.currentNormX, drag.currentNormY, columns, rows);
+          onMoveCharacter(char.id, snapped.x, snapped.y);
+        } else {
+          const snapResult = findContextualMagneticSnap(
+            drag.currentNormX,
+            drag.currentNormY,
+            characters,
+            char.id
+          );
+          onMoveCharacter(char.id, snapResult.x, snapResult.y);
+        }
       }
     }
 
@@ -336,7 +359,9 @@ export const StageTouchOverlay: React.FC<StageTouchOverlayProps> = ({
           : 15;
         const scale = char.scale || 1.0;
 
-        if (isTacticalMode) {
+        const isToken = shouldRenderAsToken(char, isTacticalMode);
+
+        if (isToken) {
           // TACTICAL CIRCULAR TOKEN
           const teamColor =
             char.tacticalTeam === 'enemies'
@@ -345,7 +370,7 @@ export const StageTouchOverlay: React.FC<StageTouchOverlayProps> = ({
               ? '#22c55e'
               : '#fbbf24';
 
-          const tokenSizeStyle = `clamp(40px, calc(var(--stage-height, 100vh) * 0.14 * ${scale}), 96px)`;
+          const tokenSizeStyle = `clamp(24px, calc(var(--stage-height, 100vh) * 0.14 * ${scale}), 120px)`;
 
           return (
             <div
@@ -421,8 +446,8 @@ export const StageTouchOverlay: React.FC<StageTouchOverlayProps> = ({
         }
 
         // CLASSIC STANDEE HITBOX (NON-TACTICAL MODE)
-        const standeeWidthStyle = `clamp(70px, calc(var(--stage-height, 100vh) * 0.28 * ${scale}), 260px)`;
-        const standeeHeightStyle = `clamp(110px, calc(var(--stage-height, 100vh) * 0.46 * ${scale}), 400px)`;
+        const standeeWidthStyle = `clamp(22px, calc(var(--stage-height, 100vh) * 0.28 * ${scale}), 260px)`;
+        const standeeHeightStyle = `clamp(32px, calc(var(--stage-height, 100vh) * 0.46 * ${scale}), 400px)`;
 
         return (
           <div
@@ -455,8 +480,8 @@ export const StageTouchOverlay: React.FC<StageTouchOverlayProps> = ({
                 style={{
                   position: 'absolute',
                   bottom: '4px',
-                  width: `clamp(60px, calc(var(--stage-height, 100vh) * 0.22 * ${scale}), 200px)`,
-                  height: `clamp(18px, calc(var(--stage-height, 100vh) * 0.07 * ${scale}), 55px)`,
+                  width: `clamp(20px, calc(var(--stage-height, 100vh) * 0.22 * ${scale}), 200px)`,
+                  height: `clamp(6px, calc(var(--stage-height, 100vh) * 0.07 * ${scale}), 55px)`,
                   borderRadius: '50%',
                   border: '2.5px solid #38bdf8',
                   boxShadow: '0 0 16px #38bdf8, inset 0 0 10px rgba(56, 189, 248, 0.6)',

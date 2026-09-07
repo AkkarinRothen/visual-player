@@ -2,6 +2,19 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-140: Visualización dual de personajes (Tokens VTT y Standees JRPG) y formaciones rápidas
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, tests unitarios en Vitest (40/40 tests aprobados en 5 suites: `tacticalFormations.test.ts`, `DisplayCharactersLayer.test.tsx`, `StageFormationActionsMenu.test.tsx`, `StageTouchOverlay.test.tsx`, `LiveModularControlPanel.test.tsx`) y build de producción. No se realizó prueba en Android físico ni recorrido con mesa WebRTC conectada.
+- **Funciones y componentes afectados:**
+  1. `DisplayCharactersLayer.tsx` y `display.css`: renderizado dual condicional; los personajes se proyectan como fichas circulares tácticas (tokens) en la Mesa cuando la cuadrícula táctica está encendida o tienen `displayStyle: 'token'`, con borde de color de bando (aliado/verde, enemigo/rojo, neutral/amarillo), nombre inferior y barra de vida compacta si hay combate activo. Sombras de suelo adaptadas para escalas miniatura.
+  2. `StageTouchOverlay.tsx`: límites mínimos de tamaño (`clamp`) relajados de 70px/110px a 22px/32px en standees y 24px en tokens; snapping contextual magnético en arrastre táctil (imanta a casillas si la cuadrícula está encendida o a la altura de los compañeros si está apagada).
+  3. `useLiveModularControl.ts`: reducción de escala mínima a `0.15` (15%), sincronización bidireccional de `isTacticalModeActive` con `liveState.tacticalGrid` hacia la Mesa, y handlers para aplicar formaciones tácticas.
+  4. `StageFormationActionsMenu.tsx` y `LiveStageSection.tsx`: botón flotante con menú táctil en el visor (Fila de Batalla JRPG, Alinear a Cuadrícula, Distribuir en Línea y Ajustar Tamaño a Casilla).
+  5. `ContextualCharacterInspector.tsx`: slider de tamaño extendido a 0.15 (15%), preset `Mini (25%)` y selector de formato visual individual (`Auto`, `Standee`, `Token`).
+- **Manual:** actualizado `docs/manual/README.md` detallando las formaciones rápidas de batalla, el modo de tokens VTT con proyección en la Mesa y el rango de escala ampliado al 15%.
+- **Evidencia técnica:** 40/40 pruebas unitarias aprobadas, `npx tsc -b` y `npm run build` sin errores.
+- **Resultado:** sistema dual de visualización táctica y formaciones de combate completado para Android y Desktop.
+
 ## 2026-09-06 — MAN-139: Preparación de sesión con Radix Dialog
 
 - **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
