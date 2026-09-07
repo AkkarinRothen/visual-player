@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import {
   Music,
   X,
@@ -82,8 +83,6 @@ export const BiomeSoundtrackModal: React.FC<BiomeSoundtrackModalProps> = ({
   onSaveProfiles,
   onClose,
 }) => {
-  if (!isOpen) return null;
-
   // Profiles draft (from campaign or defaults)
   const [profiles, setProfiles] = useState<BiomeSoundProfile[]>(() => {
     if (campaign?.biomeProfiles && campaign.biomeProfiles.length > 0) {
@@ -160,8 +159,25 @@ export const BiomeSoundtrackModal: React.FC<BiomeSoundtrackModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-4xl flex flex-col bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh]">
+    <Dialog.Root
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          if (isRehearsingLocally) soundEngine.stopAmbient();
+          onClose();
+        }
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md animate-fade-in" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 outline-none"
+        >
+          <div className="relative w-full max-w-4xl flex flex-col bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh]">
+            <Dialog.Title className="sr-only">Selector de Banda Sonora por Bioma y Situación</Dialog.Title>
         {/* HEADER */}
         <header className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-950/80">
           <div className="flex items-center gap-2">
@@ -373,7 +389,9 @@ export const BiomeSoundtrackModal: React.FC<BiomeSoundtrackModalProps> = ({
             <span>Proyectar Tono a la Mesa</span>
           </button>
         </footer>
-      </div>
-    </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

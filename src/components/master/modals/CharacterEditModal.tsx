@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { X, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import type { Character } from '../../../types';
 import { AssetPickerModal } from '../../common/AssetPickerModal';
 import { TokenCreatorModal } from '../../common/TokenCreatorModal';
@@ -13,6 +16,24 @@ interface CharacterEditModalProps {
   onClose: () => void;
 }
 
+const characterSchema = z.object({
+  name: z.string().trim().min(2, 'El nombre debe tener al menos 2 caracteres.'),
+  roleOrTitle: z.string().trim().max(80, 'El rol no puede superar los 80 caracteres.'),
+  defaultAvatarUrl: z.string().trim().min(1, 'Elegí un retrato para el personaje.'),
+  bio: z.string().trim().max(1000, 'La biografía no puede superar los 1000 caracteres.'),
+  maxHp: z.coerce.number().int('Los HP deben ser un número entero.').min(1, 'Los HP deben ser mayores que 0.'),
+});
+
+type CharacterFormValues = z.infer<typeof characterSchema>;
+
+const emptyCharacterForm: CharacterFormValues = {
+  name: '',
+  roleOrTitle: '',
+  defaultAvatarUrl: '',
+  bio: '',
+  maxHp: 30,
+};
+
 export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
   isOpen,
   charToEdit,
@@ -21,17 +42,23 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
 }) => {
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [showTokenCreator, setShowTokenCreator] = useState(false);
-  const [form, setForm] = useState({
-    name: '',
-    roleOrTitle: '',
-    defaultAvatarUrl: '',
-    bio: '',
-    maxHp: 30,
+  const {
+    register,
+    reset,
+    setValue,
+    watch,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<CharacterFormValues>({
+    resolver: zodResolver(characterSchema),
+    defaultValues: emptyCharacterForm,
   });
+
+  const avatarUrl = watch('defaultAvatarUrl');
 
   useEffect(() => {
     if (charToEdit) {
-      setForm({
+      reset({
         name: charToEdit.name,
         roleOrTitle: charToEdit.roleOrTitle,
         defaultAvatarUrl: charToEdit.defaultAvatarUrl,
@@ -39,22 +66,14 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
         maxHp: charToEdit.maxHp || 30,
       });
     } else {
-      setForm({
-        name: '',
-        roleOrTitle: '',
-        defaultAvatarUrl: '',
-        bio: '',
-        maxHp: 30,
-      });
+      reset(emptyCharacterForm);
     }
-  }, [charToEdit, isOpen]);
+  }, [charToEdit, isOpen, reset]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name || !form.defaultAvatarUrl) return;
-    onSave(form);
+  const onSubmit = (data: CharacterFormValues) => {
+    onSave(data);
     onClose();
   };
 
@@ -69,37 +88,36 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="master-form">
+          <form onSubmit={handleSubmit(onSubmit)} className="master-form" noValidate>
             <label>Nombre del Personaje</label>
             <input
               type="text"
-              required
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              {...register('name')}
               placeholder="ej: Lyra Sombraverde, Lord Valerius"
               className="master-input"
             />
+            {errors.name && <span className="form-field-error">{errors.name.message}</span>}
 
             <div className="form-grid-2">
               <div>
                 <label>Rol o Título</label>
                 <input
                   type="text"
-                  value={form.roleOrTitle}
-                  onChange={(e) => setForm({ ...form, roleOrTitle: e.target.value })}
+                  {...register('roleOrTitle')}
                   placeholder="ej: Pícara Élfica, Comerciante"
                   className="master-input"
                 />
+                {errors.roleOrTitle && <span className="form-field-error">{errors.roleOrTitle.message}</span>}
               </div>
               <div>
                 <label>Puntos de Golpe Máximos (HP)</label>
                 <input
                   type="number"
                   min={1}
-                  value={form.maxHp}
-                  onChange={(e) => setForm({ ...form, maxHp: parseInt(e.target.value) || 1 })}
+                  {...register('maxHp', { valueAsNumber: true })}
                   className="master-input"
                 />
+                {errors.maxHp && <span className="form-field-error">{errors.maxHp.message}</span>}
               </div>
             </div>
 
@@ -119,8 +137,8 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
                   flexShrink: 0,
                 }}
               >
-                {form.defaultAvatarUrl ? (
-                  <img src={form.defaultAvatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <ImageIcon size={22} className="text-amber-400" />
                 )}
@@ -144,10 +162,10 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
                 }}
               >
                 <ImageIcon size={16} />
-                <span>{form.defaultAvatarUrl ? 'Cambiar Retrato' : 'Elegir Retrato (Fotos / Biblioteca)'}</span>
+                <span>{avatarUrl ? 'Cambiar Retrato' : 'Elegir Retrato (Fotos / Biblioteca)'}</span>
               </button>
 
-              {form.defaultAvatarUrl && (
+              {avatarUrl && (
                 <button
                   type="button"
                   onClick={() => setShowTokenCreator(true)}
@@ -175,11 +193,14 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
             <label>Biografía o Notas</label>
             <textarea
               rows={3}
-              value={form.bio}
-              onChange={(e) => setForm({ ...form, bio: e.target.value })}
+              {...register('bio')}
               placeholder="Historia, secretos, motivaciones..."
               className="master-input textarea"
             />
+            {errors.bio && <span className="form-field-error">{errors.bio.message}</span>}
+
+            <input type="hidden" {...register('defaultAvatarUrl')} />
+            {errors.defaultAvatarUrl && <span className="form-field-error">{errors.defaultAvatarUrl.message}</span>}
 
             <button type="submit" className="btn-primary full">
               {charToEdit ? 'Guardar Cambios' : 'Crear Ficha de NPC'}
@@ -191,13 +212,10 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
         <AssetPickerModal
           isOpen={showAssetPicker}
           mode="character"
-          currentUrl={form.defaultAvatarUrl}
+          currentUrl={avatarUrl}
           onSelectAsset={(asset) => {
-            setForm((prev) => ({
-              ...prev,
-              defaultAvatarUrl: asset.url,
-              name: prev.name || asset.name,
-            }));
+            setValue('defaultAvatarUrl', asset.url, { shouldValidate: true });
+            if (!watch('name')) setValue('name', asset.name, { shouldValidate: true });
             setShowAssetPicker(false);
           }}
           onClose={() => setShowAssetPicker(false)}
@@ -205,9 +223,9 @@ export const CharacterEditModal: React.FC<CharacterEditModalProps> = ({
 
         <TokenCreatorModal
           isOpen={showTokenCreator}
-          initialImageUrl={form.defaultAvatarUrl}
+          initialImageUrl={avatarUrl}
           onSaveToken={(tokenUrl) => {
-            setForm((prev) => ({ ...prev, defaultAvatarUrl: tokenUrl }));
+            setValue('defaultAvatarUrl', tokenUrl, { shouldValidate: true });
             setShowTokenCreator(false);
           }}
           onClose={() => setShowTokenCreator(false)}

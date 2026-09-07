@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   Campaign,
   Character,
@@ -47,8 +47,12 @@ import { EmergencyDock } from './EmergencyDock';
 import { MasterAuxiliaryModals } from './modals/MasterAuxiliaryModals';
 import { MasterBottomNav } from './navigation/MasterBottomNav';
 import { MobileToolsDrawer } from './navigation/MobileToolsDrawer';
+import { MasterCommandPalette } from './navigation/MasterCommandPalette';
 import { ResourcePacksModal } from './modals/ResourcePacksModal';
 import { getPlatformBridge } from '../../platform';
+import { useHotkey } from '@tanstack/react-hotkeys';
+import { toast } from 'sonner';
+import { clearMesaDisconnectNotification, notifyMesaDisconnected } from '../../services/sessionNotificationService';
 
 export interface MasterControllerProps {
   initialRoomCode?: string;
@@ -67,6 +71,46 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     bridge.screen.setKeepAwake(true).catch(() => {});
     return () => {
       bridge.screen.setKeepAwake(false).catch(() => {});
+    };
+  }, []);
+
+  // Keep system connectivity feedback separate from the nearby Mesa session.
+  useEffect(() => {
+    const bridge = getPlatformBridge();
+    let previousAvailability: boolean | null = null;
+    let disposed = false;
+    const availabilityFrom = (status: { connected: boolean; hasInternet: boolean }) =>
+      status.connected && status.hasInternet;
+
+    void bridge.network.getStatus().then((status) => {
+      if (!disposed && previousAvailability === null) {
+        previousAvailability = availabilityFrom(status);
+      }
+    }).catch(() => {});
+
+    const unsubscribe = bridge.network.onNetworkChange((status) => {
+      const available = availabilityFrom(status);
+      if (previousAvailability === null) {
+        previousAvailability = available;
+        return;
+      }
+      if (available === previousAvailability) return;
+      previousAvailability = available;
+
+      if (available) {
+        toast.success('Conectividad restaurada', {
+          description: 'Visual Player vuelve a tener Internet disponible.',
+        });
+      } else {
+        toast.warning('Sin Internet', {
+          description: 'La Mesa local puede seguir conectada si Nearby está disponible.',
+        });
+      }
+    });
+
+    return () => {
+      disposed = true;
+      unsubscribe();
     };
   }, []);
 
@@ -149,6 +193,19 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     },
   });
 
+  const previousMesaStatusRef = useRef<typeof connectionStatus | null>(null);
+  useEffect(() => {
+    const previousStatus = previousMesaStatusRef.current;
+    previousMesaStatusRef.current = connectionStatus;
+    if (previousStatus === null || previousStatus === connectionStatus) return;
+
+    if (connectionStatus === 'disconnected' && document.visibilityState === 'hidden') {
+      void notifyMesaDisconnected().catch(() => {});
+    } else if (connectionStatus === 'connected') {
+      void clearMesaDisconnectNotification().catch(() => {});
+    }
+  }, [connectionStatus]);
+
   // Version & Feature Capability Matrix Evaluation Hook
   const { versionCompatibility } = useVersionTelemetry();
 
@@ -180,6 +237,16 @@ export const MasterController: React.FC<MasterControllerProps> = ({
       createAutoCheckpoint(triggerName, state);
     },
   });
+
+  useHotkey('Mod+Z', (event) => {
+    if (event.shiftKey) {
+      redo();
+    } else {
+      undo();
+    }
+  }, { ignoreInputs: true, preventDefault: true });
+  useHotkey('Mod+Shift+Z', () => redo(), { ignoreInputs: true, preventDefault: true });
+  useHotkey('Mod+Y', () => redo(), { ignoreInputs: true, preventDefault: true });
 
   // Checkpoints Management Hook
   const {
@@ -807,6 +874,18 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         onRemoveCharacters={dismissCharacters}
         onAddCharacter={handleDirectorAddCharacter}
         onLiveDragMove={handleDirectorLiveDragMove}
+      />
+
+      <MasterCommandPalette
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenQuickMoments={() => setShowQuickMoments(true)}
+        onOpenHistory={() => setShowHistoryModal(true)}
+        onOpenCheckpoints={() => setShowCheckpointsModal(true)}
+        onOpenDiagnostics={() => setShowDiagnosticsModal(true)}
+        onOpenFullScreenPreview={() => setShowFullScreenPreview(true)}
+        onOpenSessionPrepWizard={() => setShowSessionPrepWizardModal(true)}
+        onOpenReadiness={() => setShowReadinessModal(true)}
       />
 
       {/* MAIN CONTENT AREA */}

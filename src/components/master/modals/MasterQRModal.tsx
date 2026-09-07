@@ -1,6 +1,10 @@
 import React from 'react';
-import { X, Activity, Check } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
+import { X, Activity, Check, Share2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { writeClipboardText } from '../../../services/clipboardService';
+import { toast } from 'sonner';
 
 interface MasterQRModalProps {
   isOpen: boolean;
@@ -20,6 +24,26 @@ export const MasterQRModal: React.FC<MasterQRModalProps> = ({
   onClose,
 }) => {
   if (!isOpen) return null;
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        title: `Visual Player · Sala ${roomCode}`,
+        text: `Conectate a la sala ${roomCode} de Visual Player.`,
+        url: joinUrl,
+        dialogTitle: 'Compartir acceso a la sala',
+      });
+      toast.success('Acceso de sala compartido');
+    } catch {
+      if (Capacitor.isNativePlatform()) return;
+      try {
+        await writeClipboardText(joinUrl);
+        toast.success('Enlace de sala copiado');
+      } catch {
+        toast.error('No se pudo compartir el acceso de la sala');
+      }
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -47,6 +71,15 @@ export const MasterQRModal: React.FC<MasterQRModalProps> = ({
           <p className="qr-instructions">
             Abre la aplicación en tu <strong>Tablet o TV</strong> y selecciona modo &quot;Pantalla&quot;, o escanea este QR.
           </p>
+          <button
+            type="button"
+            className="btn-secondary full"
+            onClick={() => void handleShare()}
+            aria-label="Compartir enlace de acceso a la sala"
+          >
+            <Share2 size={17} />
+            <span>Compartir enlace</span>
+          </button>
           <button
             className="btn-primary full"
             onClick={() => {

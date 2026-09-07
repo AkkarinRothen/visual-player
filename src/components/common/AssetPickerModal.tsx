@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { X, Upload, Image as ImageIcon, Link as LinkIcon, FolderHeart } from 'lucide-react';
 import { db, registerImmutableAsset, registerOptimizedAsset, type StoredAsset } from '../../db';
 import { type OptimizedImageResult } from '../../utils/imageOptimizer';
@@ -31,7 +34,31 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
   onClose,
 }) => {
   const [activeTab, setActiveTab] = useState<'device' | 'library' | 'url'>('device');
-  const [storedAssets, setStoredAssets] = useState<StoredAsset[]>([]);
+  const storedAssets = useLiveQuery(async () => {
+    let rawAssets: StoredAsset[];
+    if (mode === 'character' || mode === 'prop') {
+      rawAssets = await db.assets.where('type').equals('image').reverse().sortBy('createdAt');
+    } else {
+      rawAssets = await db.assets.reverse().sortBy('createdAt');
+      rawAssets = rawAssets.filter((asset) => asset.type === 'image' || asset.type === 'video');
+    }
+
+    // Keep only metadata and thumbnails in React; full files are resolved on selection.
+    return rawAssets.map((asset) => ({
+      id: asset.id,
+      name: asset.name || 'Sin nombre',
+      type: asset.type || 'image',
+      thumbnailUrl: asset.thumbnailUrl || asset.dataUrl,
+      dataUrl: asset.thumbnailUrl || asset.dataUrl || '',
+      category: asset.category,
+      tags: asset.tags || [],
+      packId: asset.packId,
+      packName: asset.packName,
+      createdAt: asset.createdAt,
+      durationSeconds: asset.durationSeconds,
+      posterDataUrl: asset.posterDataUrl,
+    }));
+  }, [mode], []);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'image' | 'video'>('all');
   const [selectedPackFilter, setSelectedPackFilter] = useState<string>('all');
@@ -52,10 +79,9 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
   const [videoPosterDataUrl, setVideoPosterDataUrl] = useState<string | null>(null);
   const [videoObjectUrl, setVideoObjectUrl] = useState<string | null>(null);
 
-  // Cargar recursos guardados de IndexedDB al abrir
+  // Resetear el estado de edición cada vez que se abre el selector.
   useEffect(() => {
     if (isOpen) {
-      loadStoredAssets();
       setPreviewUrl(currentUrl);
       setAssetName('');
       setCustomUrlInput('');
@@ -84,52 +110,20 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
     };
   }, [isOpen, currentUrl, mode]);
 
-  const loadStoredAssets = async () => {
-    try {
-      let rawAssets: StoredAsset[];
-      if (mode === 'character' || mode === 'prop') {
-        rawAssets = await db.assets.where('type').equals('image').reverse().sortBy('createdAt');
-      } else {
-        rawAssets = await db.assets.reverse().sortBy('createdAt');
-        rawAssets = rawAssets.filter((a) => a.type === 'image' || a.type === 'video');
-      }
-
-      // Optimización crítica de memoria en móviles:
-      // Conservamos solo metadatos y miniaturas en el estado React para no saturar memoria RAM
-      const lightweightAssets: StoredAsset[] = rawAssets.map((a) => ({
-        id: a.id,
-        name: a.name || 'Sin nombre',
-        type: a.type || 'image',
-        thumbnailUrl: a.thumbnailUrl || a.dataUrl,
-        dataUrl: a.thumbnailUrl || a.dataUrl || '',
-        category: a.category,
-        tags: a.tags || [],
-        packId: a.packId,
-        packName: a.packName,
-        createdAt: a.createdAt,
-        durationSeconds: a.durationSeconds,
-        posterDataUrl: a.posterDataUrl,
-      }));
-
-      setStoredAssets(lightweightAssets);
-
-      // Pre-filtrado automático por pack de personajes si existe
-      if (mode === 'character') {
-        const charPack = lightweightAssets.find(
-          (a) =>
-            a.packId &&
-            ((a.category && ['character', 'portrait', 'token'].includes(a.category)) ||
-              (a.packName && /avatar|retrato|portrait|personaje|heroe|hero|fabula/i.test(a.packName)) ||
-              (a.name && /avatar|hero|guerrero|mago|clerigo|ladron|personaje/i.test(a.name)))
-        );
-        if (charPack && charPack.packId) {
-          setSelectedPackFilter(charPack.packId);
-        }
-      }
-    } catch (err) {
-      console.warn('Error cargando assets de IndexedDB:', err);
+  // Priorizar automáticamente un pack de personajes al abrir la biblioteca.
+  useEffect(() => {
+    if (!isOpen || mode !== 'character' || storedAssets.length === 0) return;
+    const charPack = storedAssets.find(
+      (asset) =>
+        asset.packId &&
+        ((asset.category && ['character', 'portrait', 'token'].includes(asset.category)) ||
+          (asset.packName && /avatar|retrato|portrait|personaje|heroe|hero|fabula/i.test(asset.packName)) ||
+          (asset.name && /avatar|hero|guerrero|mago|clerigo|ladron|personaje/i.test(asset.name)))
+    );
+    if (charPack?.packId) {
+      setSelectedPackFilter((current) => current === 'all' ? charPack.packId! : current);
     }
-  };
+  }, [isOpen, mode, storedAssets]);
 
   const modalTitle =
     title ||
@@ -268,6 +262,21 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
       onClose();
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handlePreviewUrl = async () => {
+    const url = customUrlInput.trim();
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+      if (Capacitor.isNativePlatform()) {
+        await Browser.open({ url, toolbarColor: '#090a0f' });
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    } catch {
+      // La pestaña URL muestra una acción inerte hasta recibir una URL válida.
     }
   };
 
@@ -462,6 +471,7 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
                 setAssetName={setAssetName}
                 isProcessing={isProcessing}
                 onConfirmUrl={handleConfirmUrl}
+                onPreviewUrl={handlePreviewUrl}
               />
             )}
           </div>
@@ -469,11 +479,7 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
 
         <ResourcePacksModal
           isOpen={isPacksModalOpen}
-          onClose={() => {
-            setIsPacksModalOpen(false);
-            loadStoredAssets();
-          }}
-          onAssetsChanged={loadStoredAssets}
+          onClose={() => setIsPacksModalOpen(false)}
         />
       </div>
     </ModalErrorBoundary>

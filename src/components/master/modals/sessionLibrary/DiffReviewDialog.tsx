@@ -1,4 +1,5 @@
 import React from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import type { GameSessionPackage, ImportDiffSummary } from '../../../../types';
 import { Upload, Copy } from 'lucide-react';
 
@@ -16,11 +17,18 @@ export const DiffReviewDialog: React.FC<DiffReviewDialogProps> = ({
   onExecuteImport,
 }) => {
   return (
-    <div className="session-dialog-overlay" role="dialog" aria-modal="true">
-      <div className="session-dialog session-diff-dialog">
+    <Dialog.Root open onOpenChange={(open) => { if (!open && !isImporting) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="session-dialog-overlay" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="session-dialog session-diff-dialog"
+        >
         <div className="session-dialog-header">
           <Upload size={18} />
-          <h3>Inspección de Importación</h3>
+          <Dialog.Title>Inspección de Importación</Dialog.Title>
         </div>
         <p className="session-dialog-lead">
           Paquete: <strong>{pendingImport.diff.sessionName}</strong>
@@ -57,7 +65,8 @@ export const DiffReviewDialog: React.FC<DiffReviewDialogProps> = ({
             <Copy size={14} /> Importar como copia independiente (Recomendado)
           </button>
         </div>
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

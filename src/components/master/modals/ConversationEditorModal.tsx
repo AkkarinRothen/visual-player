@@ -1,4 +1,5 @@
 import React from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import type { Campaign, SavedConversation } from '../../../types';
 import { useConversationEditor } from '../conversation/useConversationEditor';
 import { ConversationHeader } from '../conversation/ConversationHeader';
@@ -21,8 +22,6 @@ export const ConversationEditorModal: React.FC<ConversationEditorModalProps> = (
   onSave,
   onClose,
 }) => {
-  if (!isOpen) return null;
-
   const editor = useConversationEditor({
     campaign,
     conversation,
@@ -31,8 +30,19 @@ export const ConversationEditorModal: React.FC<ConversationEditorModalProps> = (
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl h-[92vh] max-h-[850px] flex flex-col shadow-2xl overflow-hidden text-slate-100">
+    <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 outline-none"
+        >
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl h-[92vh] max-h-[850px] flex flex-col shadow-2xl overflow-hidden text-slate-100">
+        <Dialog.Title className="sr-only">
+          {conversation ? 'Editar Conversación' : 'Nueva Conversación'}
+        </Dialog.Title>
         {/* MODAL HEADER */}
         <ConversationHeader
           isEditing={Boolean(conversation)}
@@ -87,7 +97,9 @@ export const ConversationEditorModal: React.FC<ConversationEditorModalProps> = (
             )}
           </div>
         </div>
-      </div>
-    </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

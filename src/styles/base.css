@@ -77,6 +77,92 @@ body, html {
   animation: appLoadingSpin 0.8s linear infinite;
 }
 
+.app-error-screen {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: 24px;
+  background: #090a0f;
+}
+
+.app-error-panel {
+  width: min(520px, 100%);
+  display: grid;
+  gap: 12px;
+  padding: 28px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.92);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+
+.app-error-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.14);
+  color: #fb7185;
+}
+
+.app-error-kicker {
+  color: #fbbf24;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.app-error-panel h1 {
+  color: #f8fafc;
+  font-size: clamp(1.35rem, 4vw, 1.8rem);
+}
+
+.app-error-panel p {
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.app-error-panel small {
+  overflow-wrap: anywhere;
+  color: #fda4af;
+  font-size: 0.75rem;
+}
+
+.app-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.app-error-actions button {
+  min-height: 42px;
+  display: inline-flex;
+  flex: 1 1 180px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.app-error-secondary {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(148, 163, 184, 0.1);
+  color: #e2e8f0;
+}
+
+.app-error-primary {
+  border: 1px solid rgba(245, 158, 11, 0.48);
+  background: #d97706;
+  color: #fff;
+}
+
 @keyframes appLoadingSpin {
   to { transform: rotate(360deg); }
 }

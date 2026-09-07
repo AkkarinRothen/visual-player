@@ -17,6 +17,7 @@ import type {
   CampaignKnowledgeEntry,
   KnowledgeType,
 } from '../../../types';
+import { writeClipboardText } from '../../../services/clipboardService';
 
 interface CampaignRevelationJournalModalProps {
   isOpen: boolean;
@@ -50,7 +51,7 @@ export const CampaignRevelationJournalModal: React.FC<CampaignRevelationJournalM
   const handleCopyPlayerSummary = async () => {
     const uncorrected = knowledgeEntries.filter((k) => !k.isCorrected);
     if (uncorrected.length === 0) {
-      await navigator.clipboard.writeText('No hay revelaciones registradas para los jugadores.');
+      await writeClipboardText('No hay revelaciones registradas para los jugadores.');
     } else {
       const summaryLines = [
         `# Resumen de Conocimientos Revelados — ${campaign.title}`,
@@ -60,7 +61,7 @@ export const CampaignRevelationJournalModal: React.FC<CampaignRevelationJournalM
             `- **${k.title}**: ${k.description} *(Descubierto: ${new Date(k.revealedAt).toLocaleDateString()})*`
         ),
       ];
-      await navigator.clipboard.writeText(summaryLines.join('\n'));
+      await writeClipboardText(summaryLines.join('\n'));
     }
     setCopiedPlayerSummary(true);
     setTimeout(() => setCopiedPlayerSummary(false), 2000);

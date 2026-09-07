@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import type {
   Campaign,
   GameSession,
@@ -379,8 +380,16 @@ export const SessionLibraryModal: React.FC<SessionLibraryModalProps> = ({
   };
 
   return (
-    <div className="modal-overlay session-library-overlay" role="dialog" aria-modal="true" aria-label="Biblioteca de Sesiones">
-      <div className="session-library-modal">
+    <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="modal-overlay session-library-overlay" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="session-library-modal"
+        >
+          <Dialog.Title className="sr-only">Biblioteca de Sesiones</Dialog.Title>
         <SessionLibraryHeader
           onClose={onClose}
           onOpenFileChosen={handleFileChosen}
@@ -471,7 +480,7 @@ export const SessionLibraryModal: React.FC<SessionLibraryModalProps> = ({
             onUseTemplate={handleUseTemplate}
           />
         )}
-      </div>
+        </Dialog.Content>
 
       {/* Sub-Dialogs */}
       {preflightSession && (
@@ -583,6 +592,7 @@ export const SessionLibraryModal: React.FC<SessionLibraryModalProps> = ({
           onConfirm={handleEmptyTrash}
         />
       )}
-    </div>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

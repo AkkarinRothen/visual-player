@@ -27,7 +27,13 @@ import { WorkshopScenesTab } from './WorkshopScenesTab';
 import { WorkshopCharactersTab } from './WorkshopCharactersTab';
 import { WorkshopAssetsTab } from './WorkshopAssetsTab';
 import { WorkshopNewCampaignModal } from './WorkshopNewCampaignModal';
-import { App as CapApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
+import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
+import { getPlatformBridge } from '../../../platform';
+
+const WORKSHOP_TAB_KEY = 'visual-player-workshop-tab';
+type WorkshopTab = 'scenes' | 'characters' | 'assets';
 
 export interface WorkshopViewProps {
   onExitToLobby: () => void;
@@ -36,7 +42,11 @@ export interface WorkshopViewProps {
 export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activeCampaign, setActiveCampaign] = useState<Campaign | null>(null);
-  const [activeTab, setActiveTab] = useState<'scenes' | 'characters' | 'assets'>('scenes');
+  const [activeTab, setActiveTab] = useState<WorkshopTab>(() => {
+    if (typeof window === 'undefined') return 'scenes';
+    const stored = window.localStorage.getItem(WORKSHOP_TAB_KEY);
+    return stored === 'characters' || stored === 'assets' ? stored : 'scenes';
+  });
 
   // Composers and Modals
   const [isComposingScene, setIsComposingScene] = useState(false);
@@ -49,6 +59,32 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
   const [showNewCampaignModal, setShowNewCampaignModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [newCampaignTitle, setNewCampaignTitle] = useState('');
+  const [isCompactLayout, setIsCompactLayout] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 768
+  );
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+    id: 'visual-player-workshop-layout',
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    panelIds: ['workshop-navigation', 'workshop-content'],
+  });
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    void Preferences.get({ key: WORKSHOP_TAB_KEY }).then(({ value }) => {
+      if (value === 'scenes' || value === 'characters' || value === 'assets') {
+        setActiveTab(value);
+      }
+    });
+  }, []);
+
+  const handleTabChange = (tab: WorkshopTab) => {
+    setActiveTab(tab);
+    if (Capacitor.isNativePlatform()) {
+      void Preferences.set({ key: WORKSHOP_TAB_KEY, value: tab });
+    } else {
+      window.localStorage.setItem(WORKSHOP_TAB_KEY, tab);
+    }
+  };
 
   // Cargar campañas
   const loadCampaigns = async () => {
@@ -71,37 +107,44 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
     loadCampaigns();
   }, []);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const handleViewportChange = () => setIsCompactLayout(mediaQuery.matches);
+    handleViewportChange();
+    mediaQuery.addEventListener('change', handleViewportChange);
+    return () => mediaQuery.removeEventListener('change', handleViewportChange);
+  }, []);
+
   // Manejo del botón Atrás de Android
   useEffect(() => {
-    const backListener = CapApp.addListener('backButton', () => {
+    const unsubscribe = getPlatformBridge().lifecycle.onBackButton(() => {
       if (isComposingScene) {
         setIsComposingScene(false);
         setSceneToEdit(null);
-        return;
+        return true;
       }
       if (showCharModal) {
         setShowCharModal(false);
         setCharToEdit(null);
-        return;
+        return true;
       }
       if (showAssetPicker) {
         setShowAssetPicker(false);
-        return;
+        return true;
       }
       if (showResourcePacksModal) {
         setShowResourcePacksModal(false);
-        return;
+        return true;
       }
       if (showNewCampaignModal) {
         setShowNewCampaignModal(false);
-        return;
+        return true;
       }
       onExitToLobby();
+      return true;
     });
 
-    return () => {
-      backListener.then((sub) => sub.remove()).catch(() => {});
-    };
+    return unsubscribe;
   }, [isComposingScene, showCharModal, showAssetPicker, showResourcePacksModal, showNewCampaignModal, onExitToLobby]);
 
   // Cambiar campaña activa
@@ -202,6 +245,14 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
       setActiveCampaign(updatedCamp);
       await loadCampaigns();
     }
+  };
+
+  const handleReorderScenes = async (updatedScenes: Scene[]) => {
+    if (!activeCampaign || updatedScenes.length !== activeCampaign.scenes.length) return;
+    const updatedCampaign = { ...activeCampaign, scenes: updatedScenes, updatedAt: Date.now() };
+    setActiveCampaign(updatedCampaign);
+    setCampaigns((previous) => previous.map((item) => (item.id === updatedCampaign.id ? updatedCampaign : item)));
+    await updateCampaign(updatedCampaign);
   };
 
   // Eliminar personaje
@@ -343,18 +394,24 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
         </div>
       </header>
 
-      {/* 2. Pestañas Principales del Taller */}
-      <div
-        style={{
-          display: 'flex',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          background: 'rgba(0,0,0,0.25)',
-          padding: '0 12px',
-        }}
+      <Group
+        className="workshop-content-layout"
+        orientation={isCompactLayout ? 'vertical' : 'horizontal'}
+        defaultLayout={isCompactLayout ? undefined : defaultLayout}
+        onLayoutChanged={isCompactLayout ? undefined : onLayoutChanged}
       >
+        <Panel
+          id="workshop-navigation"
+          className="workshop-navigation-panel"
+          defaultSize={isCompactLayout ? '116px' : '24%'}
+          minSize={isCompactLayout ? '116px' : '18%'}
+          maxSize={isCompactLayout ? '116px' : '36%'}
+        >
+          {/* 2. Pestañas Principales del Taller */}
+          <div className="workshop-tab-navigation">
         <button
           type="button"
-          onClick={() => setActiveTab('scenes')}
+          onClick={() => handleTabChange('scenes')}
           style={{
             flex: 1,
             padding: '12px 8px',
@@ -377,7 +434,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
 
         <button
           type="button"
-          onClick={() => setActiveTab('characters')}
+          onClick={() => handleTabChange('characters')}
           style={{
             flex: 1,
             padding: '12px 8px',
@@ -400,7 +457,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
 
         <button
           type="button"
-          onClick={() => setActiveTab('assets')}
+          onClick={() => handleTabChange('assets')}
           style={{
             flex: 1,
             padding: '12px 8px',
@@ -420,46 +477,53 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
           <FolderOpen size={16} />
           <span>Banco de Imágenes</span>
         </button>
-      </div>
+          </div>
+        </Panel>
 
-      {/* 3. Contenido de la Pestaña Activa */}
-      <main style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
-        {activeTab === 'scenes' && (
-          <WorkshopScenesTab
-            scenes={activeCampaign?.scenes || []}
-            onComposeScene={(sc) => {
-              setSceneToEdit(sc);
-              setIsComposingScene(true);
-            }}
+        <Separator className="workshop-panel-separator" />
+
+        <Panel id="workshop-content" className="workshop-main-panel" defaultSize="76%" minSize="64%">
+          {/* 3. Contenido de la Pestaña Activa */}
+          <main className="workshop-main-content">
+            {activeTab === 'scenes' && (
+              <WorkshopScenesTab
+                scenes={activeCampaign?.scenes || []}
+                onComposeScene={(sc) => {
+                  setSceneToEdit(sc);
+                  setIsComposingScene(true);
+                }}
             onTransferScene={(sc) => setSceneToTransfer(sc)}
             onDeleteScene={handleDeleteScene}
             onOpenBackupModal={() => setShowBackupModal(true)}
+            onReorderScenes={handleReorderScenes}
           />
-        )}
+            )}
 
-        {activeTab === 'characters' && (
-          <WorkshopCharactersTab
-            characters={activeCampaign?.characters || []}
-            onAddCharacter={() => {
-              setCharToEdit(null);
-              setShowCharModal(true);
-            }}
-            onEditCharacter={(ch) => {
-              setCharToEdit(ch);
-              setShowCharModal(true);
-            }}
-            onDeleteCharacter={handleDeleteCharacter}
-          />
-        )}
+            {activeTab === 'characters' && (
+              <WorkshopCharactersTab
+                characters={activeCampaign?.characters || []}
+                onAddCharacter={() => {
+                  setCharToEdit(null);
+                  setShowCharModal(true);
+                }}
+                onEditCharacter={(ch) => {
+                  setCharToEdit(ch);
+                  setShowCharModal(true);
+                }}
+                onDeleteCharacter={handleDeleteCharacter}
+              />
+            )}
 
-        {activeTab === 'assets' && (
-          <WorkshopAssetsTab
-            onOpenResourcePacksModal={() => setShowResourcePacksModal(true)}
-            onOpenAssetPicker={() => setShowAssetPicker(true)}
-            onOpenBackupModal={() => setShowBackupModal(true)}
-          />
-        )}
-      </main>
+            {activeTab === 'assets' && (
+              <WorkshopAssetsTab
+                onOpenResourcePacksModal={() => setShowResourcePacksModal(true)}
+                onOpenAssetPicker={() => setShowAssetPicker(true)}
+                onOpenBackupModal={() => setShowBackupModal(true)}
+              />
+            )}
+          </main>
+        </Panel>
+      </Group>
 
       {/* COMPOSITOR TÁCTIL A PANTALLA COMPLETA */}
       {isComposingScene && activeCampaign && (

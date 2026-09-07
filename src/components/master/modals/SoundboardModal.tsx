@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import {
   Volume2,
   X,
@@ -55,8 +56,6 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
   onStopAllSfx,
   onClose,
 }) => {
-  if (!isOpen) return null;
-
   // Selected bank (fallback to campaign banks or default bank)
   const currentBank =
     campaign?.soundboardBanks && campaign.soundboardBanks.length > 0
@@ -120,8 +119,17 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-3xl flex flex-col bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh]">
+    <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md animate-fade-in" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 outline-none"
+        >
+          <div className="relative w-full max-w-3xl flex flex-col bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh]">
+            <Dialog.Title className="sr-only">Soundboard: Matriz Rápida de SFX</Dialog.Title>
         {/* MODAL HEADER */}
         <header className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-950/80">
           <div className="flex items-center gap-2">
@@ -253,7 +261,9 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
             {isPrivateRehearsal ? 'Escucha privada en este dispositivo' : 'Proyección de audio activa en la Mesa'}
           </span>
         </footer>
-      </div>
-    </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

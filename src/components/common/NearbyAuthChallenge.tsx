@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ShieldAlert, CheckCircle2, XCircle, Timer } from 'lucide-react';
+import * as Dialog from '@radix-ui/react-dialog';
 
 /**
  * NearbyAuthChallenge.tsx
@@ -94,42 +95,47 @@ export const NearbyAuthChallenge: React.FC<NearbyAuthChallengeProps> = ({
   const remoteLabel = localRole === 'display' ? 'celular del DM' : 'la Mesa';
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Verificación de conexión segura"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        background: 'rgba(2, 6, 23, 0.96)',
-        backdropFilter: 'blur(16px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px',
-      }}
-    >
-      <div
-        style={{
-          background: 'rgba(23, 23, 23, 0.97)',
-          border: '1.5px solid rgba(255, 255, 255, 0.12)',
-          borderRadius: '24px',
-          padding: '32px',
-          maxWidth: '480px',
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '20px',
-          color: '#f5f5f5',
-          boxShadow: '0 30px 60px -12px rgba(0,0,0,0.9)',
-        }}
-      >
+    <Dialog.Root open={isVisible} onOpenChange={(open) => {
+      if (!open && !isBlocked) handleReject();
+    }}>
+      <Dialog.Portal>
+        <Dialog.Overlay
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(2, 6, 23, 0.96)',
+            backdropFilter: 'blur(16px)',
+          }}
+        />
+        <Dialog.Content
+          onEscapeKeyDown={(event) => event.preventDefault()}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          style={{
+            position: 'fixed',
+            left: '50%',
+            top: '50%',
+            zIndex: 10000,
+            transform: 'translate(-50%, -50%)',
+            background: 'rgba(23, 23, 23, 0.97)',
+            border: '1.5px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: '24px',
+            padding: '32px',
+            maxWidth: '480px',
+            width: 'calc(100% - 48px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px',
+            color: '#f5f5f5',
+            boxShadow: '0 30px 60px -12px rgba(0,0,0,0.9)',
+          }}
+        >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <ShieldAlert size={28} color="#f59e0b" />
-          <h2
+          <Dialog.Title
             style={{
               margin: 0,
               fontSize: '18px',
@@ -138,15 +144,17 @@ export const NearbyAuthChallenge: React.FC<NearbyAuthChallengeProps> = ({
             }}
           >
             Verificación de Seguridad
-          </h2>
+          </Dialog.Title>
         </div>
 
-        <p style={{ margin: 0, fontSize: '13px', color: '#a3a3a3', textAlign: 'center' }}>
+        <Dialog.Description asChild>
+          <p style={{ margin: 0, fontSize: '13px', color: '#a3a3a3', textAlign: 'center' }}>
           <strong style={{ color: '#f5f5f5' }}>{deviceLabel}</strong> detectó a{' '}
           <strong style={{ color: '#f5f5f5' }}>{remoteDeviceName || remoteLabel}</strong>.
           Confirma que el código que aparece en{' '}
           <strong>{remoteLabel}</strong> es exactamente el mismo.
-        </p>
+          </p>
+        </Dialog.Description>
 
         {/* Digits Display */}
         <div
@@ -278,7 +286,8 @@ export const NearbyAuthChallenge: React.FC<NearbyAuthChallengeProps> = ({
         >
           La sesión se mantiene bloqueada hasta que ambos dispositivos confirmen.
         </p>
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { LayoutGrid, Sliders, Zap } from 'lucide-react';
+import { toast } from 'sonner';
 import type {
   Campaign,
   DisplayState,
@@ -367,13 +368,22 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
       const result = await onPublishAllStaged();
       if (result !== false) {
         setPublishStatus('ack');
+        toast.success('Mesa sincronizada', {
+          description: 'Los cambios preparados ya están visibles en la Mesa.',
+        });
         setTimeout(() => setPublishStatus('idle'), 2500);
       } else {
         setPublishStatus('rejected');
+        toast.error('La Mesa rechazó el envío', {
+          description: 'Revisá la conexión y el estado de la sesión.',
+        });
         setTimeout(() => setPublishStatus('idle'), 3000);
       }
     } catch {
       setPublishStatus('rejected');
+      toast.error('No se pudo publicar', {
+        description: 'Ocurrió un error al enviar los cambios a la Mesa.',
+      });
       setTimeout(() => setPublishStatus('idle'), 3000);
     }
   };

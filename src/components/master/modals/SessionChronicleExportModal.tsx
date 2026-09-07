@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import {
   X,
   Download,
@@ -16,6 +17,7 @@ import {
   generatePublicChronicleDraft,
   formatChronicleToMarkdown,
 } from '../../../domain/session/chronicleExportGenerator';
+import { writeClipboardText } from '../../../services/clipboardService';
 
 interface SessionChronicleExportModalProps {
   isOpen: boolean;
@@ -30,8 +32,6 @@ export const SessionChronicleExportModal: React.FC<SessionChronicleExportModalPr
   liveState,
   onClose,
 }) => {
-  if (!isOpen) return null;
-
   // Generate initial draft safely from allowed public fields
   const [draft, setDraft] = useState<PublicChronicleDraft>(() =>
     generatePublicChronicleDraft(campaign, liveState)
@@ -59,7 +59,7 @@ export const SessionChronicleExportModal: React.FC<SessionChronicleExportModalPr
 
   const handleCopyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(markdownContent);
+      await writeClipboardText(markdownContent);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     } catch (e) {
@@ -91,8 +91,17 @@ export const SessionChronicleExportModal: React.FC<SessionChronicleExportModalPr
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-4xl flex flex-col bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh]">
+    <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md animate-fade-in" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 outline-none"
+        >
+          <div className="relative w-full max-w-4xl flex flex-col bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh]">
+            <Dialog.Title className="sr-only">Exportador de Crónica y Diario de Sesión</Dialog.Title>
         {/* HEADER */}
         <header className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-950/80">
           <div className="flex items-center gap-2">
@@ -314,7 +323,9 @@ export const SessionChronicleExportModal: React.FC<SessionChronicleExportModalPr
             <span>Descargar Markdown (.md)</span>
           </button>
         </footer>
-      </div>
-    </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

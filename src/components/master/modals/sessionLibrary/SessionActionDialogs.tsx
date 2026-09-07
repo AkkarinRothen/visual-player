@@ -1,4 +1,5 @@
 import React from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import type { DuplicateSessionOptions } from '../../../../types';
 import { Copy, BookTemplate, Trash2 } from 'lucide-react';
 
@@ -16,9 +17,16 @@ export const DuplicateSessionDialog: React.FC<DuplicateSessionDialogProps> = ({
   onDuplicate,
 }) => {
   return (
-    <div className="session-dialog-overlay">
-      <div className="session-dialog">
-        <h3>Duplicar preparación</h3>
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="session-dialog-overlay" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="session-dialog"
+        >
+        <Dialog.Title>Duplicar preparación</Dialog.Title>
         <input
           className="session-dialog-input"
           value={options.newName ?? ''}
@@ -56,8 +64,9 @@ export const DuplicateSessionDialog: React.FC<DuplicateSessionDialogProps> = ({
             <Copy size={14} /> Duplicar
           </button>
         </div>
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };
 
@@ -75,9 +84,16 @@ export const SaveTemplateDialog: React.FC<SaveTemplateDialogProps> = ({
   onSaveTemplate,
 }) => {
   return (
-    <div className="session-dialog-overlay">
-      <div className="session-dialog">
-        <h3>Guardar como plantilla</h3>
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="session-dialog-overlay" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="session-dialog"
+        >
+        <Dialog.Title>Guardar como plantilla</Dialog.Title>
         <p className="session-dialog-hint">
           La plantilla excluirá HP perdidos, combate activo y condiciones transitorias.
         </p>
@@ -94,8 +110,9 @@ export const SaveTemplateDialog: React.FC<SaveTemplateDialogProps> = ({
             <BookTemplate size={14} /> Guardar plantilla
           </button>
         </div>
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };
 
@@ -109,9 +126,16 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
   onConfirm,
 }) => {
   return (
-    <div className="session-dialog-overlay">
-      <div className="session-dialog session-dialog-danger">
-        <h3>¿Eliminar sesión definitivamente?</h3>
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="session-dialog-overlay" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="session-dialog session-dialog-danger"
+        >
+        <Dialog.Title>¿Eliminar sesión definitivamente?</Dialog.Title>
         <p>Esta acción no se puede deshacer. La sesión se eliminará de forma irreversible.</p>
         <div className="session-dialog-actions">
           <button className="btn-dialog-cancel" onClick={onClose}>Cancelar</button>
@@ -119,8 +143,9 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
             <Trash2 size={14} /> Eliminar definitivamente
           </button>
         </div>
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };
 
@@ -136,9 +161,16 @@ export const ConfirmEmptyTrashDialog: React.FC<ConfirmEmptyTrashDialogProps> = (
   onConfirm,
 }) => {
   return (
-    <div className="session-dialog-overlay">
-      <div className="session-dialog session-dialog-danger">
-        <h3>¿Vaciar papelera?</h3>
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="session-dialog-overlay" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="session-dialog session-dialog-danger"
+        >
+        <Dialog.Title>¿Vaciar papelera?</Dialog.Title>
         <p>Se eliminarán permanentemente todas las sesiones de la papelera ({trashedCount}).</p>
         <div className="session-dialog-actions">
           <button className="btn-dialog-cancel" onClick={onClose}>Cancelar</button>
@@ -146,8 +178,9 @@ export const ConfirmEmptyTrashDialog: React.FC<ConfirmEmptyTrashDialogProps> = (
             <Trash2 size={14} /> Vaciar papelera
           </button>
         </div>
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };
 
@@ -169,9 +202,17 @@ export const PrepareNextSessionDialog: React.FC<PrepareNextSessionDialogProps> =
   onConfirm,
 }) => {
   return (
-    <div className="session-dialog-overlay">
-      <div className="session-dialog" style={{ width: 'min(500px, 95vw)' }}>
-        <h3>Preparar siguiente entrega</h3>
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="session-dialog-overlay" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="session-dialog"
+          style={{ width: 'min(500px, 95vw)' }}
+        >
+        <Dialog.Title>Preparar siguiente entrega</Dialog.Title>
         <p className="session-dialog-hint">
           Crea una nueva preparación para el mismo grupo a partir de <strong>{currentSessionName}</strong>.
         </p>
@@ -223,8 +264,9 @@ export const PrepareNextSessionDialog: React.FC<PrepareNextSessionDialogProps> =
             Continuar historia
           </button>
         </div>
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };
 
@@ -246,9 +288,17 @@ export const CreateNewGroupSessionDialog: React.FC<CreateNewGroupSessionDialogPr
   onConfirm,
 }) => {
   return (
-    <div className="session-dialog-overlay">
-      <div className="session-dialog" style={{ width: 'min(520px, 95vw)' }}>
-        <h3>Jugar con otro grupo</h3>
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="session-dialog-overlay" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="session-dialog"
+          style={{ width: 'min(520px, 95vw)' }}
+        >
+        <Dialog.Title>Jugar con otro grupo</Dialog.Title>
         <p className="session-dialog-hint">
           Bifurca <strong>{sourceSessionName}</strong> creando una línea de progreso independiente.
         </p>
@@ -340,8 +390,8 @@ export const CreateNewGroupSessionDialog: React.FC<CreateNewGroupSessionDialogPr
             Crear partida para nuevo grupo
           </button>
         </div>
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };
-

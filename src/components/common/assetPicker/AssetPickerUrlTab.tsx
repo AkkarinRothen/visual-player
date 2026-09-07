@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check } from 'lucide-react';
+import { Check, ExternalLink } from 'lucide-react';
 import type { AssetPickerUrlTabProps } from './assetPickerTypes';
 
 export const AssetPickerUrlTab: React.FC<AssetPickerUrlTabProps> = ({
@@ -9,7 +9,10 @@ export const AssetPickerUrlTab: React.FC<AssetPickerUrlTabProps> = ({
   setAssetName,
   isProcessing,
   onConfirmUrl,
+  onPreviewUrl,
 }) => {
+  const isValidUrl = /^https?:\/\//i.test(customUrlInput.trim());
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div>
@@ -56,28 +59,52 @@ export const AssetPickerUrlTab: React.FC<AssetPickerUrlTabProps> = ({
         />
       </div>
 
-      <button
-        type="button"
-        onClick={onConfirmUrl}
-        disabled={!customUrlInput.trim() || isProcessing}
-        style={{
-          padding: '12px',
-          background: customUrlInput.trim() ? 'linear-gradient(135deg, #d97706, #b45309)' : 'rgba(255,255,255,0.08)',
-          border: 'none',
-          borderRadius: '10px',
-          color: customUrlInput.trim() ? '#fff' : '#6b7280',
-          fontWeight: 600,
-          fontSize: '0.95rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px',
-          cursor: customUrlInput.trim() ? 'pointer' : 'not-allowed',
-        }}
-      >
-        <Check size={18} />
-        <span>Usar Enlace</span>
-      </button>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+        <button
+          type="button"
+          onClick={onPreviewUrl}
+          disabled={!isValidUrl || isProcessing}
+          style={{
+            padding: '12px',
+            background: isValidUrl ? 'rgba(14, 165, 233, 0.14)' : 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(56, 189, 248, 0.35)',
+            borderRadius: '10px',
+            color: isValidUrl ? '#7dd3fc' : '#6b7280',
+            fontWeight: 600,
+            fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            cursor: isValidUrl ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <ExternalLink size={17} />
+          <span>Previsualizar</span>
+        </button>
+        <button
+          type="button"
+          onClick={onConfirmUrl}
+          disabled={!customUrlInput.trim() || isProcessing}
+          style={{
+            padding: '12px',
+            background: customUrlInput.trim() ? 'linear-gradient(135deg, #d97706, #b45309)' : 'rgba(255,255,255,0.08)',
+            border: 'none',
+            borderRadius: '10px',
+            color: customUrlInput.trim() ? '#fff' : '#6b7280',
+            fontWeight: 600,
+            fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            cursor: customUrlInput.trim() ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <Check size={18} />
+          <span>Usar Enlace</span>
+        </button>
+      </div>
     </div>
   );
 };

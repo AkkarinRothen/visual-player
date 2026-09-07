@@ -1,6 +1,7 @@
 import React from 'react';
 import { Sparkles, X, Award, Copy } from 'lucide-react';
 import type { VictorySummaryData } from './combatTypes';
+import { writeClipboardText } from '../../../services/clipboardService';
 
 export interface CombatVictoryModalProps {
   isOpen: boolean;
@@ -58,7 +59,7 @@ export const CombatVictoryModal: React.FC<CombatVictoryModalProps> = ({
                 <button
                   className="copy-rewards-btn"
                   onClick={() => {
-                    navigator.clipboard.writeText(summary.rewards);
+                    void writeClipboardText(summary.rewards);
                     alert('¡Recompensas copiadas al portapapeles!');
                   }}
                   title="Copiar recompensas"

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Camera as NativeCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Tv, Smartphone, Sparkles, ArrowRight, Camera, RefreshCw, Trash2, Image, ShieldAlert, Compass } from 'lucide-react';
 import { sessionRecoveryService, type RecoverySnapshot } from '../../services/sessionRecovery';
 import type { Role } from '../../types';
@@ -119,6 +121,36 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
       handleScanSuccess(decodedText);
     } catch {
       setCameraError('No se detectó un código QR válido en la imagen seleccionada.');
+    }
+  };
+
+  const handleNativeCameraScan = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      setShowScanner(true);
+      return;
+    }
+
+    setShowCameraPrompt(false);
+    try {
+      const photo = await NativeCamera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      });
+      if (!photo.dataUrl) throw new Error('La cámara no devolvió una imagen.');
+
+      const imageBlob = await fetch(photo.dataUrl).then((response) => response.blob());
+      const imageFile = new File([imageBlob], 'visual-player-qr.jpg', {
+        type: imageBlob.type || 'image/jpeg',
+      });
+      const { Html5Qrcode } = await import('html5-qrcode');
+      const html5QrCode: Html5Qrcode = new Html5Qrcode('qr-reader-container-hidden');
+      const decodedText = await html5QrCode.scanFile(imageFile, true);
+      handleScanSuccess(decodedText);
+    } catch {
+      setCameraError('No se detectó un código QR válido. Puedes intentar otra vez o ingresar el PIN manualmente.');
+      setShowScanner(true);
     }
   };
 
@@ -312,10 +344,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
             <div className="camera-dialog-actions">
               <button
                 type="button"
-                onClick={() => {
-                  setShowCameraPrompt(false);
-                  setShowScanner(true);
-                }}
+                onClick={handleNativeCameraScan}
                 className="camera-primary-action"
               >
                 <Camera size={18} />

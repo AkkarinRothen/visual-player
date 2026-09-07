@@ -1,4 +1,5 @@
 import React from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import { Box, X, Bookmark, FolderOpen } from 'lucide-react';
 import type { Campaign, SceneCompositionPreset } from '../../../types';
 
@@ -53,13 +54,20 @@ export const CompositorModals: React.FC<CompositorModalsProps> = ({
     <>
       {/* DIALOG: AGREGAR OBJETO (PROP) */}
       {showAddPropModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75">
+        <Dialog.Root open onOpenChange={(open) => { if (!open) setShowAddPropModal(false); }}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-60 bg-black/75" />
+            <Dialog.Content
+              onPointerDownOutside={(event) => event.preventDefault()}
+              onInteractOutside={(event) => event.preventDefault()}
+              className="fixed inset-0 z-60 flex items-center justify-center p-4 outline-none"
+            >
           <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-md w-full p-4 shadow-2xl">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="font-bold text-white text-sm flex items-center gap-2">
+              <Dialog.Title className="font-bold text-white text-sm flex items-center gap-2">
                 <Box size={16} className="text-purple-400" />
                 Agregar Objeto de Escenario
-              </h3>
+              </Dialog.Title>
               <button onClick={() => setShowAddPropModal(false)} className="text-slate-400 hover:text-white">
                 <X size={16} />
               </button>
@@ -155,17 +163,26 @@ export const CompositorModals: React.FC<CompositorModalsProps> = ({
               </div>
             </form>
           </div>
-        </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
       )}
 
       {/* DIALOG: GUARDAR COMPOSICIÓN PRESET */}
       {showSavePresetModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75">
+        <Dialog.Root open onOpenChange={(open) => { if (!open) setShowSavePresetModal(false); }}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-60 bg-black/75" />
+            <Dialog.Content
+              onPointerDownOutside={(event) => event.preventDefault()}
+              onInteractOutside={(event) => event.preventDefault()}
+              className="fixed inset-0 z-60 flex items-center justify-center p-4 outline-none"
+            >
           <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-sm w-full p-4 shadow-2xl">
-            <h3 className="font-bold text-white text-sm mb-2 flex items-center gap-2">
+            <Dialog.Title className="font-bold text-white text-sm mb-2 flex items-center gap-2">
               <Bookmark size={16} className="text-amber-400" />
               Guardar Composición
-            </h3>
+            </Dialog.Title>
             <p className="text-[11px] text-slate-400 mb-3">
               Guarda la posición de los NPCs, expresiones y props sin tocar la partida en curso.
             </p>
@@ -205,18 +222,27 @@ export const CompositorModals: React.FC<CompositorModalsProps> = ({
               </div>
             </form>
           </div>
-        </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
       )}
 
       {/* DIALOG: CARGAR COMPOSICIÓN PRESET */}
       {showLoadPresetModal && campaign?.savedCompositions && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75">
+        <Dialog.Root open onOpenChange={(open) => { if (!open) setShowLoadPresetModal(false); }}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-60 bg-black/75" />
+            <Dialog.Content
+              onPointerDownOutside={(event) => event.preventDefault()}
+              onInteractOutside={(event) => event.preventDefault()}
+              className="fixed inset-0 z-60 flex items-center justify-center p-4 outline-none"
+            >
           <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-md w-full p-4 shadow-2xl max-h-[80vh] flex flex-col">
             <div className="flex justify-between items-center p-3 border-b border-slate-800">
-              <h3 className="font-bold text-white text-sm flex items-center gap-2">
+              <Dialog.Title className="font-bold text-white text-sm flex items-center gap-2">
                 <FolderOpen size={16} className="text-sky-400" />
                 Cargar Composición Guardada
-              </h3>
+              </Dialog.Title>
               <button onClick={() => setShowLoadPresetModal(false)} className="text-slate-400 hover:text-white">
                 <X size={16} />
               </button>
@@ -249,7 +275,9 @@ export const CompositorModals: React.FC<CompositorModalsProps> = ({
               ))}
             </div>
           </div>
-        </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
       )}
     </>
   );

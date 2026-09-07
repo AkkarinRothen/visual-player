@@ -1,4 +1,5 @@
 import React from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import type { HandoutState } from '../../../types';
 import { useHandoutEditor } from '../handout/useHandoutEditor';
 import { HandoutHeader } from '../handout/HandoutHeader';
@@ -24,8 +25,6 @@ export const HandoutViewerModal: React.FC<HandoutViewerModalProps> = ({
   onDismissHandout,
   onClose,
 }) => {
-  if (!isOpen) return null;
-
   const editor = useHandoutEditor({
     activeHandout,
     savedHandouts,
@@ -33,8 +32,17 @@ export const HandoutViewerModal: React.FC<HandoutViewerModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-5xl h-[94vh] flex flex-col bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+    <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md animate-fade-in" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 outline-none"
+        >
+          <div className="relative w-full max-w-5xl h-[94vh] flex flex-col bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+            <Dialog.Title className="sr-only">Visor de Handout</Dialog.Title>
         {/* MODAL HEADER */}
         <HandoutHeader
           isCurrentlyProjected={editor.isCurrentlyProjected}
@@ -98,7 +106,9 @@ export const HandoutViewerModal: React.FC<HandoutViewerModalProps> = ({
           onDismissHandout={onDismissHandout}
           onPublishPageToMesa={editor.handlePublishPageToMesa}
         />
-      </div>
-    </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

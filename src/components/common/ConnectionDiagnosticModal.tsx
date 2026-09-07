@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
+import { Device, type DeviceInfo } from '@capacitor/device';
 import {
   X,
   Activity,
@@ -13,6 +15,7 @@ import {
   RotateCcw,
   Search,
   AlertTriangle,
+  Bell,
 } from 'lucide-react';
 import {
   connectionDiagnostics,
@@ -20,8 +23,14 @@ import {
   type DiagnosticEvent,
 } from '../../services/connectionDiagnostics';
 import { sessionCommandBus } from '../../services/sessionCommandBus';
+import { writeClipboardText } from '../../services/clipboardService';
 import type { DisplayState } from '../../types';
 import type { AuditMesaReport } from '../../domain/protocol/types';
+import {
+  getMesaDisconnectNotificationsEnabled,
+  setMesaDisconnectNotificationsEnabled,
+} from '../../services/sessionNotificationService';
+import { toast } from 'sonner';
 
 interface ConnectionDiagnosticModalProps {
   isOpen: boolean;
@@ -48,9 +57,24 @@ export const ConnectionDiagnosticModal: React.FC<ConnectionDiagnosticModalProps>
   const [auditReport, setAuditReport] = useState<AuditMesaReport | null>(null);
   const [showResyncConfirm, setShowResyncConfirm] = useState(false);
   const [resyncSuccess, setResyncSuccess] = useState(false);
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
+  const [disconnectNotificationsEnabled, setDisconnectNotificationsEnabled] = useState(false);
+  const [updatingNotifications, setUpdatingNotifications] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
+
+    let cancelled = false;
+    void getMesaDisconnectNotificationsEnabled().then((enabled) => {
+      if (!cancelled) setDisconnectNotificationsEnabled(enabled);
+    }).catch(() => {
+      if (!cancelled) setDisconnectNotificationsEnabled(false);
+    });
+    void Device.getInfo().then((info) => {
+      if (!cancelled) setDeviceInfo(info);
+    }).catch(() => {
+      if (!cancelled) setDeviceInfo(null);
+    });
 
     const interval = setInterval(() => {
       setMetrics(connectionDiagnostics.getMetrics());
@@ -70,6 +94,7 @@ export const ConnectionDiagnosticModal: React.FC<ConnectionDiagnosticModalProps>
     });
 
     return () => {
+      cancelled = true;
       clearInterval(interval);
       unsubTelem();
     };
@@ -80,9 +105,12 @@ export const ConnectionDiagnosticModal: React.FC<ConnectionDiagnosticModalProps>
   const handleCopy = () => {
     const connReport = connectionDiagnostics.getSanitizedReport();
     const busReport = JSON.stringify(sessionCommandBus.getSanitizedDiagnosticReport(), null, 2);
-    const combinedReport = `=== DIAGNÓSTICO DE CONEXIÓN Y MESA (VISUAL PLAYER) ===\nFecha: ${new Date().toISOString()}\n\n-- MÉTRICAS DE RED Y TRANSPORTE --\n${connReport}\n\n-- TELEMETRÍA Y COMANDOS DE MESA --\n${busReport}\n`;
+    const deviceReport = deviceInfo
+      ? `Plataforma: ${deviceInfo.platform}\nDispositivo: ${deviceInfo.manufacturer} ${deviceInfo.model}\nSistema: ${deviceInfo.operatingSystem} ${deviceInfo.osVersion}\nWebView: ${deviceInfo.webViewVersion}`
+      : 'Información del dispositivo no disponible';
+    const combinedReport = `=== DIAGNÓSTICO DE CONEXIÓN Y MESA (VISUAL PLAYER) ===\nFecha: ${new Date().toISOString()}\n\n-- DISPOSITIVO LOCAL --\n${deviceReport}\n\n-- MÉTRICAS DE RED Y TRANSPORTE --\n${connReport}\n\n-- TELEMETRÍA Y COMANDOS DE MESA --\n${busReport}\n`;
 
-    navigator.clipboard.writeText(combinedReport).then(() => {
+    writeClipboardText(combinedReport).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -122,6 +150,26 @@ export const ConnectionDiagnosticModal: React.FC<ConnectionDiagnosticModalProps>
     }
   };
 
+  const handleDisconnectNotificationsChange = async () => {
+    if (updatingNotifications) return;
+    setUpdatingNotifications(true);
+    try {
+      const enabled = await setMesaDisconnectNotificationsEnabled(!disconnectNotificationsEnabled);
+      setDisconnectNotificationsEnabled(enabled);
+      if (enabled) {
+        toast.success('Avisos de desconexión activados');
+      } else if (disconnectNotificationsEnabled) {
+        toast('Avisos de desconexión desactivados');
+      } else {
+        toast.error('Android no concedió permiso para notificaciones');
+      }
+    } catch {
+      toast.error('No se pudieron actualizar los avisos de desconexión');
+    } finally {
+      setUpdatingNotifications(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status.toUpperCase()) {
       case 'ONLINE':
@@ -140,8 +188,16 @@ export const ConnectionDiagnosticModal: React.FC<ConnectionDiagnosticModalProps>
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-neutral-200">
+    <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 outline-none"
+        >
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-neutral-200">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-neutral-800 bg-neutral-950/50">
           <div className="flex items-center gap-3">
@@ -149,20 +205,22 @@ export const ConnectionDiagnosticModal: React.FC<ConnectionDiagnosticModalProps>
               <Activity className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-neutral-100 flex items-center gap-2">
+              <Dialog.Title className="text-base font-semibold text-neutral-100 flex items-center gap-2">
                 Diagnóstico de Conexión y Sincronización
-              </h2>
+              </Dialog.Title>
               <p className="text-xs text-neutral-400 font-mono">
                 Correlation: {metrics.correlationId}
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <Dialog.Close asChild>
+            <button
+              aria-label="Cerrar diagnóstico de conexión"
+              className="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </Dialog.Close>
         </div>
 
         {/* Content */}
@@ -199,6 +257,18 @@ export const ConnectionDiagnosticModal: React.FC<ConnectionDiagnosticModalProps>
           {/* Technical Details Cards */}
           <div className="bg-neutral-950/60 border border-neutral-800/80 rounded-xl p-3.5 text-xs font-mono space-y-2">
             <div className="flex justify-between items-center text-neutral-400">
+              <span>Dispositivo local:</span>
+              <span className="text-neutral-200">
+                {deviceInfo ? `${deviceInfo.manufacturer} ${deviceInfo.model}` : 'Consultando...'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-neutral-400">
+              <span>Sistema:</span>
+              <span className="text-neutral-200">
+                {deviceInfo ? `${deviceInfo.platform} ${deviceInfo.osVersion}` : 'No disponible'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-neutral-400">
               <span>SHA-256 Checksum:</span>
               <span className="text-neutral-200">{metrics.stateChecksumPrefix}...</span>
             </div>
@@ -210,6 +280,28 @@ export const ConnectionDiagnosticModal: React.FC<ConnectionDiagnosticModalProps>
               <span>Peer ID:</span>
               <span className="text-neutral-200">{metrics.peerIdPartial || 'No conectado'}</span>
             </div>
+          </div>
+
+          <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-950/30 flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
+                <Bell className="w-4 h-4 text-amber-400" /> Aviso en segundo plano
+              </h3>
+              <p className="text-[11px] text-neutral-400 mt-1">
+                Recibí una notificación Android si la Mesa se desconecta mientras la app está minimizada.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={disconnectNotificationsEnabled}
+              aria-label="Avisarme si la Mesa se desconecta"
+              onClick={() => void handleDisconnectNotificationsChange()}
+              disabled={updatingNotifications}
+              className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${disconnectNotificationsEnabled ? 'border-amber-400/60 bg-amber-400/15 text-amber-300' : 'border-neutral-700 bg-neutral-900 text-neutral-400'} disabled:opacity-50`}
+            >
+              {disconnectNotificationsEnabled ? 'Activado' : 'Desactivado'}
+            </button>
           </div>
 
           {/* Test de Sincronización en Vivo */}
@@ -417,8 +509,10 @@ export const ConnectionDiagnosticModal: React.FC<ConnectionDiagnosticModalProps>
             {copied ? '¡Copiado!' : 'Copiar Diagnóstico'}
           </button>
         </div>
-      </div>
-    </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };
 

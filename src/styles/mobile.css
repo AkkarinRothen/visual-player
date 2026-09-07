@@ -19,6 +19,13 @@
   gap: 3px;
 }
 
+/* Leave the editing viewport clear while Android's IME is open. */
+.visual-keyboard-open .mobile-bottom-nav {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(calc(100% + var(--keyboard-height, 0px)));
+}
+
 .mobile-more-overlay {
   position: fixed;
   inset: 0;

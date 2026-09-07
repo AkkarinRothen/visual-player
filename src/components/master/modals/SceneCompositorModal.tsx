@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import * as Dialog from '@radix-ui/react-dialog';
 import type {
   Campaign,
   CharacterOnScreen,
@@ -301,9 +301,18 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
     ? campaign?.propAssets?.find((p) => p.id === selectedProp.assetId)
     : null;
 
-  return createPortal(
-    <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-md">
-      <div className="compositor-modal bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
+  return (
+    <Dialog.Root open onOpenChange={(open) => { if (!open) handleClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-md" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 outline-none"
+        >
+          <div className="compositor-modal bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
+            <Dialog.Title className="sr-only">Compositor de Escena</Dialog.Title>
         <CompositorHeader
           operationMode={operationMode}
           aspectGuide={aspectGuide}
@@ -379,6 +388,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
           onSave={handleSave}
         />
       </div>
+        </Dialog.Content>
 
       <CompositorModals
         showAddPropModal={showAddPropModal}
@@ -415,7 +425,7 @@ export const SceneCompositorModal: React.FC<SceneCompositorModalProps> = ({
         }}
         onClose={() => setShowBackgroundPicker(false)}
       />
-    </div>,
-    document.body
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

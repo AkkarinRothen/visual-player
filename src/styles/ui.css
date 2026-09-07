@@ -351,6 +351,37 @@
   font-weight: 800;
 }
 
+.visual-toast {
+  border: 1px solid rgba(251, 191, 36, 0.24) !important;
+  background: rgba(10, 14, 26, 0.96) !important;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(14px);
+}
+
+.visual-toast-title {
+  color: #f8fafc !important;
+  font-weight: 800 !important;
+}
+
+.visual-toast-description {
+  color: #cbd5e1 !important;
+}
+
+.visual-toast-action {
+  background: #f59e0b !important;
+  color: #111827 !important;
+  font-weight: 800 !important;
+}
+
+.visual-toast-cancel {
+  background: rgba(148, 163, 184, 0.18) !important;
+  color: #e2e8f0 !important;
+}
+
+.visual-toast-close {
+  color: #f8fafc !important;
+}
+
 @media (max-width: 767px) {
   .visual-dialog-overlay {
     align-items: flex-end;
@@ -382,5 +413,11 @@
 
   .android-sheet-title {
     font-size: 1rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .visual-toast {
+    width: calc(100vw - 24px) !important;
   }
 }

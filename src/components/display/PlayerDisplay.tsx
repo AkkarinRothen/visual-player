@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { App as CapApp } from '@capacitor/app';
 import type { ConnectionStatus, DisplayState, WeatherStormEvent } from '../../types';
 import type { DisplayAssetsStatus } from '../../domain/protocol/types';
 import { peerService } from '../../services/peerService';
@@ -137,14 +138,28 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
   // 1. Platform Bridge: Keep Awake, Landscape Lock, Immersive Mode for Players Display
   useEffect(() => {
     const bridge = getPlatformBridge();
-    bridge.screen.setKeepAwake(true);
-    bridge.screen.setOrientation('landscape');
-    bridge.screen.setImmersive(true);
+    const applyDisplayMode = () => {
+      void Promise.all([
+        bridge.screen.setKeepAwake(true),
+        bridge.screen.setOrientation('landscape'),
+        bridge.screen.setImmersive(true),
+      ]);
+    };
+
+    applyDisplayMode();
+    const appStateListener = CapApp.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) {
+        applyDisplayMode();
+      } else {
+        void bridge.screen.setKeepAwake(false);
+      }
+    });
 
     return () => {
-      bridge.screen.setKeepAwake(false);
-      bridge.screen.setOrientation('unlocked');
-      bridge.screen.setImmersive(false);
+      void bridge.screen.setKeepAwake(false);
+      void bridge.screen.setOrientation('unlocked');
+      void bridge.screen.setImmersive(false);
+      void appStateListener.then((listener) => listener.remove()).catch(() => {});
     };
   }, []);
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -99,18 +100,20 @@ export const SessionReadinessModal: React.FC<SessionReadinessModalProps> = ({
   };
 
   return (
-    <div className="modal-overlay session-library-overlay" onClick={onClose}>
-      <div
-        className="session-library-modal"
-        style={{ maxWidth: 640 }}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="modal-overlay session-library-overlay">
+          <Dialog.Content
+            aria-describedby={undefined}
+            onPointerDownOutside={(event) => event.preventDefault()}
+            onInteractOutside={(event) => event.preventDefault()}
+            className="session-library-modal"
+            style={{ maxWidth: 640 }}
+          >
         <div className="session-library-header">
           <div className="session-library-title">
             <Sparkles size={18} color="#a78bfa" />
-            <h2>Lista para Jugar — {sessionName}</h2>
+            <Dialog.Title>Lista para Jugar — {sessionName}</Dialog.Title>
           </div>
           <button className="btn-icon" onClick={onClose} aria-label="Cerrar">
             <X size={16} />
@@ -246,7 +249,9 @@ export const SessionReadinessModal: React.FC<SessionReadinessModalProps> = ({
             Entendido
           </button>
         </div>
-      </div>
-    </div>
+          </Dialog.Content>
+        </Dialog.Overlay>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

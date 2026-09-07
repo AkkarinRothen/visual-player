@@ -1,5 +1,18 @@
 import React, { useEffect } from 'react';
 import { Monitor, Moon, Smartphone, Sun, X } from 'lucide-react';
+import {
+  FloatingFocusManager,
+  FloatingPortal,
+  autoUpdate,
+  flip,
+  offset,
+  shift,
+  useClick,
+  useDismiss,
+  useFloating,
+  useInteractions,
+  useRole,
+} from '@floating-ui/react';
 import { getPlatformBridge } from '../../../platform';
 
 export interface PartyModeControlProps {
@@ -39,10 +52,29 @@ export const PartyModeControl: React.FC<PartyModeControlProps> = ({
     };
   }, [partyMode, partyKeepAwake, partyImmersive]);
 
+  const { refs, floatingStyles, context } = useFloating({
+    open: partyMenuOpen,
+    onOpenChange: setPartyMenuOpen,
+    placement: 'bottom-end',
+    whileElementsMounted: autoUpdate,
+    middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 8 })],
+  });
+  const click = useClick(context);
+  const dismiss = useDismiss(context);
+  const role = useRole(context, { role: 'dialog' });
+  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss, role]);
+
   return (
     <aside className={`party-mode-control ${partyMenuOpen ? 'open' : ''}`} aria-label="Modo Partida">
       {partyMenuOpen && (
-        <div className="party-mode-menu" role="dialog" aria-label="Opciones del Modo Partida">
+        <FloatingPortal>
+          <FloatingFocusManager context={context} modal={false}>
+            <div
+              ref={refs.setFloating}
+              style={floatingStyles}
+              {...getFloatingProps({ 'aria-label': 'Opciones del Modo Partida' })}
+              className="party-mode-menu"
+            >
           <div className="party-mode-menu-header">
             <div>
               <span className="party-mode-eyebrow">Android / Mesa</span>
@@ -95,15 +127,19 @@ export const PartyModeControl: React.FC<PartyModeControlProps> = ({
           >
             Salir del Modo Partida
           </button>
-        </div>
+            </div>
+          </FloatingFocusManager>
+        </FloatingPortal>
       )}
       <button
         type="button"
+        ref={refs.setReference}
+        {...getReferenceProps({
+          onClick: () => {
+            if (!partyMode) setPartyMode(true);
+          },
+        })}
         className={`party-mode-trigger ${partyMode ? 'active' : ''}`}
-        onClick={() => {
-          if (!partyMode) setPartyMode(true);
-          setPartyMenuOpen((current) => !current);
-        }}
         aria-expanded={partyMenuOpen}
         aria-label={partyMode ? 'Abrir opciones del Modo Partida' : 'Activar Modo Partida'}
       >

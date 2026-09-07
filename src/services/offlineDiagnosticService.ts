@@ -13,6 +13,7 @@
  */
 
 import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 
 // ─────────────────────────────────────────────
 // Types
@@ -223,26 +224,18 @@ class OfflineDiagnosticService {
     try {
       // Try Capacitor Share if available (Android)
       if (Capacitor.isNativePlatform()) {
-        // Use Function constructor to bypass TypeScript's static module resolution
-        // for @capacitor/share which may not be installed in all environments.
-        // eslint-disable-next-line @typescript-eslint/no-implied-eval
-        const dynamicImport = new Function('id', 'return import(id)') as (id: string) => Promise<any>;
-        const shareModule = await dynamicImport('@capacitor/share').catch(() => null);
-        if (shareModule) {
-          const { Share } = shareModule;
-          const { value: canShare } = await Share.canShare();
-          if (canShare) {
-            const blob = new Blob([jsonStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            await Share.share({
-              title: `Visual Player Diagnostic - ${this.correlationId.slice(0, 8)}`,
-              text: `Diagnostic timeline from ${this.role} device`,
-              url,
-              dialogTitle: 'Exportar Diagnóstico Offline',
-            });
-            URL.revokeObjectURL(url);
-            return;
-          }
+        const { value: canShare } = await Share.canShare();
+        if (canShare) {
+          const blob = new Blob([jsonStr], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          await Share.share({
+            title: `Visual Player Diagnostic - ${this.correlationId.slice(0, 8)}`,
+            text: `Diagnostic timeline from ${this.role} device`,
+            url,
+            dialogTitle: 'Exportar Diagnóstico Offline',
+          });
+          URL.revokeObjectURL(url);
+          return;
         }
       }
       // Web fallback: trigger download

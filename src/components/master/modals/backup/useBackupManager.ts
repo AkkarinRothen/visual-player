@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { getAllCampaigns, db } from '../../../../db';
 import {
   createBackupPackage,
@@ -6,6 +9,16 @@ import {
   restoreBackupPackage,
   type BackupPreflightReport,
 } from '../../../../services/backupPackageService';
+
+const blobToBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    const result = typeof reader.result === 'string' ? reader.result : '';
+    resolve(result.split(',')[1] || result);
+  };
+  reader.onerror = () => reject(reader.error || new Error('No se pudo leer el respaldo.'));
+  reader.readAsDataURL(blob);
+});
 
 interface UseBackupManagerProps {
   isOpen: boolean;
@@ -55,6 +68,25 @@ export function useBackupManager({ isOpen, onRefreshCampaigns }: UseBackupManage
     setIsGenerating(true);
     try {
       const { blob, fileName } = await createBackupPackage();
+
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const path = `visual-player/${fileName}`;
+          const data = await blobToBase64(blob);
+          await Filesystem.writeFile({ path, data, directory: Directory.Cache, recursive: true });
+          const { uri } = await Filesystem.getUri({ path, directory: Directory.Cache });
+          await Share.share({
+            title: 'Respaldo de Visual Player',
+            text: 'Copia completa de campañas y recursos.',
+            url: uri,
+            dialogTitle: 'Compartir respaldo',
+          });
+          setCreatedFileName(fileName);
+          return;
+        } catch {
+          // Continúa con Web Share o descarga si la hoja nativa no está disponible.
+        }
+      }
 
       // En Android con Web Share API o selector de descarga
       if (

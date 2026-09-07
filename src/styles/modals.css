@@ -692,6 +692,101 @@
   margin-top: 12px;
 }
 
+.history-search-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 12px;
+  padding: 9px 11px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #94a3b8;
+}
+
+.history-search-field:focus-within {
+  border-color: rgba(245, 158, 11, 0.62);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+.history-search-field input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #f8fafc;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.history-search-field input::placeholder {
+  color: #64748b;
+}
+
+.history-table-wrap {
+  max-height: 480px;
+  overflow: auto;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 10px;
+}
+
+.history-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.history-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 10px 12px;
+  background: #111827;
+  color: #94a3b8;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.history-table td {
+  padding: 11px 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  color: #cbd5e1;
+  vertical-align: middle;
+}
+
+.history-table tbody tr:hover {
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.history-table-action {
+  display: block;
+  max-width: 230px;
+  overflow: hidden;
+  color: #f8fafc;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-table-scene {
+  display: block;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-table-empty {
+  margin: 0;
+  padding: 24px;
+  color: #94a3b8;
+  text-align: center;
+}
+
 .history-event-card {
   display: flex;
   justify-content: space-between;

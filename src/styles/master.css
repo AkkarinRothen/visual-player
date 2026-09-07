@@ -10,6 +10,254 @@
   overflow: hidden;
 }
 
+.workshop-content-layout {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.workshop-navigation-panel,
+.workshop-main-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workshop-tab-navigation {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 12px;
+  gap: 8px;
+}
+
+.workshop-tab-navigation > button {
+  flex: 0 0 auto !important;
+  justify-content: flex-start !important;
+  border: 1px solid transparent !important;
+  border-bottom: 1px solid transparent !important;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.workshop-tab-navigation > button:hover {
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+
+.workshop-panel-separator {
+  width: 8px;
+  background: rgba(148, 163, 184, 0.08);
+  cursor: col-resize;
+  transition: background 160ms ease;
+}
+
+.workshop-panel-separator:hover,
+.workshop-panel-separator[data-separator='active'] {
+  background: rgba(245, 158, 11, 0.55);
+}
+
+.workshop-main-content {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+@media (max-width: 767px) {
+  .workshop-content-layout {
+    min-height: 0;
+  }
+
+  .workshop-navigation-panel {
+    min-height: 116px;
+  }
+
+  .workshop-tab-navigation {
+    height: 116px;
+    flex-direction: row;
+    align-items: stretch;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0 12px;
+  }
+
+  .workshop-tab-navigation > button {
+    min-width: 132px;
+    justify-content: center !important;
+    text-align: center;
+  }
+
+  .workshop-panel-separator {
+    width: auto;
+    height: 8px;
+    cursor: row-resize;
+  }
+
+  .workshop-main-content {
+    padding: 12px;
+  }
+}
+
+[cmdk-overlay] {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+[cmdk-dialog] {
+  position: fixed;
+  z-index: 91;
+  top: 14vh;
+  left: 50%;
+  width: min(620px, calc(100vw - 28px));
+  transform: translateX(-50%);
+  overflow: hidden;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: 12px;
+  background: rgba(10, 14, 26, 0.98);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.62), 0 0 0 1px rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+}
+
+.master-command-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.master-command-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.master-command-heading strong {
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.master-command-kicker {
+  color: #fbbf24;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.master-command-heading kbd {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 5px;
+  color: #94a3b8;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 4px 6px;
+}
+
+[cmdk-input] {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  outline: 0;
+  background: transparent;
+  color: #f8fafc;
+  font: inherit;
+  font-size: 1rem;
+  padding: 15px 18px;
+}
+
+[cmdk-input]::placeholder {
+  color: #64748b;
+}
+
+[cmdk-list] {
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+  padding: 8px;
+}
+
+[cmdk-group-heading] {
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 10px 10px 6px;
+  text-transform: uppercase;
+}
+
+[cmdk-item] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 8px 10px;
+  user-select: none;
+}
+
+[cmdk-item][data-selected='true'] {
+  border-color: rgba(245, 158, 11, 0.24);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.master-command-icon {
+  display: grid;
+  flex: 0 0 30px;
+  place-items: center;
+  color: #fbbf24;
+}
+
+.master-command-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.master-command-copy strong {
+  color: #f8fafc;
+  font-size: 0.88rem;
+}
+
+.master-command-copy small {
+  overflow: hidden;
+  color: #94a3b8;
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.master-command-current {
+  color: #fbbf24;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+[cmdk-empty] {
+  color: #94a3b8;
+  padding: 24px 12px;
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  [cmdk-dialog] {
+    top: 8vh;
+    width: calc(100vw - 20px);
+  }
+
+  [cmdk-list] {
+    max-height: 66vh;
+  }
+}
+
 .master-header {
   background: var(--bg-glass);
   backdrop-filter: blur(20px);
@@ -216,6 +464,14 @@
   color: #fff;
   font-size: 0.9rem;
   outline: none;
+}
+
+.form-field-error {
+  display: block;
+  margin-top: -6px;
+  color: #fb7185;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .master-input:focus {

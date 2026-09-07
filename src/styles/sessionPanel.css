@@ -163,6 +163,11 @@
   border-radius: 12px;
 }
 
+.session-mode-tabs-root {
+  display: flex;
+  min-width: 0;
+}
+
 .session-mode-badge-group {
   display: flex;
   align-items: center;
@@ -184,13 +189,20 @@
   transition: all 0.15s ease;
 }
 
-.session-mode-pill.active-live {
+.session-mode-pill:focus-visible {
+  outline: 2px solid rgba(248, 250, 252, 0.75);
+  outline-offset: 2px;
+}
+
+.session-mode-pill.active-live,
+.session-mode-pill-live[data-state='active'] {
   background: rgba(16, 185, 129, 0.18);
   border-color: rgba(16, 185, 129, 0.6);
   color: #34d399;
 }
 
-.session-mode-pill.active-staging {
+.session-mode-pill.active-staging,
+.session-mode-pill-staging[data-state='active'] {
   background: rgba(139, 92, 246, 0.2);
   border-color: rgba(139, 92, 246, 0.6);
   color: #c084fc;

@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Package, Sparkles, Play } from 'lucide-react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { formatVideoDuration } from '../../../utils/videoOptimizer';
 import type { AssetPickerLibraryTabProps } from './assetPickerTypes';
 
@@ -50,6 +51,40 @@ export const AssetPickerLibraryTab: React.FC<AssetPickerLibraryTabProps> = ({
       return true;
     });
   }, [storedAssets, searchQuery, filterType, selectedPackFilter]);
+
+  const visibleAssets = filteredAssets.slice(0, visibleCount);
+  const libraryScrollRef = useRef<HTMLDivElement>(null);
+  const [columnCount, setColumnCount] = useState(1);
+  const rowCount = Math.ceil(visibleAssets.length / columnCount);
+  const rowVirtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => libraryScrollRef.current,
+    estimateSize: () => (mode === 'background' ? 96 : 126),
+    overscan: 2,
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const rowsToRender = virtualRows.length > 0
+    ? virtualRows
+    : Array.from({ length: Math.min(rowCount, 4) }, (_, index) => ({
+        index,
+        key: `fallback-${index}`,
+        start: index * (mode === 'background' ? 96 : 126),
+      }));
+
+  useEffect(() => {
+    const element = libraryScrollRef.current;
+    if (!element) return;
+
+    const updateColumns = () => {
+      const availableWidth = element.clientWidth;
+      setColumnCount(Math.max(1, Math.floor((availableWidth + 12) / 122)));
+    };
+
+    updateColumns();
+    const observer = new ResizeObserver(updateColumns);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -202,16 +237,29 @@ export const AssetPickerLibraryTab: React.FC<AssetPickerLibraryTabProps> = ({
       ) : (
         <>
           <div
+            ref={libraryScrollRef}
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
-              gap: '12px',
               maxHeight: '380px',
               overflowY: 'auto',
               paddingRight: '4px',
             }}
           >
-            {filteredAssets.slice(0, visibleCount).map((asset) => (
+            <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
+              {rowsToRender.map((virtualRow) => (
+                <div
+                  key={virtualRow.key}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+                    gap: '12px',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  {visibleAssets.slice(virtualRow.index * columnCount, (virtualRow.index + 1) * columnCount).map((asset) => (
               <div
                 key={asset.id}
                 onClick={() => onSelectFromLibrary(asset)}
@@ -294,7 +342,10 @@ export const AssetPickerLibraryTab: React.FC<AssetPickerLibraryTabProps> = ({
                   {asset.name}
                 </div>
               </div>
-            ))}
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
 
           {filteredAssets.length > visibleCount && (

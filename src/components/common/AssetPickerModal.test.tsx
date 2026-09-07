@@ -124,4 +124,31 @@ describe('AssetPickerModal & ModalErrorBoundary', () => {
       expect(select.value).toBe('pack-heroes-vol1');
     });
   });
+
+  it('5. actualiza la biblioteca automáticamente cuando IndexedDB recibe un recurso nuevo', async () => {
+    render(
+      <AssetPickerModal
+        isOpen={true}
+        mode="background"
+        onSelectAsset={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Mi Biblioteca (0)')).toBeDefined();
+    });
+
+    await db.assets.put({
+      id: 'live-asset',
+      name: 'Mapa reactivo',
+      type: 'image',
+      dataUrl: 'data:image/png;base64,live',
+      createdAt: 400,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Mi Biblioteca (1)')).toBeDefined();
+    });
+  });
 });

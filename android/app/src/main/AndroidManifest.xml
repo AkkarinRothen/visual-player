@@ -35,6 +35,14 @@
                 <data android:scheme="https" android:host="visual-player.vercel.app" />
             </intent-filter>
 
+            <!-- Private scheme for direct Android-to-Android session links. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="visualplayer" />
+            </intent-filter>
+
         </activity>
 
         <provider

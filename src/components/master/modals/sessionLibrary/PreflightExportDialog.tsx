@@ -1,4 +1,5 @@
 import React from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import type { GameSession, ExportPreflightReport } from '../../../../types';
 import { Download, RefreshCw, ShieldCheck, AlertTriangle } from 'lucide-react';
 
@@ -22,11 +23,18 @@ export const PreflightExportDialog: React.FC<PreflightExportDialogProps> = ({
   onRetry,
 }) => {
   return (
-    <div className="session-dialog-overlay" role="dialog" aria-modal="true">
-      <div className="session-dialog session-preflight-dialog">
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="session-dialog-overlay" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="session-dialog session-preflight-dialog"
+        >
         <div className="session-dialog-header">
           <Download size={18} />
-          <h3>Diagnóstico de Exportación</h3>
+          <Dialog.Title>Diagnóstico de Exportación</Dialog.Title>
         </div>
         <p className="session-dialog-lead">
           Preparación: <strong>{session.name}</strong>
@@ -105,7 +113,8 @@ export const PreflightExportDialog: React.FC<PreflightExportDialogProps> = ({
             </div>
           </div>
         ) : null}
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

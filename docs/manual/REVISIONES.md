@@ -2,6 +2,535 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-06 — MAN-139: Preparación de sesión con Radix Dialog
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** **Lista para Jugar** usa `@radix-ui/react-dialog` para foco, título accesible y cierre con Escape. El toque fuera queda bloqueado mientras se revisan dependencias y acciones de reparación.
+- **Manual:** sin cambios obligatorios de uso; se mantienen las acciones para descargar recursos, seleccionar escena, corregir avatar, reparar diálogo y **Entendido**.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `SessionReadinessModal.tsx` y `npm run build` terminaron correctamente. El lint conserva avisos preexistentes del efecto que carga el informe. La interacción real de foco queda pendiente de comprobación visual en Android físico.
+- **Resultado:** checklist de preparación integrado al patrón accesible del overhaul.
+
+## 2026-09-06 — MAN-138: Sesión para otro grupo con Radix Dialog
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** **Jugar con otro grupo** usa `@radix-ui/react-dialog` para foco, título accesible y Escape como cancelación segura. El toque fuera queda bloqueado para proteger la configuración de la nueva línea de progreso.
+- **Manual:** sin cambios obligatorios de uso; se mantienen nombre del grupo, nombre de sesión, revelaciones, HP, condiciones y las acciones **Cancelar** y **Crear partida para nuevo grupo**.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `SessionActionDialogs.tsx` y `npm run build` terminaron correctamente. La interacción de foco queda pendiente de comprobación visual en Android físico.
+- **Resultado:** creación de sesiones independientes integrada al patrón accesible del overhaul.
+
+## 2026-09-06 — MAN-137: Continuidad de sesiones con Radix Dialog
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** **Preparar siguiente entrega** usa `@radix-ui/react-dialog` para foco, título accesible y Escape como cancelación segura. El toque fuera queda bloqueado mientras se configuran las opciones de continuidad.
+- **Manual:** sin cambios obligatorios de uso; se mantienen nombre de sesión, conservación de daño y condiciones, **Cancelar** y **Continuar historia**.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `SessionActionDialogs.tsx` y `npm run build` terminaron correctamente. La interacción de foco queda pendiente de comprobación visual en Android físico.
+- **Resultado:** preparación de la siguiente entrega integrada al patrón accesible del overhaul.
+
+## 2026-09-06 — MAN-136: Confirmaciones destructivas con Radix Dialog
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** **¿Eliminar sesión definitivamente?** y **¿Vaciar papelera?** usan `@radix-ui/react-dialog` para enfocar la decisión, anunciar el título y cancelar con Escape. El toque fuera queda bloqueado para evitar una acción ambigua.
+- **Manual:** sin cambios obligatorios de uso; se mantienen **Cancelar**, **Eliminar definitivamente** y **Vaciar papelera**.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `SessionActionDialogs.tsx` y `npm run build` terminaron correctamente. La interacción en Android físico queda pendiente de comprobación visual.
+- **Resultado:** confirmaciones destructivas integradas al patrón accesible del overhaul.
+
+## 2026-09-06 — MAN-135: Guardado de plantillas con Radix Dialog
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** **Guardar como plantilla** usa `@radix-ui/react-dialog` para foco, título semántico y cierre con Escape. El toque fuera queda bloqueado mientras se prepara el nombre.
+- **Manual:** sin cambios obligatorios de uso; se mantienen el campo **Nombre**, **Cancelar** y **Guardar plantilla**, incluida la validación de nombre vacío.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `SessionActionDialogs.tsx` y `npm run build` terminaron correctamente. La interacción de foco queda pendiente de comprobación visual en Android físico.
+- **Resultado:** guardado de plantillas integrado al patrón accesible de diálogos del overhaul.
+
+## 2026-09-06 — MAN-134: Duplicación de sesiones con Radix Dialog
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** **Duplicar preparación** usa `@radix-ui/react-dialog` para foco, título semántico y cierre con Escape. El toque fuera queda bloqueado para proteger las opciones de copia.
+- **Manual:** sin cambios obligatorios de uso; se mantienen nombre de copia, exclusión de progreso y condiciones, restauración de HP, y las acciones **Cancelar** y **Duplicar**.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `SessionActionDialogs.tsx` y `npm run build` terminaron correctamente. La interacción de foco queda pendiente de comprobación visual en Android físico.
+- **Resultado:** primera acción de sesión migrada al patrón accesible de diálogos del overhaul.
+
+## 2026-09-06 — MAN-133: Biblioteca de sesiones con Radix Dialog
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** la **Biblioteca de Sesiones** usa `@radix-ui/react-dialog` para foco, título accesible y cierre con Escape. El toque fuera queda bloqueado para proteger filtros y operaciones de sesión; los subdiálogos conservan sus propios ciclos de foco.
+- **Manual:** sin cambios obligatorios de uso; se mantienen pestañas, filtros, carga, duplicado, papelera, plantillas, checkpoints y auditoría.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `SessionLibraryModal.tsx` y `npm run build` terminaron correctamente. El lint conserva un aviso preexistente del efecto que sincroniza la carga de sesiones. La interacción anidada queda pendiente de comprobación visual en Android físico.
+- **Resultado:** biblioteca principal integrada al patrón de diálogos accesibles del overhaul.
+
+## 2026-09-06 — MAN-132: Puntos de recuperación con Radix Dialog
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** **Puntos de Recuperación** usa `@radix-ui/react-dialog` para foco, título accesible y cierre con Escape. El toque fuera queda bloqueado para no perder la selección durante la restauración.
+- **Manual:** sin cambios obligatorios de uso; se mantienen **Restaurar como copia** y **Cerrar**.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `SessionCheckpointsDialog.tsx` y `npm run build` terminaron correctamente. La interacción de foco queda pendiente de comprobación visual en Android físico.
+- **Resultado:** recuperación de sesiones integrada al patrón de diálogos accesibles del overhaul.
+
+## 2026-09-06 — MAN-131: Revisión de importación con Radix Dialog
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** **Inspección de Importación** usa `@radix-ui/react-dialog` para foco y título semántico. Escape y toque fuera quedan bloqueados mientras se importa para proteger el flujo en curso.
+- **Manual:** sin cambios obligatorios de uso; se mantienen **Cancelar**, **Importar como copia independiente (Recomendado)** y los estados de importación.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `DiffReviewDialog.tsx` y `npm run build` terminaron correctamente. La interacción con una importación activa queda pendiente de comprobación visual en Android físico.
+- **Resultado:** revisión previa a la importación integrada al patrón accesible del overhaul.
+
+## 2026-09-06 — MAN-130: Preflight de exportación con Radix Dialog
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** el **Diagnóstico de Exportación** usa `@radix-ui/react-dialog` para foco, título semántico y cierre con Escape. El toque fuera sigue bloqueado mientras se comprueban dependencias y recursos.
+- **Manual:** sin cambios obligatorios de uso; se mantienen **Cancelar**, **Descargar Paquete Completo**, **Reintentar descarga** y **Exportar con aviso**.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `PreflightExportDialog.tsx` y `npm run build` terminaron correctamente. La interacción de foco durante una exportación queda pendiente de comprobación visual en Android físico.
+- **Resultado:** preflight de exportación integrado al patrón de diálogos accesibles del overhaul.
+
+## 2026-09-06 — MAN-129: Floating UI en el Modo Partida
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** el menú del **Modo Partida** usa Floating UI con `offset`, `flip`, `shift`, dismiss y focus manager. Su posición se recalcula para permanecer visible cerca del botón, incluso en pantallas estrechas.
+- **Manual:** sin cambios obligatorios de uso; se mantienen **Pantalla activa**, **Pantalla completa**, **Ocultar controles**, **Mostrar controles** y **Salir del Modo Partida**.
+- **Evidencia técnica:** `npx tsc -b` y `npm run build` terminaron correctamente. El lint enfocado conserva una advertencia del analizador sobre `refs.setReference`, patrón requerido por Floating UI. La posición real en distintos tamaños Android queda pendiente de comprobación visual.
+- **Resultado:** menú contextual del Modo Partida integrado con posicionamiento robusto y foco accesible.
+
+## 2026-09-06 — MAN-128: Submodales del compositor con Radix Dialog
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** los submodales **Agregar Objeto de Escenario**, **Guardar Composición** y **Cargar Composición Guardada** usan `@radix-ui/react-dialog` con títulos accesibles, foco y Escape. El toque fuera queda bloqueado para evitar perder formularios o cambios.
+- **Manual:** sin cambios obligatorios de uso; se mantienen selección de assets, anclaje, guardado y aplicación de composiciones.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `CompositorModals.tsx` y `npm run build` terminaron correctamente. La interacción anidada con el canvas queda pendiente de comprobación visual en Android físico.
+- **Resultado:** los diálogos secundarios del compositor quedan alineados con el patrón accesible del overhaul.
+
+## 2026-09-06 — MAN-127: Compositor de escena con diálogo accesible
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** el **Compositor de Escena** usa `@radix-ui/react-dialog` para foco, título accesible, cierre con Escape y protección ante toques fuera. Se conservan los subpaneles de props, presets y selección de assets.
+- **Manual:** sin cambios obligatorios de uso; se mantienen edición de personajes, objetos, fondo, plantilla, cuadrícula, vista previa y guardado.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `SceneCompositorModal.tsx` y `npm run build` terminaron correctamente. La interacción del canvas táctil queda pendiente de comprobación visual en Android físico.
+- **Resultado:** compositor principal integrado al patrón de diálogos accesibles del overhaul.
+
+## 2026-09-06 — MAN-126: Auditoría de almacenamiento con diálogo accesible
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** **Auditoría de Almacenamiento & Recursos** usa `@radix-ui/react-dialog` para foco, título accesible y cierre con Escape. El toque fuera conserva el comportamiento anterior de cierre.
+- **Manual:** sin cambios obligatorios de uso; se mantienen **Actualizar**, **Liberar Espacio** y **Cerrar**.
+- **Evidencia técnica:** `npx tsc -b` y `npm run build` terminaron correctamente. El lint enfocado conserva un aviso preexistente por actualización de estado dentro del efecto de carga. La interacción real de foco queda pendiente de comprobación visual en Android físico.
+- **Resultado:** auditoría y limpieza de almacenamiento integradas al patrón de diálogos accesibles del overhaul.
+
+## 2026-09-06 — MAN-125: Presets de iluminación con diálogo accesible
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** **Presets de Iluminación y Luces de Escena** usa `@radix-ui/react-dialog` para foco, título accesible y cierre con Escape. El toque fuera no descarta cambios de iluminación.
+- **Manual:** sin cambios obligatorios de uso; se mantienen selección de preset, combinación o reemplazo de luces y guardado de la iluminación actual.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `LightingPresetsModal.tsx` y `npm run build` terminaron correctamente. La interacción de foco queda pendiente de comprobación visual en Android físico.
+- **Resultado:** presets de iluminación integrados al patrón de diálogos accesibles del overhaul.
+
+## 2026-09-06 — MAN-124: Packs de recursos con diálogo accesible
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** **Packs de Recursos Visuales** usa `@radix-ui/react-dialog` para foco, título accesible y cierre con Escape. El toque fuera queda bloqueado para evitar interrumpir instalaciones, vistas previas o cargas de archivos.
+- **Manual:** sin cambios obligatorios de uso; se mantienen instalación, arrastrar y soltar, vista previa, desinstalación y botón **Listo**.
+- **Evidencia técnica:** `npx tsc -b` y `npm run build` terminaron correctamente. El lint enfocado conserva avisos preexistentes sobre el efecto de carga de packs y la referencia de `loadPacks`. La interacción táctil queda pendiente de comprobación visual en Android físico.
+- **Resultado:** biblioteca de packs integrada al patrón de diálogos accesibles del overhaul.
+
+## 2026-09-06 — MAN-123: Exportador de crónica con diálogo accesible
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** el **Exportador de Crónica y Diario de Sesión** usa `@radix-ui/react-dialog` para gestionar foco, título accesible y cierre con Escape. El toque fuera no descarta el borrador preparado.
+- **Manual:** sin cambios obligatorios de uso; se mantienen edición, vista previa, copia, impresión/PDF, compartir y descarga Markdown.
+- **Evidencia técnica:** `npx tsc -b` y `npm run build` terminaron correctamente. El lint enfocado solo conserva un aviso preexistente por un parámetro de error no utilizado en el fallback de compartir. La interacción de foco queda pendiente de comprobación visual en Android físico.
+- **Resultado:** exportación de crónica integrada al patrón de diálogos accesibles del overhaul.
+
+## 2026-09-06 — MAN-122: Soundboard con diálogo accesible
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** el **Soundboard: Matriz Rápida de SFX** usa `@radix-ui/react-dialog` para foco, título accesible y cierre con Escape. El toque fuera no interrumpe accidentalmente la sesión de efectos.
+- **Manual:** sin cambios obligatorios de uso; se mantienen filtros, **Ensayo Activo (Local)**, **Modo Mesa (Público)** y **Detener SFX**.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `SoundboardModal.tsx` y `npm run build` terminaron correctamente. La interacción táctil y de foco queda pendiente de comprobación visual en Android físico.
+- **Resultado:** matriz de efectos integrada al patrón de diálogos accesibles del overhaul.
+
+## 2026-09-06 — MAN-121: Visor de handouts con diálogo accesible
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** el **Visor de Handout** usa `@radix-ui/react-dialog` para gestionar foco, título accesible y cierre con Escape. El toque fuera sigue sin cerrar el visor para proteger ediciones y revelados en curso.
+- **Manual:** sin cambios obligatorios de uso; se mantienen páginas, herramientas táctiles, zoom, niebla, publicación y cierre.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `HandoutViewerModal.tsx` y `npm run build` terminaron correctamente. La interacción de foco con el lienzo táctil queda pendiente de comprobación visual en Android físico.
+- **Resultado:** visor y editor de handouts integrado al patrón de diálogos accesibles del overhaul.
+
+## 2026-09-06 — MAN-120: Selector de banda sonora con diálogo accesible
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** el **Selector de Banda Sonora por Bioma y Situación** usa `@radix-ui/react-dialog` para foco y cierre con Escape. El toque fuera no descarta cambios ni detiene accidentalmente el ensayo local; al cerrar el diálogo se detiene la reproducción privada.
+- **Manual:** sin cambios obligatorios de uso; se mantienen la selección de bioma y situación, **Probar en Auriculares**, **Guardar en Campaña** y **Proyectar Tono a la Mesa**.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `BiomeSoundtrackModal.tsx` y `npm run build` terminaron correctamente. La interacción de foco y reproducción queda pendiente de comprobación visual en Android físico.
+- **Resultado:** configuración de audio integrada al patrón de diálogos accesibles del overhaul.
+
+## 2026-09-06 — MAN-119: Editor de conversaciones con diálogo accesible
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** el editor de conversaciones usa `@radix-ui/react-dialog` para gestionar foco, Escape y semántica del panel. Se mantienen el modo ensayo, deshacer, rehacer, guardado y cierre explícito; tocar fuera no descarta cambios.
+- **Manual:** sin cambios obligatorios de uso; los controles del editor conservan sus nombres y ubicación.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `ConversationEditorModal.tsx` y `npm run build` terminaron correctamente. La interacción de foco con el formulario queda pendiente de comprobación visual en Android físico.
+- **Resultado:** editor de conversaciones integrado al patrón de diálogos accesibles del overhaul.
+
+## 2026-09-06 — MAN-118: Diálogo accesible de diagnóstico
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos, lint enfocado y build de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** **Diagnóstico de Conexión y Sincronización** usa `@radix-ui/react-dialog` para gestionar foco, cierre con Escape y etiquetas accesibles. El toque fuera del panel sigue sin cerrar el diagnóstico para evitar perder accidentalmente herramientas de soporte.
+- **Manual:** sin cambios obligatorios de uso; se mantienen los controles **Cerrar**, **Copiar Diagnóstico**, **Aviso en segundo plano** y las acciones de resincronización.
+- **Evidencia técnica:** `npx tsc -b`, lint enfocado de `ConnectionDiagnosticModal.tsx` y `npm run build` terminaron correctamente. La interacción de foco y Escape queda pendiente de comprobación visual en Android físico.
+- **Resultado:** el modal de diagnóstico queda integrado con el patrón de diálogo accesible del overhaul.
+
+## 2026-09-06 — MAN-108: Avisos de conectividad del dispositivo
+
+- **Walkthrough y entorno:** revisión de código, build de producción y pruebas enfocadas. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** el Director escucha los cambios de conectividad de la plataforma mediante el puente de red existente y muestra un aviso breve cuando vuelve Internet o se pierde. El aviso aclara que la conexión local de la Mesa puede continuar si Nearby sigue disponible.
+- **Manual:** sin cambios obligatorios de uso; los avisos son automáticos y no modifican los controles de la sesión.
+- **Evidencia técnica:** `npx vitest run src/platform/platform.test.ts src/services/clipboardService.test.ts` aprobó 7/7 pruebas, `npm run build` terminó correctamente y `npx cap sync android` encontró los 15 plugins nativos; `npm run android:verify` confirmó 13 assets web. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** feedback de conectividad integrado en el flujo del Director, separado del estado de conexión de la Mesa.
+
+## 2026-09-06 — MAN-109: Biblioteca de recursos reactiva
+
+- **Walkthrough y entorno:** revisión de código, build de producción y pruebas enfocadas. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** el selector de recursos usa `dexie-react-hooks` y `useLiveQuery` para observar IndexedDB. La pestaña **Mi Biblioteca** refleja automáticamente imágenes, videos y packs instalados sin recargar manualmente la ventana.
+- **Manual:** sin cambios obligatorios de uso; la Biblioteca conserva sus filtros, búsqueda y selección. La actualización ocurre automáticamente.
+- **Evidencia técnica:** `AssetPickerModal.test.tsx` y `resourcePackService.test.ts` aprobaron 12/12 pruebas, `npm run build` terminó correctamente y el lint no mostró errores. Persisten avisos preexistentes de estado dentro de efectos en el selector. La validación física de instalación de packs y actualización en Android queda pendiente.
+- **Resultado:** biblioteca local reactiva integrada, con menor estado duplicado y mejor respuesta para preparación offline.
+
+## 2026-09-06 — MAN-110: Apertura tipada de ajustes Android
+
+- **Walkthrough y entorno:** revisión de código, build de producción y pruebas enfocadas. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** el botón **Abrir Ajustes** de permisos de conexión local usa `@capacitor/app-launcher` para abrir el esquema de ajustes del dispositivo. Si Android rechaza la apertura, aparece un aviso con una alternativa manual.
+- **Manual:** sin cambios obligatorios de uso; el botón mantiene su nombre y propósito.
+- **Evidencia técnica:** `npx tsc -b` y `npm run build` terminaron correctamente; `npx cap sync android` encontró 16 plugins nativos y `npm run android:verify` confirmó 13 assets web. El lint enfocado no mostró errores nuevos. La apertura real de `app-settings:` queda pendiente de validación en Android físico.
+- **Resultado:** integración nativa tipada y feedback de error incorporados al flujo de permisos.
+
+## 2026-09-06 — MAN-111: Enlaces de sesión en caliente
+
+- **Walkthrough y entorno:** revisión de código, build de producción y pruebas enfocadas. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** `@capacitor/app` escucha `appUrlOpen` para aceptar enlaces con `join` y `secret` cuando Visual Player ya está abierta o vuelve desde segundo plano. El enlace lleva directamente al rol **Director** con el código de sala recibido.
+- **Manual:** sin cambios obligatorios de uso; los enlaces de unión conservan su formato y el comportamiento adicional es automático.
+- **Evidencia técnica:** `appLinkService.test.ts`, `src/platform/platform.test.ts` y `AssetPickerModal.test.tsx` aprobaron 14/14 pruebas, `npx tsc -b` y `npm run build` terminaron correctamente. La recepción real de enlaces desde Android y su ciclo con la app suspendida quedan pendientes.
+- **Resultado:** continuidad de navegación integrada para enlaces/QR de sesión recibidos durante la ejecución.
+
+## 2026-09-06 — MAN-112: Avisos nativos de desconexión en segundo plano
+
+- **Walkthrough y entorno:** revisión de código, build de producción y pruebas enfocadas. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** `@capacitor/local-notifications` permite activar desde **Diagnóstico de Conexión y Sincronización → Aviso en segundo plano** un aviso cuando la Mesa se desconecta con el Director minimizado. La preferencia se conserva con `@capacitor/preferences` y el aviso se cancela al recuperar la conexión.
+- **Manual:** agregar el control **Aviso en segundo plano** al apartado de diagnóstico, explicando que es opcional y requiere permiso de notificaciones de Android.
+- **Evidencia técnica:** `sessionNotificationService.test.ts` y `platform.test.ts` aprobaron 9/9 pruebas, `npx tsc -b` y `npm run build` terminaron correctamente, y `npx cap sync android` encontró 17 plugins nativos; `npm run android:verify` confirmó 13 assets web. La autorización, recepción en segundo plano y cancelación real quedan pendientes de validación física.
+- **Resultado:** notificaciones nativas opt-in integradas para mejorar la continuidad de sesiones Android.
+
+## 2026-09-06 — MAN-113: Recuperación del modo Pantalla al reanudar
+
+- **Walkthrough y entorno:** revisión de código, build de producción y pruebas enfocadas. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** la Pantalla escucha `appStateChange` mediante `@capacitor/app`. Al volver del segundo plano reaplica paisaje, modo inmersivo y pantalla activa; al pausarse libera la vigilia para evitar consumo innecesario.
+- **Manual:** sin cambios obligatorios de uso; el modo de proyección se recupera automáticamente.
+- **Evidencia técnica:** `npx vitest run src/platform/platform.test.ts src/services/sessionNotificationService.test.ts` aprobó 9/9 pruebas, `npx tsc -b` y `npm run build` terminaron correctamente. La reanudación real en tablets, TV y proyectores Android queda pendiente de validación física.
+- **Resultado:** ciclo de vida de la Pantalla integrado con la configuración visual nativa.
+
+## 2026-09-06 — MAN-114: Esquema nativo para enlaces de sesión
+
+- **Walkthrough y entorno:** revisión de configuración Android, build de producción y pruebas enfocadas. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** `AndroidManifest.xml` declara el esquema `visualplayer:` además de los dominios HTTPS existentes. Android puede entregar enlaces nativos de sesión al listener `appUrlOpen` sin depender de conexión o verificación de dominio.
+- **Manual:** sin cambios obligatorios de uso; los enlaces HTTPS y el QR mantienen su formato actual. El esquema nativo queda disponible para integraciones Android futuras.
+- **Evidencia técnica:** `appLinkService.test.ts` y `platform.test.ts` aprobaron 9/9 pruebas, `npm run build` terminó correctamente, `npx cap sync android` verificó 13 assets web y `:app:processProdDebugMainManifest` terminó con `BUILD SUCCESSFUL`. La apertura real desde otra app Android queda pendiente de validación física.
+- **Resultado:** soporte de deep links nativos ampliado para el emparejamiento entre dispositivos.
+
+## 2026-09-06 — MAN-115: Compartir acceso de sala desde el QR
+
+- **Walkthrough y entorno:** revisión de código, build de producción y pruebas enfocadas. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** el modal **Emparejar Dispositivos** incorpora **Compartir enlace** y usa `@capacitor/share` para abrir la hoja nativa con el código y URL de la sala. En navegador conserva fallback de copia mediante el servicio de portapapeles.
+- **Manual:** se añadió la acción **Compartir enlace** al apartado de preparación de dispositivos.
+- **Evidencia técnica:** `appLinkService.test.ts`, `clipboardService.test.ts` y `platform.test.ts` aprobaron 10/10 pruebas, `npm run build` terminó correctamente, `npx cap sync android` encontró 17 plugins nativos y `npm run android:verify` confirmó 13 assets web. La hoja nativa y la cancelación real quedan pendientes de validación física.
+- **Resultado:** acceso a salas compartible desde Android sin alterar el QR ni el botón **Reconectar Ahora**.
+
+## 2026-09-06 — MAN-116: Navegación Atrás unificada en el Taller
+
+- **Walkthrough y entorno:** revisión de código, build de producción y pruebas enfocadas. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** el Taller usa el puente de plataforma para procesar Atrás, igual que Director y Pantalla. Cierra primero el compositor, selector de personajes, selector de assets, packs o campaña nueva; solo después vuelve al inicio.
+- **Manual:** sin cambios obligatorios de uso; se conserva el orden seguro del botón Atrás.
+- **Evidencia técnica:** `backButtonStack.test.ts` y `platform.test.ts` aprobaron 9/9 pruebas, `npx tsc -b` y `npm run build` terminaron correctamente. La comprobación del gesto/botón Atrás en Android físico queda pendiente.
+- **Resultado:** navegación de salida consistente entre las tres áreas principales.
+
+## 2026-09-06 — MAN-117: Diálogo accesible de verificación Nearby
+
+- **Walkthrough y entorno:** revisión de código, build de producción y pruebas enfocadas. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:** `NearbyAuthChallenge` usa `@radix-ui/react-dialog` para administrar foco, título y descripción semánticos. La verificación sigue bloqueando el toque exterior y Escape hasta aprobar o rechazar explícitamente.
+- **Manual:** sin cambios obligatorios de uso; las acciones **Aprobar** y **Rechazar** mantienen su ubicación y comportamiento.
+- **Evidencia técnica:** `platform.test.ts`, `pairingEngine.test.ts` y `appLinkService.test.ts` aprobaron 14/14 pruebas, `npx tsc -b` y `npm run build` terminaron correctamente. La interacción con TalkBack y teclado físico queda pendiente de validación Android.
+- **Resultado:** autenticación Nearby con foco y semántica accesibles integrada al overhaul visual.
+
+## 2026-09-06 — MAN-094: Compartir respaldos y diagnósticos desde Android
+
+- **Walkthrough y entorno:** revisión de código, prueba enfocada del gestor de respaldos y compilación web de producción. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:**
+  1. **Respaldos (`useBackupManager.ts`):** en una instalación nativa de Android, el respaldo `.vpbackup` se escribe temporalmente en el almacenamiento de caché y se abre mediante la hoja nativa de compartir con `@capacitor/share` y `@capacitor/filesystem`.
+  2. **Diagnósticos (`offlineDiagnosticService.ts`):** la exportación usa el módulo instalado de Capacitor Share, eliminando el import dinámico de compatibilidad.
+  3. **Fallbacks:** si la hoja nativa no está disponible, se conserva Web Share cuando el navegador lo soporta y luego la descarga directa del archivo.
+- **Manual:** sin cambios de uso obligatorio; el botón de exportación conserva su nombre y propósito. El comportamiento nativo de Android queda respaldado en código, pendiente de confirmación visual en dispositivo.
+- **Evidencia técnica:** `BackupManagerModal.test.tsx` 4/4 aprobados, `npm run build` exitoso y lint enfocado sin errores. Persisten advertencias conocidas de chunks grandes, de importación dinámica inefectiva en `demoData.ts` y del efecto que carga estadísticas.
+- **Resultado:** integración nativa de compartir respaldos y diagnósticos completada; queda pendiente el recorrido físico Android para validar la hoja de compartir y la URI del archivo.
+
+## 2026-09-06 — MAN-095: Adaptación al teclado virtual Android
+
+- **Walkthrough y entorno:** revisión de código, build de producción y pruebas enfocadas de biblioteca y sesión. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:**
+  1. **Proveedor visual (`VisualProviders.tsx`):** se incorporó `@capacitor/keyboard` para escuchar la apertura y el cierre del teclado virtual en la aplicación nativa.
+  2. **Navegación móvil:** mientras se edita un campo, la barra inferior se oculta y libera el área de escritura; al cerrar el teclado vuelve a estar disponible.
+  3. **Layout:** la altura reportada por Android queda disponible en `--keyboard-height` para que futuros paneles puedan ajustar su posición sin cálculos duplicados.
+- **Manual:** sin cambios obligatorios de uso; los campos y la navegación conservan sus nombres y acciones. La adaptación ocurre automáticamente en Android.
+- **Evidencia técnica:** `AssetPickerModal.test.tsx` y `SessionPanel.test.tsx` 16/16 aprobados, `npm run build` exitoso y lint enfocado sin errores. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** integración del teclado virtual completada en la capa visual; queda pendiente validación física con distintos teclados y orientaciones Android.
+
+## 2026-09-06 — MAN-096: Preferencias nativas del Taller
+
+- **Walkthrough y entorno:** revisión de código, build de producción y pruebas enfocadas del Taller y la sesión. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:**
+  1. **Taller (`WorkshopView.tsx`):** se incorporó `@capacitor/preferences` para recordar la última pestaña usada entre aperturas de la app nativa.
+  2. **Pestañas:** la selección de **Escenas**, **Personajes** o **Assets** se guarda después de tocarla y se recupera al volver al Taller.
+  3. **Compatibilidad web:** en navegador se mantiene la misma preferencia mediante `localStorage`; solo se cambia el mecanismo de persistencia nativo.
+- **Manual:** sin cambios obligatorios de uso; la ubicación y los nombres de las pestañas no cambian. La recuperación de la última pestaña es automática.
+- **Evidencia técnica:** `TransferSceneModal.test.tsx` y `SessionPanel.test.tsx` 15/15 aprobados, `npm run build` exitoso, lint enfocado sin errores y sincronización Android con 9 plugins verificada. Persisten advertencias conocidas de chunks grandes, importación dinámica inefectiva en `demoData.ts` y `setState` dentro del efecto responsive del Taller.
+- **Resultado:** preferencias nativas integradas para continuidad del flujo de preparación; queda pendiente validar persistencia cerrando y reabriendo la app en Android físico.
+
+## 2026-09-06 — MAN-097: Portapapeles nativo para acciones de copia
+
+- **Walkthrough y entorno:** revisión de código, prueba unitaria del servicio, build de producción y sincronización Android. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:**
+  1. **Portapapeles (`clipboardService.ts`):** se incorporó `@capacitor/clipboard` para copiar texto desde Android y se mantuvo fallback para la API del navegador y el método compatible del DOM.
+  2. **Acciones conectadas:** diagnóstico de conexión, crónica de sesión, resumen de conocimientos para jugadores y recompensas de combate usan ahora el mismo servicio.
+  3. **Feedback existente:** los mensajes de copia y confirmaciones conservan sus textos y estados actuales.
+- **Manual:** sin cambios obligatorios de uso; los botones **Copiar**, **Copiar Diagnóstico**, **Copiar Texto** y **Copiar Resumen para Jugadores** mantienen su acceso y resultado esperado.
+- **Evidencia técnica:** `clipboardService.test.ts` y `SessionPanel.test.tsx` 13/13 aprobados, `npm run build` exitoso, Capacitor sincronizado con 10 plugins. El lint enfocado mantiene errores previos de hooks condicionales en `SessionChronicleExportModal.tsx` y advertencias preexistentes.
+- **Resultado:** copia multiplataforma centralizada e integrada; queda pendiente verificar el portapapeles nativo en Android físico.
+
+## 2026-09-06 — MAN-098: Identificación del dispositivo en diagnósticos
+
+- **Walkthrough y entorno:** revisión de código, build de producción, lint enfocado y pruebas de sesión. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:**
+  1. **Diagnóstico de conexión (`ConnectionDiagnosticModal.tsx`):** se incorporó `@capacitor/device` para consultar modelo, fabricante, plataforma y versión del sistema local.
+  2. **Reporte copiable:** el bloque **DISPOSITIVO LOCAL** se incluye en el diagnóstico exportado sin identificadores persistentes ni datos privados.
+  3. **Compatibilidad:** si el plugin no entrega información, el panel conserva valores de consulta y no bloquea las pruebas de red ni resincronización.
+- **Manual:** sin cambios obligatorios de uso; el diagnóstico conserva sus botones y acciones. La información del dispositivo aparece automáticamente como apoyo técnico.
+- **Evidencia técnica:** `SessionPanel.test.tsx` 12/12 aprobados, `npm run build` exitoso, lint de `ConnectionDiagnosticModal.tsx` sin errores. Persisten advertencias de chunks grandes y de importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** diagnóstico local más útil para soporte entre teléfonos, tablets y pantallas; queda pendiente comprobar los datos reales en dispositivos Android físicos.
+
+## 2026-09-06 — MAN-099: Previsualización nativa de enlaces externos
+
+- **Walkthrough y entorno:** revisión de código, build de producción, lint enfocado, pruebas del selector de recursos y del portapapeles, y sincronización Android. No se realizó comprobación visual en un dispositivo Android ni recorrido completo con mesa conectada.
+- **Funciones y componentes afectados:**
+  1. **Selector de recursos (`AssetPickerUrlTab.tsx`):** se agregó el botón opcional **Previsualizar** junto a **Usar Enlace**.
+  2. **Navegador nativo (`AssetPickerModal.tsx`):** en Android, los enlaces `http/https` se abren mediante `@capacitor/browser`; en navegador web se abre una pestaña nueva.
+  3. **Validación:** protocolos no web o URLs inválidas no activan la previsualización; el guardado del enlace mantiene el flujo existente.
+- **Manual:** se agrega una acción opcional: en la pestaña **URL**, ingresá un enlace web y tocá **Previsualizar** para revisarlo antes de tocar **Usar Enlace**.
+- **Evidencia técnica:** `AssetPickerModal.test.tsx` y `clipboardService.test.ts` 5/5 aprobados, `npm run build` exitoso, Capacitor sincronizado con 12 plugins. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** enlaces externos previsualizables con una experiencia integrada en Android; queda pendiente validar la apertura real en dispositivo físico.
+
+## 2026-09-06 — MAN-100: Splash screen controlado en Android
+
+- **Walkthrough y entorno:** revisión de código y configuración, build de producción, lint enfocado, pruebas de sesión y selector de recursos, y sincronización Android. No se realizó comprobación visual del arranque en un dispositivo físico.
+- **Funciones y componentes afectados:**
+  1. **Arranque (`App.tsx`):** se incorporó `@capacitor/splash-screen` para cerrar el splash nativo después de montar el árbol principal de React.
+  2. **Configuración (`capacitor.config.ts`):** se desactivó el cierre automático, se mantuvo el fondo `#090a0f` y se desactivó el spinner para conservar una entrada limpia.
+  3. **Compatibilidad:** en navegador no se ejecuta ninguna llamada nativa y se conserva el loading web de `Suspense`.
+- **Manual:** sin cambios de uso; el splash es una transición automática durante el arranque.
+- **Evidencia técnica:** `SessionPanel.test.tsx` y `AssetPickerModal.test.tsx` 16/16 aprobados, `npm run build` exitoso, lint de `App.tsx` sin errores y Capacitor sincronizado con 13 plugins. Persisten warnings conocidos de chunks grandes y del import dinámico inefectivo de `demoData.ts`.
+- **Resultado:** inicio de Android sincronizado con la identidad visual y transición suave; queda pendiente verificar el fade real en distintos tamaños de pantalla.
+
+## 2026-09-06 — MAN-101: Barra de estado adaptada al rol
+
+- **Walkthrough y entorno:** revisión de código, build de producción, lint enfocado, pruebas de sesión y selector de recursos, y sincronización Android. No se realizó comprobación visual en un dispositivo físico.
+- **Funciones y componentes afectados:**
+  1. **Pantalla de Escena (`App.tsx`):** el rol `display` oculta la barra de estado para conservar una presentación inmersiva durante la partida.
+  2. **Director y Taller:** los roles `master`, `workshop` y `lobby` restauran la barra, el fondo oscuro y el contraste de texto legible.
+  3. **Compatibilidad:** las llamadas se ejecutan solo en plataformas nativas y absorben errores de WebView o versiones Android sin interrumpir la navegación.
+- **Manual:** sin cambios de uso; la barra se adapta automáticamente al rol elegido.
+- **Evidencia técnica:** `SessionPanel.test.tsx` y `AssetPickerModal.test.tsx` 16/16 aprobados, `npm run build` exitoso, lint de `App.tsx` sin errores y Capacitor sincronizado con 13 plugins. Persisten warnings conocidos de chunks grandes e importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** presentación inmersiva para la Mesa y controles del sistema legibles para el Director; queda pendiente validar las transiciones en hardware Android real.
+
+## 2026-09-06 — MAN-102: Escaneo QR con cámara nativa
+
+- **Walkthrough y entorno:** revisión de código, build de producción, lint enfocado, pruebas de QR/selector de recursos y sincronización Android. No se realizó comprobación visual ni prueba de permisos en un dispositivo físico.
+- **Funciones y componentes afectados:**
+  1. **Lobby (`Lobby.tsx`):** se incorporó `@capacitor/camera` para que Android pueda tomar una foto del código QR usando la cámara del sistema.
+  2. **Decodificación:** la imagen capturada se convierte en un archivo temporal y se procesa con el mismo `html5-qrcode` que interpreta códigos con `join`, hash o PIN directo.
+  3. **Fallbacks:** web mantiene el escáner en vivo; si la captura nativa falla o no encuentra un QR, se ofrecen reintento, foto de galería o ingreso manual.
+- **Manual:** el botón **Activar Cámara y Escanear** conserva su nombre y objetivo; en Android puede abrir la cámara del sistema antes de validar el código.
+- **Evidencia técnica:** suites enfocadas de `qolExperience` y `AssetPickerModal` 7/7 aprobadas, `npm run build` exitoso, lint sin errores nuevos y Capacitor sincronizado con 14 plugins. Persisten advertencias del efecto de recuperación del Lobby, chunks grandes e importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** flujo QR con ruta nativa Android integrado; queda pendiente validar permisos, cancelación y lectura real en hardware.
+
+## 2026-09-06 — MAN-103: Tipografías locales para experiencia offline
+
+- **Walkthrough y entorno:** revisión de código, build de producción, lint enfocado, pruebas de sesión y selector de recursos, y sincronización Android. No se realizó comprobación visual en dispositivo físico ni validación con caché limpia sin conexión.
+- **Funciones y componentes afectados:**
+  1. **Tipografía:** se incorporaron `@fontsource/outfit` y `@fontsource/cinzel` con los pesos usados por la interfaz.
+  2. **Carga local:** `src/index.css` empaqueta las fuentes y `index.html` deja de depender de Google Fonts remoto.
+  3. **Identidad visual:** títulos, controles y textos mantienen Outfit/Cinzel durante el arranque y en sesiones sin Internet.
+- **Manual:** sin cambios de uso; la mejora es automática y no agrega controles.
+- **Evidencia técnica:** `SessionPanel.test.tsx` y `AssetPickerModal.test.tsx` 16/16 aprobados, `npm run build` exitoso, lint de `VisualProviders.tsx` sin errores y Capacitor sincronizado con 14 plugins. Persisten warnings conocidos de chunks grandes e importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** tipografía consistente y disponible offline; queda pendiente comprobar visualmente la carga en APK con caché vacía.
+
+## 2026-09-06 — MAN-104: PWA y precache del shell web
+
+- **Walkthrough y entorno:** revisión de configuración, build de producción, lint enfocado, pruebas de sesión y servicios offline, y sincronización Android. No se realizó recorrido visual con caché limpia ni prueba de desconexión real en navegador.
+- **Funciones y componentes afectados:**
+  1. **Build web (`vite.config.ts`):** se incorporó `vite-plugin-pwa` con Workbox para generar un service worker de producción.
+  2. **Precache:** el shell, JavaScript, CSS, iconos, imágenes y fuentes locales quedan precacheados para reabrir la interfaz sin red después de la primera carga.
+  3. **Separación nativa:** `src/main.tsx` registra el service worker solo fuera de Capacitor; Android conserva su arranque y assets gestionados por Capacitor.
+- **Manual:** sin cambios obligatorios de uso; en web la app puede continuar disponible sin conexión después de haber cargado el build al menos una vez.
+- **Evidencia técnica:** `SessionPanel.test.tsx` y `campaignOfflineService.test.ts` 15/15 aprobados, `npm run build` exitoso con 62 recursos precacheados, lint de `main.tsx` y `vite.config.ts` sin errores. Persisten warnings conocidos de chunks grandes e importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** shell web instalable y resistente a cortes de conexión; queda pendiente verificar actualización de caché y recarga offline en navegador real.
+
+## 2026-09-06 — MAN-105: Pantalla de mesa siempre activa
+
+- **Walkthrough y entorno:** revisión de código, build de producción, lint enfocado, pruebas de sesión y pantalla, y sincronización Android. No se realizó una partida prolongada en dispositivo físico para medir suspensión o consumo.
+- **Funciones y componentes afectados:**
+  1. **Rol `display` (`App.tsx`):** se incorporó `@capacitor-community/keep-awake` para impedir que la tablet se bloquee o apague la pantalla durante la visualización de la Mesa.
+  2. **Liberación automática:** al volver a `lobby`, `master` o `workshop`, se permite nuevamente la suspensión normal del dispositivo.
+  3. **Compatibilidad:** el plugin solo se invoca en plataformas nativas y los fallos se absorben sin interrumpir la partida.
+- **Manual:** sin cambios de uso; la pantalla permanece activa automáticamente mientras se usa como display.
+- **Evidencia técnica:** `SessionPanel.test.tsx` y `PlayerDisplay.test.tsx` 12/12 aprobados, `npm run build` exitoso, lint de `App.tsx` sin errores y Capacitor sincronizado con 15 plugins. Persisten warnings conocidos de chunks grandes e importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** mejor continuidad para partidas con tablet como pantalla de jugadores; queda pendiente validar consumo y comportamiento al salir de la app en hardware real.
+
+## 2026-09-06 — MAN-106: Ciclo de vida de pantalla activa
+
+- **Walkthrough y entorno:** revisión de código, build de producción, lint enfocado, pruebas de sesión y pantalla, y sincronización Android. No se realizó una partida prolongada en dispositivo físico.
+- **Funciones y componentes afectados:**
+  1. **Segundo plano (`App.tsx`):** se conectó `@capacitor/app` con el keep-awake para detectar cuándo la aplicación deja de estar activa.
+  2. **Ahorro de batería:** al salir de la app se libera el bloqueo de pantalla; al volver al rol `display` se reactiva automáticamente.
+  3. **Otros roles:** `lobby`, `master` y `workshop` permiten suspensión normal en todo momento.
+- **Manual:** sin cambios de uso; la administración de energía ocurre automáticamente.
+- **Evidencia técnica:** `SessionPanel.test.tsx` y `PlayerDisplay.test.tsx` 12/12 aprobados, `npm run build` exitoso, lint de `App.tsx` sin errores y Capacitor sincronizado con 15 plugins. Persisten warnings conocidos de chunks grandes e importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** pantalla activa con liberación responsable al pasar a segundo plano; queda pendiente validar batería y reanudación en hardware Android real.
+
+## 2026-09-06 — MAN-107: Actualizaciones PWA con aviso al usuario
+
+- **Walkthrough y entorno:** revisión de código y configuración PWA, build de producción, lint enfocado, pruebas de sesión y servicios offline, y sincronización Android. No se realizó comprobación visual con dos versiones desplegadas ni recarga offline en navegador real.
+- **Funciones y componentes afectados:**
+  1. **Registro PWA (`main.tsx`):** `vite-plugin-pwa` registra el service worker solo en web y escucha los estados de precache y actualización.
+  2. **Feedback:** Sonner confirma que Visual Player quedó disponible offline y ofrece **Actualizar** cuando hay una nueva versión lista.
+  3. **Continuidad:** el usuario puede decidir cuándo recargar, evitando interrumpir una escena o una sesión activa.
+- **Manual:** se agrega la acción opcional **Actualizar** cuando aparece el aviso de nueva versión; puede tocarse al terminar la escena actual.
+- **Evidencia técnica:** `SessionPanel.test.tsx` y `campaignOfflineService.test.ts` 15/15 aprobados, `npm run build` exitoso con 62 recursos precacheados, lint de `main.tsx` sin errores y Capacitor sincronizado con 15 plugins. Persisten warnings conocidos de chunks grandes e importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** PWA con actualización visible y controlada; queda pendiente probar el ciclo completo contra un despliegue web real.
+
+## 2026-09-06 — MAN-084: Feedback de publicación con Sonner
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Prueba enfocada con `npx vitest run src\\components\\master\\SessionPanel.test.tsx` aprobada (12/12 tests), compilación de producción con `npm run build` correcta y lint enfocado con `npx oxlint src\\components\\master\\SessionPanel.tsx src\\components\\ui\\VisualProviders.tsx` sin errores.
+- **Funciones y componentes afectados:**
+  1. **Avisos globales (`VisualProviders.tsx`):** se incorporó `sonner` con un `Toaster` compartido, tema oscuro, colores del sistema visual de Visual Player, botón de cierre y adaptación a pantallas pequeñas.
+  2. **Publicación (`SessionPanel.tsx`):** el envío a la Mesa ahora muestra un aviso breve de sincronización exitosa, rechazo o error, manteniendo los indicadores de estado existentes.
+- **Manual:** sin cambios de uso; los controles y el flujo de publicación conservan sus nombres, ubicación y comportamiento documentado. Los avisos agregan confirmación visual sin requerir una acción adicional.
+- **Evidencia técnica:** `SessionPanel.test.tsx` 12/12 aprobado, `npm run build` exitoso. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`, sin bloqueo funcional. `oxlint` conserva advertencias existentes en `SessionPanel.tsx` relacionadas con pureza y dependencias de hooks.
+- **Resultado:** feedback global de publicación integrado con Sonner sin regresiones detectadas.
+
+## 2026-09-06 — MAN-085: Paleta de comandos del Director con cmdk
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Prueba enfocada con `npx vitest run src\\components\\master\\SessionPanel.test.tsx` aprobada (12/12 tests), compilación de producción con `npm run build` correcta y lint enfocado con `npx oxlint src\\components\\master\\navigation\\MasterCommandPalette.tsx src\\components\\master\\MasterController.tsx` sin errores.
+- **Funciones y componentes afectados:**
+  1. **Paleta de comandos (`MasterCommandPalette.tsx`):** se incorporó `cmdk` para buscar y ejecutar vistas y herramientas frecuentes del Director.
+  2. **Acceso rápido:** `Ctrl + K` en Windows/Linux o `Cmd + K` en macOS abre la paleta; `Esc` la cierra. Incluye navegación por teclado y foco en la opción seleccionada.
+  3. **Acciones disponibles:** vistas En vivo, Momentos, Combate, Notas y Biblioteca; además de Momentos rápidos, Historial, Puntos de control, Diagnósticos, Preparar sesión, Evaluar preparación y Vista previa completa.
+- **Manual:** sin cambios de uso obligatorio; la paleta es un acceso opcional y conserva los controles existentes. No se modificaron nombres, ubicación ni comportamiento de las herramientas originales.
+- **Evidencia técnica:** `SessionPanel.test.tsx` 12/12 aprobado, `npm run build` exitoso y lint enfocado sin errores. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`, sin bloqueo funcional.
+- **Resultado:** navegación rápida integrada con `cmdk`, manteniendo los flujos actuales y mejorando el acceso a herramientas en sesiones largas.
+
+## 2026-09-06 — MAN-086: Layout redimensionable del Taller con react-resizable-panels
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Pruebas enfocadas con `npx vitest run src\\components\\master\\workshop\\TransferSceneModal.test.tsx src\\components\\master\\SessionPanel.test.tsx` aprobadas (15/15 tests), compilación de producción con `npm run build` correcta y lint enfocado con `npx oxlint src\\components\\master\\workshop\\WorkshopView.tsx` sin errores.
+- **Funciones y componentes afectados:**
+  1. **Taller de Preparación (`WorkshopView.tsx`):** la navegación de pestañas y el contenido principal ahora viven en paneles ajustables con `react-resizable-panels`.
+  2. **Escritorio:** el divisor permite ampliar la navegación o el área de trabajo, con límites para conservar la legibilidad y persistencia local del tamaño elegido.
+  3. **Móvil:** el layout cambia a una disposición vertical y mantiene las pestañas en una fila horizontal desplazable, con una zona táctil amplia para el divisor.
+- **Manual:** sin cambios obligatorios de uso; las pestañas, botones y acciones conservan sus nombres y resultados. Se agrega la posibilidad opcional de ajustar el ancho de navegación y contenido en pantallas grandes.
+- **Evidencia técnica:** `TransferSceneModal.test.tsx` y `SessionPanel.test.tsx` 15/15 aprobados, `npm run build` exitoso. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`, sin bloqueo funcional. `oxlint` mantiene un warning de `setState` dentro del efecto que escucha cambios de viewport.
+- **Resultado:** Workshop más adaptable y cómodo para sesiones de preparación con muchas escenas, personajes y recursos.
+
+## 2026-09-06 — MAN-087: Validación de fichas de personajes con Zod y React Hook Form
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Prueba enfocada con `npx vitest run src\\components\\master\\modals\\CharacterEditModal.test.tsx src\\components\\master\\workshop\\TransferSceneModal.test.tsx` aprobada (3/3 tests), compilación de producción con `npm run build` correcta y lint enfocado con `npx oxlint src\\components\\master\\modals\\CharacterEditModal.tsx src\\components\\master\\workshop\\WorkshopNewCampaignModal.tsx` sin errores.
+- **Funciones y componentes afectados:**
+  1. **Ficha de personaje (`CharacterEditModal.tsx`):** el formulario ahora usa `react-hook-form` y un esquema `zod` para validar nombre, rol, retrato, biografía y puntos de golpe antes de guardar.
+  2. **Mensajes de validación:** los errores aparecen junto al campo correspondiente, sin cerrar el modal ni perder los datos introducidos.
+  3. **Retratos y tokens:** el selector de assets y el creador de tokens siguen actualizando el formulario mediante el mismo flujo de guardado.
+- **Manual:** sin cambios de uso; se mantienen los controles y el resultado de crear o editar personajes. Se agrega feedback inline cuando falta un retrato o un dato no cumple los límites.
+- **Evidencia técnica:** `CharacterEditModal.test.tsx` y `TransferSceneModal.test.tsx` 3/3 aprobados, `npm run build` exitoso. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`. `oxlint` conserva una advertencia de compatibilidad del API de React Hook Form con React Compiler.
+- **Resultado:** fichas de personajes más robustas y con validación clara antes de persistir datos en Dexie.
+
+## 2026-09-06 — MAN-088: Virtualización de biblioteca de recursos con TanStack Virtual
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Prueba enfocada con `npx vitest run src\\components\\common\\AssetPickerModal.test.tsx` aprobada (4/4 tests), compilación de producción con `npm run build` correcta y lint enfocado con `npx oxlint src\\components\\common\\assetPicker\\AssetPickerLibraryTab.tsx` sin errores.
+- **Funciones y componentes afectados:**
+  1. **Biblioteca local (`AssetPickerLibraryTab.tsx`):** se incorporó `@tanstack/react-virtual` para renderizar por filas solo los recursos cercanos al área visible.
+  2. **Grid responsive:** el número de columnas se calcula según el ancho disponible y se conserva la proporción visual de fondos, retratos y videos.
+  3. **Filtros y carga incremental:** búsqueda, filtro por tipo, filtro por pack, selección y botón **Cargar más recursos** mantienen el mismo comportamiento.
+- **Manual:** sin cambios de uso; el selector conserva sus pestañas, filtros, nombres y acciones. La mejora es automática y se percibe especialmente cuando la biblioteca contiene muchos recursos.
+- **Evidencia técnica:** `AssetPickerModal.test.tsx` 4/4 aprobado y `npm run build` exitoso. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`. `oxlint` conserva una advertencia de compatibilidad de la API de TanStack Virtual con React Compiler.
+- **Resultado:** biblioteca de assets más fluida y preparada para crecer sin montar todo el contenido en el DOM.
+
+## 2026-09-06 — MAN-089: Ordenación de escenas con dnd-kit
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Pruebas enfocadas con `npx vitest run src\\components\\master\\workshop\\TransferSceneModal.test.tsx src\\components\\common\\AssetPickerModal.test.tsx` aprobadas (7/7 tests), compilación de producción con `npm run build` correcta y lint enfocado con `npx oxlint src\\components\\master\\workshop\\WorkshopScenesTab.tsx src\\components\\master\\workshop\\WorkshopView.tsx` sin errores.
+- **Funciones y componentes afectados:**
+  1. **Escenas preparadas (`WorkshopScenesTab.tsx`):** se incorporó `@dnd-kit/react` para reordenar tarjetas de escenas desde un control de arrastre dedicado.
+  2. **Accesibilidad y estados:** el control tiene nombre accesible, soporte de teclado y estados visuales durante el arrastre; los botones **Componer**, **Llevar** y **Eliminar** permanecen independientes.
+  3. **Persistencia (`WorkshopView.tsx`):** el nuevo orden se guarda en la campaña activa mediante `updateCampaign` y se refleja inmediatamente en la interfaz.
+- **Manual:** sin cambios obligatorios de uso; se conserva la edición y transferencia de escenas. Se agrega la posibilidad opcional de arrastrar el control de reordenación para cambiar el orden de la campaña.
+- **Evidencia técnica:** suites de `TransferSceneModal` y `AssetPickerModal` 7/7 aprobadas, `npm run build` exitoso. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`. `oxlint` mantiene un warning de `setState` dentro del efecto responsive de `WorkshopView.tsx`.
+- **Resultado:** el orden de escenas del Workshop es editable, persistente y accesible con `dnd-kit`.
+
+## 2026-09-06 — MAN-090: Atajos multiplataforma con TanStack Hotkeys
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Pruebas enfocadas con `npx vitest run src\\components\\master\\SessionPanel.test.tsx src\\components\\master\\modals\\CharacterEditModal.test.tsx` aprobadas (12/12 tests), compilación de producción con `npm run build` correcta y lint enfocado con `npx oxlint src\\components\\master\\navigation\\MasterCommandPalette.tsx src\\components\\master\\MasterController.tsx` sin errores.
+- **Funciones y componentes afectados:**
+  1. **Paleta de comandos (`MasterCommandPalette.tsx`):** el acceso `Ctrl + K` / `Cmd + K` ahora usa `@tanstack/react-hotkeys`, con ciclo de vida gestionado por React.
+  2. **Historial (`MasterController.tsx`):** `Ctrl/Cmd + Z`, `Ctrl/Cmd + Shift + Z` y `Ctrl/Cmd + Y` ejecutan undo y redo de forma consistente entre plataformas.
+  3. **Campos de texto:** los atajos de historial ignoran inputs, textareas, selects y editores de texto para que escribir no dispare cambios de sesión.
+- **Manual:** sin cambios obligatorios de uso; se agregan atajos opcionales para usuarios de teclado y se conserva el comportamiento de los botones existentes.
+- **Evidencia técnica:** `SessionPanel.test.tsx` y `CharacterEditModal.test.tsx` 12/12 aprobados, `npm run build` exitoso y lint enfocado sin errores. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** atajos del Director centralizados, multiplataforma y protegidos contra interferencias al completar formularios.
+
+## 2026-09-06 — MAN-091: Recuperación global de vistas con react-error-boundary
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Pruebas enfocadas con `npx vitest run src\\components\\common\\AssetPickerModal.test.tsx src\\components\\master\\SessionPanel.test.tsx` aprobadas (16/16 tests), compilación de producción con `npm run build` correcta y lint enfocado con `npx oxlint src\\App.tsx` sin errores.
+- **Funciones y componentes afectados:**
+  1. **Rutas principales (`App.tsx`):** Lobby, Display, Master y Workshop quedan protegidos por `react-error-boundary` sin cambiar sus recorridos normales.
+  2. **Recuperación:** ante un error de renderizado se muestra una pantalla accesible con las acciones **Reintentar** y **Volver al inicio**.
+  3. **Detalle técnico:** el mensaje original se conserva como información de diagnóstico y se normaliza de forma segura aunque el error recibido no sea una instancia de `Error`.
+- **Manual:** sin cambios obligatorios de uso; la pantalla aparece únicamente ante un fallo inesperado y ofrece una salida clara sin reiniciar manualmente toda la aplicación.
+- **Evidencia técnica:** suites de `AssetPickerModal` y `SessionPanel` 16/16 aprobadas, `npm run build` exitoso y lint de `App.tsx` sin errores. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** la aplicación cuenta con recuperación global y evita dejar al usuario frente a una pantalla en blanco ante fallos de módulos.
+
+## 2026-09-06 — MAN-092: Historial filtrable con TanStack Table
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Pruebas enfocadas con `npx vitest run src\\components\\master\\SessionPanel.test.tsx src\\components\\master\\modals\\BackupManagerModal.test.tsx` aprobadas (16/16 tests), compilación de producción con `npm run build` correcta y lint enfocado con `npx oxlint src\\components\\master\\HistoryModal.tsx` sin errores.
+- **Funciones y componentes afectados:**
+  1. **Historial de acciones (`HistoryModal.tsx`):** se incorporó `@tanstack/react-table` v9 para renderizar el historial como una tabla semántica con columnas de hora, acción, modo, escena y restauración.
+  2. **Búsqueda:** se puede filtrar por descripción de la acción, modo o escena sin perder el botón **Restaurar** ni la confirmación previa.
+  3. **Responsive:** la tabla conserva sus columnas mediante desplazamiento horizontal controlado en pantallas pequeñas.
+- **Manual:** sin cambios obligatorios de uso; el historial conserva la restauración de estados y agrega un buscador opcional para localizar acciones rápidamente.
+- **Evidencia técnica:** `SessionPanel.test.tsx` y `BackupManagerModal.test.tsx` 16/16 aprobados, `npm run build` exitoso y lint enfocado sin errores. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** historial más escaneable y útil durante sesiones extensas, usando una tabla headless controlada por los estilos de Visual Player.
+
+## 2026-09-06 — MAN-093: Feedback háptico Android con Capacitor Haptics
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Pruebas enfocadas con `npx vitest run src\\components\\common\\AssetPickerModal.test.tsx src\\components\\master\\SessionPanel.test.tsx` aprobadas (16/16 tests), compilación de producción con `npm run build` correcta y lint enfocado con `npx oxlint src\\components\\master\\workshop\\WorkshopScenesTab.tsx` sin errores.
+- **Funciones y componentes afectados:**
+  1. **Ordenación de escenas (`WorkshopScenesTab.tsx`):** se incorporó `@capacitor/haptics` al flujo de drag and drop.
+  2. **Respuesta táctil:** Android emite un impacto suave al iniciar el arrastre y uno medio al confirmar el nuevo orden.
+  3. **Compatibilidad:** los errores de disponibilidad del plugin se absorben para que el mismo componente continúe funcionando en navegador y plataformas sin haptics.
+- **Manual:** sin cambios obligatorios de uso; reordenar escenas conserva los mismos controles y resultados, con una confirmación táctil adicional en Android.
+- **Evidencia técnica:** `AssetPickerModal.test.tsx` y `SessionPanel.test.tsx` 16/16 aprobados, `npm run build` exitoso y lint enfocado sin errores. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`.
+- **Resultado:** el Workshop ofrece una respuesta táctil más clara al reorganizar escenas en Android.
+
+## 2026-09-06 — MAN-083: Integración Radix Tabs en Selector En Vivo / Preparación
+
+- **Walkthrough y entorno:** comprobación estática y de integración en código. Prueba enfocada con `npx vitest run src\components\master\SessionPanel.test.tsx` aprobada (12/12 tests), compilación de producción con `npm run build` correcta y lint enfocado con `npx oxlint src\components\master\sessionPanel\SessionModeHeader.tsx src\styles\sessionPanel.css` sin errores.
+- **Funciones y componentes afectados:**
+  1. **Selector de modo (`SessionModeHeader.tsx`):** los controles **EN VIVO** y **PREPARACIÓN** ahora usan `@radix-ui/react-tabs`, preservando sus etiquetas, acciones y contador de cambios pendientes.
+  2. **Estilos (`sessionPanel.css`):** el estado activo se sincroniza con `data-state="active"` de Radix y se agregó foco visible para navegación por teclado.
+- **Manual:** sin cambios de uso; los controles mantienen los mismos nombres, ubicación y comportamiento documentado.
+- **Evidencia técnica:** `SessionPanel.test.tsx` 12/12 aprobado, build Vite exitoso. Persisten advertencias conocidas de chunks grandes y de importación dinámica inefectiva en `demoData.ts`, sin bloqueo funcional.
+- **Resultado:** selector de modo migrado a Radix Tabs sin regresiones detectadas.
+
 ## 2026-09-06 — MAN-082: Modularización de Gestor de Respaldos y Restauración (BackupManagerModal.tsx)
 
 - **Walkthrough y entorno:** comprobación estática y de integración en código. Compilación completa de TypeScript con `npx tsc --noEmit` (cero errores), compilación y empaquetado de producción con `npm run build` (`tsc -b && vite build`) en 1.74s y ejecución completa de suites de pruebas con `npm test -- --run` (94 suites aprobadas, 511 tests superados al 100%).

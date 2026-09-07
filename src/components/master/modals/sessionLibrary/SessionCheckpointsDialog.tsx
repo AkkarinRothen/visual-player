@@ -1,4 +1,5 @@
 import React from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import type { GameSession, SessionCheckpoint } from '../../../../types';
 import { Bookmark, RefreshCw, RotateCcw } from 'lucide-react';
 
@@ -18,11 +19,18 @@ export const SessionCheckpointsDialog: React.FC<SessionCheckpointsDialogProps> =
   onRestoreCheckpointCopy,
 }) => {
   return (
-    <div className="session-dialog-overlay" role="dialog" aria-modal="true">
-      <div className="session-dialog session-checkpoints-dialog">
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="session-dialog-overlay" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="session-dialog session-checkpoints-dialog"
+        >
         <div className="session-dialog-header">
           <Bookmark size={18} />
-          <h3>Puntos de Recuperación: {session.name}</h3>
+          <Dialog.Title>Puntos de Recuperación: {session.name}</Dialog.Title>
         </div>
 
         {isLoading ? (
@@ -61,7 +69,8 @@ export const SessionCheckpointsDialog: React.FC<SessionCheckpointsDialogProps> =
             Cerrar
           </button>
         </div>
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

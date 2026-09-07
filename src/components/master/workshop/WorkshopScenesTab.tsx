@@ -7,7 +7,12 @@ import {
   Edit,
   Send,
   Trash2,
+  GripVertical,
 } from 'lucide-react';
+import { DragDropProvider } from '@dnd-kit/react';
+import { useSortable } from '@dnd-kit/react/sortable';
+import { move } from '@dnd-kit/helpers';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import type { Scene } from '../../../types';
 
 export interface WorkshopScenesTabProps {
@@ -16,7 +21,96 @@ export interface WorkshopScenesTabProps {
   onTransferScene: (scene: Scene) => void;
   onDeleteScene: (sceneId: string, sceneName: string) => void;
   onOpenBackupModal: () => void;
+  onReorderScenes: (scenes: Scene[]) => void;
 }
+
+interface SortableSceneCardProps {
+  scene: Scene;
+  index: number;
+  onComposeScene: (scene: Scene) => void;
+  onTransferScene: (scene: Scene) => void;
+  onDeleteScene: (sceneId: string, sceneName: string) => void;
+}
+
+const SortableSceneCard: React.FC<SortableSceneCardProps> = ({
+  scene,
+  index,
+  onComposeScene,
+  onTransferScene,
+  onDeleteScene,
+}) => {
+  const { ref, handleRef, isDragging } = useSortable({ id: scene.id, index });
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: 'relative',
+        background: 'rgba(15, 23, 42, 0.7)',
+        border: isDragging ? '1px solid rgba(245, 158, 11, 0.8)' : '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: isDragging ? '0 12px 32px rgba(245, 158, 11, 0.2)' : '0 4px 16px rgba(0,0,0,0.4)',
+        opacity: isDragging ? 0.72 : 1,
+      }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          aspectRatio: '16/9',
+          width: '100%',
+          background: '#020408',
+          overflow: 'hidden',
+          cursor: 'pointer',
+        }}
+        onClick={() => onComposeScene(scene)}
+      >
+        <img src={scene.backgroundUrl} alt={scene.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <div style={{ position: 'absolute', top: '8px', left: '8px', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', borderRadius: '6px', padding: '3px 8px', fontSize: '0.75rem', color: '#fbbf24', fontWeight: 700 }}>
+          {scene.locationBanner || scene.name}
+        </div>
+        {scene.activeCharacters && scene.activeCharacters.length > 0 && (
+          <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.75)', borderRadius: '6px', padding: '3px 8px', fontSize: '0.72rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Users size={12} />
+            <span>{scene.activeCharacters.length} en escena</span>
+          </div>
+        )}
+      </div>
+
+      <div style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+        <div style={{ minWidth: 0 }}>
+          <strong style={{ fontSize: '0.95rem', color: '#fff', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {scene.name}
+          </strong>
+          <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>{scene.subtitle || 'Sin subtítulo'}</span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <button
+            ref={handleRef}
+            type="button"
+            aria-label={`Reordenar escena ${scene.name}`}
+            title="Arrastrar para reordenar"
+            style={{ background: 'transparent', border: '1px solid rgba(148, 163, 184, 0.2)', borderRadius: '6px', color: '#94a3b8', padding: '8px 6px', cursor: 'grab', display: 'grid', placeItems: 'center' }}
+          >
+            <GripVertical size={16} />
+          </button>
+          <button type="button" onClick={() => onComposeScene(scene)} aria-label={`Componer ${scene.name}`} style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '6px', color: '#fbbf24', padding: '8px', cursor: 'pointer' }}>
+            <Edit size={14} />
+          </button>
+          <button type="button" onClick={() => onTransferScene(scene)} aria-label={`Llevar ${scene.name} a sesión preparada`} style={{ background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '6px', color: '#60a5fa', padding: '8px', cursor: 'pointer' }}>
+            <Send size={14} />
+          </button>
+          <button type="button" onClick={() => onDeleteScene(scene.id, scene.name)} aria-label={`Eliminar ${scene.name}`} style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', color: '#f87171', padding: '8px', cursor: 'pointer' }}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const WorkshopScenesTab: React.FC<WorkshopScenesTabProps> = ({
   scenes,
@@ -24,6 +118,7 @@ export const WorkshopScenesTab: React.FC<WorkshopScenesTabProps> = ({
   onTransferScene,
   onDeleteScene,
   onOpenBackupModal,
+  onReorderScenes,
 }) => {
   return (
     <div>
@@ -121,20 +216,29 @@ export const WorkshopScenesTab: React.FC<WorkshopScenesTabProps> = ({
             gap: '16px',
           }}
         >
-          {scenes.map((sc) => (
-            <div
+          <DragDropProvider
+            onDragStart={() => {
+              void Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
+            }}
+            onDragEnd={(event) => {
+              if (event.canceled) return;
+              void Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
+              onReorderScenes(move(scenes, event));
+            }}
+          >
+          {scenes.map((sc, index) => (
+            <SortableSceneCard
               key={sc.id}
-              style={{
-                background: 'rgba(15, 23, 42, 0.7)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '12px',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-              }}
-            >
-              {/* Miniatura 16:9 */}
+              scene={sc}
+              index={index}
+              onComposeScene={onComposeScene}
+              onTransferScene={onTransferScene}
+              onDeleteScene={onDeleteScene}
+            />
+          ))}
+          </DragDropProvider>
+          {/*
+              Miniatura 16:9
               <div
                 style={{
                   position: 'relative',
@@ -190,7 +294,7 @@ export const WorkshopScenesTab: React.FC<WorkshopScenesTabProps> = ({
                 )}
               </div>
 
-              {/* Metadata y Acciones */}
+              Metadata y Acciones
               <div style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <strong style={{ fontSize: '0.95rem', color: '#fff', display: 'block' }}>
@@ -262,8 +366,7 @@ export const WorkshopScenesTab: React.FC<WorkshopScenesTabProps> = ({
                   </button>
                 </div>
               </div>
-            </div>
-          ))}
+            </div> */}
         </div>
       )}
     </div>

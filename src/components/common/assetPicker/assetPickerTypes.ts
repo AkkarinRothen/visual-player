@@ -62,4 +62,5 @@ export interface AssetPickerUrlTabProps {
   setAssetName: (name: string) => void;
   isProcessing: boolean;
   onConfirmUrl: () => void;
+  onPreviewUrl: () => void;
 }

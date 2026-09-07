@@ -28,6 +28,8 @@ import {
   type PermissionRationale,
 } from '../../services/nearbyPermissionsService';
 import { Capacitor } from '@capacitor/core';
+import { AppLauncher } from '@capacitor/app-launcher';
+import { toast } from 'sonner';
 
 interface NearbyPermissionsGateProps {
   role: 'display' | 'master';
@@ -109,9 +111,11 @@ export const NearbyPermissionsGate: React.FC<NearbyPermissionsGateProps> = ({
   };
 
   const openDeviceSettings = () => {
-    // Capacitor App plugin can open app settings
-    const { App } = (window as any)?.Capacitor?.Plugins ?? {};
-    App?.openUrl?.({ url: 'app-settings:' });
+    void AppLauncher.openUrl({ url: 'app-settings:' }).catch(() => {
+      toast.error('No se pudieron abrir los ajustes', {
+        description: 'Abrí manualmente Ajustes del dispositivo y habilitá los permisos de conexión local.',
+      });
+    });
   };
 
   if (step === 'checking' || step === 'done' || !isNative) {

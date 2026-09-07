@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import {
   HardDrive,
   X,
@@ -59,18 +60,18 @@ export const StorageAuditModal: React.FC<StorageAuditModalProps> = ({ onClose })
   };
 
   return (
-    <div className="modal-overlay session-library-overlay" onClick={onClose}>
-      <div
-        className="session-library-modal"
-        style={{ maxWidth: 620 }}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="modal-overlay session-library-overlay">
+          <Dialog.Content
+            className="session-library-modal"
+            style={{ maxWidth: 620 }}
+            onPointerDownOutside={() => onClose()}
+          >
         <div className="session-library-header">
           <div className="session-library-title">
             <HardDrive size={18} color="#a78bfa" />
-            <h2>Auditoría de Almacenamiento & Recursos</h2>
+            <Dialog.Title>Auditoría de Almacenamiento & Recursos</Dialog.Title>
           </div>
           <button className="btn-icon" onClick={onClose} aria-label="Cerrar">
             <X size={16} />
@@ -203,7 +204,9 @@ export const StorageAuditModal: React.FC<StorageAuditModalProps> = ({ onClose })
             Cerrar
           </button>
         </div>
-      </div>
-    </div>
+          </Dialog.Content>
+        </Dialog.Overlay>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

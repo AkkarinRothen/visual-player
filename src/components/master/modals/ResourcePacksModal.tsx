@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import * as Dialog from '@radix-ui/react-dialog';
 import {
   X,
   Package,
@@ -155,9 +155,16 @@ export const ResourcePacksModal: React.FC<ResourcePacksModalProps> = ({
   const totalAssetsCount = packs.reduce((acc, p) => acc + (p.itemCount || 0), 0);
   const formatMB = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1);
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100" role="dialog" aria-labelledby="resource-packs-modal-title" onClick={(e) => e.stopPropagation()}>
+  return (
+    <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md animate-fadeIn" />
+        <Dialog.Content
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 outline-none"
+        >
+          <div className="relative w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100">
         {/* Cabecera del modal */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
@@ -165,12 +172,12 @@ export const ResourcePacksModal: React.FC<ResourcePacksModalProps> = ({
               <Package size={20} />
             </div>
             <div>
-              <h2 id="resource-packs-modal-title" className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+              <Dialog.Title className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
                 Packs de Recursos Visuales
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-normal border border-amber-500/30">
                   Offline
                 </span>
-              </h2>
+              </Dialog.Title>
               <p className="text-xs text-slate-400">
                 {packs.length} packs instalados ({totalAssetsCount} recursos, ~{formatMB(totalSize)} MB)
               </p>
@@ -425,7 +432,8 @@ export const ResourcePacksModal: React.FC<ResourcePacksModalProps> = ({
           </button>
         </footer>
       </div>
-    </div>,
-    document.body
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };
