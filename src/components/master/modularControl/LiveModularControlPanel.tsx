@@ -140,6 +140,7 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
     handleLayerChange,
     handleToggleMirror,
     handleMoveCharacter,
+    handleStreamMoveCharacter,
     handleWeatherChange,
     handleWeatherIntensityChange,
     handleLightingChange,
@@ -148,6 +149,9 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
     handleSnapAllToGrid,
     handleDistributeHorizontally,
     handleFitScaleToGrid,
+    handleStreamScaleCharacter,
+    handleCameraChange,
+    handleStreamCameraChange,
   } = useLiveModularControl(props);
 
   return (
@@ -161,6 +165,11 @@ export const LiveModularControlPanel: React.FC<LiveModularControlPanelProps> = (
         selectedCharId={selectedCharId}
         setSelectedCharId={setSelectedCharId}
         onMoveCharacter={handleMoveCharacter}
+        onStreamMoveCharacter={handleStreamMoveCharacter}
+        onScaleCharacter={handleSetExactScale}
+        onStreamScaleCharacter={handleStreamScaleCharacter}
+        onCameraChange={handleCameraChange}
+        onStreamCameraChange={handleStreamCameraChange}
         onOpenFullScreen={onOpenFullScreen}
         onApplyBattleRanks={handleApplyBattleRanks}
         onSnapAllToGrid={handleSnapAllToGrid}

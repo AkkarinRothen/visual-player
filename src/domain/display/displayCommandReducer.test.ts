@@ -390,4 +390,48 @@ describe('reduceDisplayCommand Pure Reducer Suite', () => {
       }
     }
   });
+
+  it('11. Reduces STREAM_CHARACTER_TRANSFORM and STREAM_CONTROL_VALUE in pure state', () => {
+    const streamCharMsg: VersionedSyncMessage = {
+      protocolVersion: 1,
+      messageId: 'm-stream-1',
+      sequenceNumber: 15,
+      sessionRevision: 13,
+      sentAt: Date.now(),
+      tier: 'continuous',
+      requiresAck: false,
+      type: 'STREAM_CHARACTER_TRANSFORM',
+      payload: { id: 'c-1', normalizedX: 72, normalizedY: 30, scale: 1.6 },
+    };
+
+    const res1 = reduceDisplayCommand(baseState, streamCharMsg);
+    expect(res1.success).toBe(true);
+    if (res1.success) {
+      const char = res1.nextState.characters.find((c) => c.id === 'c-1');
+      expect(char?.normalizedX).toBe(72);
+      expect(char?.normalizedY).toBe(30);
+      expect(char?.scale).toBe(1.6);
+    }
+
+    const streamCtrlMsg: VersionedSyncMessage = {
+      protocolVersion: 1,
+      messageId: 'm-stream-2',
+      sequenceNumber: 16,
+      sessionRevision: 13,
+      sentAt: Date.now(),
+      tier: 'continuous',
+      requiresAck: false,
+      type: 'STREAM_CONTROL_VALUE',
+      payload: { field: 'ambientVolume', value: 0.85 },
+    };
+
+    const res2 = reduceDisplayCommand(baseState, streamCtrlMsg);
+    expect(res2.success).toBe(true);
+    if (res2.success) {
+      expect(res2.nextState.ambientVolume).toBe(0.85);
+      expect(res2.sideEffects).toEqual([
+        { type: 'set_ambient_volume', payload: { volume: 0.85 } },
+      ]);
+    }
+  });
 });

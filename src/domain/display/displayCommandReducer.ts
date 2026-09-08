@@ -2,7 +2,7 @@ import type { DisplayState, WeatherStormEvent } from '../../types';
 import type { VersionedSyncMessage } from '../protocol/types';
 
 export interface DisplayCommandSideEffect {
-  type: 'trigger_bg_transition' | 'play_synth' | 'set_ambient' | 'stop_sfx' | 'storm_lightning';
+  type: 'trigger_bg_transition' | 'play_synth' | 'set_ambient' | 'set_ambient_volume' | 'stop_sfx' | 'storm_lightning';
   payload?: any;
 }
 
@@ -482,6 +482,73 @@ export function reduceDisplayCommand(
           ...state,
           characters,
         },
+      };
+    }
+
+    case 'STREAM_CHARACTER_TRANSFORM': {
+      const payload = msg.payload as {
+        id: string;
+        normalizedX?: number;
+        normalizedY?: number;
+        scale?: number;
+      };
+
+      if (!payload || !payload.id) {
+        return {
+          success: false,
+          errorCode: 'INVALID_STREAM_TRANSFORM_PAYLOAD',
+          errorMessage: 'STREAM_CHARACTER_TRANSFORM requiere id de personaje',
+        };
+      }
+
+      const characters = state.characters.map((char) => {
+        if (char.id !== payload.id) return char;
+        return {
+          ...char,
+          normalizedX: payload.normalizedX !== undefined ? payload.normalizedX : char.normalizedX,
+          normalizedY: payload.normalizedY !== undefined ? payload.normalizedY : char.normalizedY,
+          scale: payload.scale !== undefined ? payload.scale : char.scale,
+        };
+      });
+
+      return {
+        success: true,
+        nextState: {
+          ...state,
+          characters,
+        },
+      };
+    }
+
+    case 'STREAM_CONTROL_VALUE': {
+      const payload = msg.payload as {
+        field: string;
+        value: any;
+      };
+
+      if (!payload || !payload.field) {
+        return {
+          success: false,
+          errorCode: 'INVALID_STREAM_CONTROL_PAYLOAD',
+          errorMessage: 'STREAM_CONTROL_VALUE requiere field',
+        };
+      }
+
+      const sideEffects: DisplayCommandSideEffect[] = [];
+      if (payload.field === 'ambientVolume') {
+        sideEffects.push({
+          type: 'set_ambient_volume',
+          payload: { volume: Number(payload.value) },
+        });
+      }
+
+      return {
+        success: true,
+        nextState: {
+          ...state,
+          [payload.field]: payload.value,
+        },
+        sideEffects,
       };
     }
 

@@ -1,5 +1,7 @@
 import React from 'react';
 import { Music, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ChevronRight } from 'lucide-react';
+import { useLiveStreamSlider } from '../../../hooks/useLiveStreamSlider';
+import { sessionCommandBus } from '../../../services/sessionCommandBus';
 
 export interface ModularAudioCardProps {
   trackTitle?: string;
@@ -22,6 +24,23 @@ export const ModularAudioCard: React.FC<ModularAudioCardProps> = ({
   onPrevTrack,
   onOpenSoundtrack,
 }) => {
+  const { localValue, sliderProps } = useLiveStreamSlider({
+    value: Math.round(volume * 100),
+    min: 0,
+    max: 100,
+    onStreamChange: (val) => {
+      sessionCommandBus.dispatchStreamControl('ambientVolume', val / 100);
+    },
+    onCommit: (val) => {
+      onVolumeChange(val / 100);
+    },
+  });
+
+  const handleToggleMute = () => {
+    const nextVal = (localValue > 0 ? 0 : 60);
+    sessionCommandBus.dispatchStreamControl('ambientVolume', nextVal / 100);
+    onVolumeChange(nextVal / 100);
+  };
   return (
     <section className="modular-card" aria-label="Control de Audio">
       <div className="modular-card-header">
@@ -97,26 +116,22 @@ export const ModularAudioCard: React.FC<ModularAudioCardProps> = ({
       <div className="modular-audio-volume-row">
         <button
           type="button"
-          onClick={() => onVolumeChange(volume > 0 ? 0 : 0.6)}
+          onClick={handleToggleMute}
           style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 0 }}
-          title={volume === 0 ? 'Activar sonido' : 'Silenciar'}
+          title={localValue === 0 ? 'Activar sonido' : 'Silenciar'}
         >
-          {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          {localValue === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
         </button>
 
         <input
-          type="range"
-          min="0"
-          max="100"
-          value={Math.round(volume * 100)}
-          onChange={(e) => onVolumeChange(Number(e.target.value) / 100)}
           className="modular-range-slider"
           style={{ accentColor: '#c084fc' }}
           aria-label="Volumen de audio"
+          {...sliderProps}
         />
 
         <span style={{ fontSize: '0.75rem', color: '#c084fc', fontWeight: 700, minWidth: '32px', textAlign: 'right' }}>
-          {Math.round(volume * 100)}%
+          {Math.round(localValue)}%
         </span>
       </div>
     </section>

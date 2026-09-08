@@ -485,6 +485,18 @@ class SoundEngine {
     }
   }
 
+  /**
+   * Fast-path immediate volume update for live slider streaming without crossfade overhead.
+   */
+  public setVolumeDirect(volume: number): void {
+    try {
+      this.targetAmbientVolume = Math.max(0, Math.min(1, volume));
+      this.updateEffectiveAudioVolume();
+    } catch (e) {
+      console.warn('[SoundEngine] Direct volume update failed:', e);
+    }
+  }
+
   // Smooth crossfade ambient audio
   public setAmbient(url: string, playing: boolean, volume: number = 0.5, crossfade: boolean = true) {
     try {

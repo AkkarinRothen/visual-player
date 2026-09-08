@@ -215,4 +215,218 @@ describe('DisplayCommandExecutor Suite', () => {
     expect(result?.errorCode).toBe('UNKNOWN_COMMAND');
     expect(onCommitState).not.toHaveBeenCalled();
   });
+
+  it('6. Fast-path: Aplica mensajes continuos sin emitir COMMAND_RESULT ni bloquear cola', async () => {
+    const transportSend = vi.fn();
+    const onCommitState = vi.fn((next) => {
+      currentState = next;
+    });
+
+    currentState.characters = [
+      {
+        id: 'hero-1',
+        name: 'Heroe',
+        avatarUrl: '',
+        position: 'center-left',
+        normalizedX: 20,
+        normalizedY: 10,
+        isSpeaking: false,
+      },
+    ];
+
+    const streamMsg: VersionedSyncMessage = {
+      protocolVersion: 1,
+      messageId: 'msg-fast-1',
+      sessionId: 'sess-alpha',
+      connectionEpoch: 2,
+      sequenceNumber: 6,
+      sessionRevision: 8,
+      sentAt: Date.now(),
+      tier: 'continuous',
+      requiresAck: false,
+      type: 'STREAM_CHARACTER_TRANSFORM',
+      payload: { id: 'hero-1', normalizedX: 55, normalizedY: 25 },
+    };
+
+    const result = await executor.enqueueCommand(streamMsg, {
+      getCurrentState: () => currentState,
+      onCommitState,
+      transportSend,
+    });
+
+    expect(result).toBeNull();
+    executor.flushConflationSync();
+    expect(onCommitState).toHaveBeenCalled();
+    expect(currentState.characters[0].normalizedX).toBe(55);
+    expect(currentState.characters[0].normalizedY).toBe(25);
+    // ZERO reverse traffic to the sender
+    expect(transportSend).not.toHaveBeenCalled();
+  });
+
+  it('7. Fast-path: Dispatches side-effects when processing STREAM_CONTROL_VALUE', async () => {
+    const transportSend = vi.fn();
+    const onCommitState = vi.fn((next) => {
+      currentState = next;
+    });
+    const onSideEffect = vi.fn();
+
+    const streamMsg: VersionedSyncMessage = {
+      protocolVersion: 1,
+      messageId: 'msg-stream-vol',
+      sessionId: 'sess-alpha',
+      connectionEpoch: 2,
+      sequenceNumber: 7,
+      sessionRevision: 8,
+      sentAt: Date.now(),
+      tier: 'continuous',
+      requiresAck: false,
+      type: 'STREAM_CONTROL_VALUE',
+      payload: { field: 'ambientVolume', value: 0.72 },
+    };
+
+    const result = await executor.enqueueCommand(streamMsg, {
+      getCurrentState: () => currentState,
+      onCommitState,
+      transportSend,
+      onSideEffect,
+    });
+
+    expect(result).toBeNull();
+    executor.flushConflationSync();
+    expect(onCommitState).toHaveBeenCalled();
+    expect(currentState.ambientVolume).toBe(0.72);
+    expect(onSideEffect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'set_ambient_volume',
+        payload: { volume: 0.72 },
+      })
+    );
+    expect(transportSend).not.toHaveBeenCalled();
+  });
+
+  it('8. Fast-path: Coalesces burst streaming frames and drops stale packets', async () => {
+    const transportSend = vi.fn();
+    const onCommitState = vi.fn((next) => {
+      currentState = next;
+    });
+
+    currentState.characters = [
+      { id: 'hero-1', name: 'Heroe', avatarUrl: '', position: 'center-left', normalizedX: 0, normalizedY: 0, isSpeaking: false },
+    ];
+
+    const now = 50000;
+    // Packet 1
+    await executor.enqueueCommand(
+      {
+        protocolVersion: 1,
+        messageId: 'b-1',
+        sequenceNumber: 1,
+        sessionRevision: 1,
+        sessionId: 'sess-alpha',
+        sentAt: now + 10,
+        tier: 'continuous',
+        requiresAck: false,
+        type: 'STREAM_CHARACTER_TRANSFORM',
+        payload: { id: 'hero-1', normalizedX: 10 },
+      },
+      { getCurrentState: () => currentState, onCommitState, transportSend }
+    );
+
+    // Packet 2 (burst in same tick)
+    await executor.enqueueCommand(
+      {
+        protocolVersion: 1,
+        messageId: 'b-2',
+        sequenceNumber: 2,
+        sessionRevision: 1,
+        sessionId: 'sess-alpha',
+        sentAt: now + 20,
+        tier: 'continuous',
+        requiresAck: false,
+        type: 'STREAM_CHARACTER_TRANSFORM',
+        payload: { id: 'hero-1', normalizedX: 30 },
+      },
+      { getCurrentState: () => currentState, onCommitState, transportSend }
+    );
+
+    const metrics = executor.getConflationMetrics();
+    expect(metrics.coalescedCount).toBe(1);
+
+    executor.flushConflationSync();
+    expect(currentState.characters[0].normalizedX).toBe(30);
+
+    // Packet 3 arrives delayed with older timestamp (stale)
+    await executor.enqueueCommand(
+      {
+        protocolVersion: 1,
+        messageId: 'b-3',
+        sequenceNumber: 3,
+        sessionRevision: 1,
+        sessionId: 'sess-alpha',
+        sentAt: now + 5,
+        tier: 'continuous',
+        requiresAck: false,
+        type: 'STREAM_CHARACTER_TRANSFORM',
+        payload: { id: 'hero-1', normalizedX: 5 },
+      },
+      { getCurrentState: () => currentState, onCommitState, transportSend }
+    );
+
+    expect(executor.getConflationMetrics().droppedStaleCount).toBe(1);
+    expect(currentState.characters[0].normalizedX).toBe(30); // Unchanged
+  });
+
+  it('9. Critical command immediately cancels pending continuous frames', async () => {
+    const transportSend = vi.fn();
+    const onCommitState = vi.fn((next) => {
+      currentState = next;
+    });
+
+    currentState.characters = [
+      { id: 'hero-1', name: 'Heroe', avatarUrl: '', position: 'center-left', normalizedX: 0, normalizedY: 0, isSpeaking: false },
+    ];
+
+    // Enqueue continuous drag frame
+    await executor.enqueueCommand(
+      {
+        protocolVersion: 1,
+        messageId: 'drag-1',
+        sequenceNumber: 1,
+        sessionRevision: 1,
+        sessionId: 'sess-alpha',
+        sentAt: 60000,
+        tier: 'continuous',
+        requiresAck: false,
+        type: 'STREAM_CHARACTER_TRANSFORM',
+        payload: { id: 'hero-1', normalizedX: 85 },
+      },
+      { getCurrentState: () => currentState, onCommitState, transportSend }
+    );
+
+    // Critical command arrives: blackout
+    const criticalResult = await executor.enqueueCommand(
+      {
+        protocolVersion: 1,
+        messageId: 'crit-1',
+        commandId: 'cmd-crit-1',
+        sessionId: 'sess-alpha',
+        connectionEpoch: 2,
+        sequenceNumber: 10,
+        sessionRevision: 9,
+        sentAt: 60005,
+        tier: 'critical',
+        requiresAck: true,
+        type: 'SET_BLACKOUT',
+        payload: true,
+      },
+      { getCurrentState: () => currentState, onCommitState, transportSend }
+    );
+
+    expect(criticalResult?.status).toBe('applied');
+    expect(currentState.isBlackout).toBe(true);
+    // Continuous drag frame was cancelled/purged, so normalizedX was NOT mutated to 85
+    expect(currentState.characters[0].normalizedX).toBe(0);
+    expect(executor.getConflationMetrics().purgedOnCriticalCount).toBe(1);
+  });
 });
+

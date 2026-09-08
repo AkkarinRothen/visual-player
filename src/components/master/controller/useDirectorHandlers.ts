@@ -51,6 +51,17 @@ export function useDirectorHandlers({
     sessionCommandBus.dispatchFullState(nextState, sessionRevision + 1);
   };
 
+  const handleDirectorStreamCharacterMove = (
+    characterId: string,
+    normalizedX: number,
+    normalizedY: number
+  ) => {
+    const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
+    if (!isTargetStaged) {
+      sessionCommandBus.dispatchStreamCharacterTransform(characterId, normalizedX, normalizedY);
+    }
+  };
+
   const handleDirectorUpdateCharacter = async (
     characterId: string,
     updates: Partial<CharacterOnScreen>,
@@ -58,16 +69,30 @@ export function useDirectorHandlers({
   ) => {
     const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
     const applyUpdate = (prev: DisplayState): DisplayState => ({
-        ...prev,
-        characters: prev.characters.map((c) =>
-          c.id === characterId ? { ...c, ...updates } : c
-        ),
-      });
+      ...prev,
+      characters: prev.characters.map((c) =>
+        c.id === characterId ? { ...c, ...updates } : c
+      ),
+    });
 
     if (isTargetStaged) {
       updateDisplay(applyUpdate, description, false);
     } else {
-      dispatchLiveDirectorState(applyUpdate(latestLiveStateRef.current), description);
+      const nextState = applyUpdate(latestLiveStateRef.current);
+      latestLiveStateRef.current = nextState;
+      updateDisplay(applyUpdate, description, false);
+
+      // Lightweight atomic commit for character transforms on drag release / quick adjust
+      if (
+        updates.normalizedX !== undefined ||
+        updates.normalizedY !== undefined ||
+        updates.scale !== undefined ||
+        updates.isFlipped !== undefined
+      ) {
+        sessionCommandBus.dispatchCommitCharacterTransform(characterId, updates, sessionRevision + 1);
+      } else {
+        sessionCommandBus.dispatchFullState(nextState, sessionRevision + 1);
+      }
     }
   };
 
@@ -79,12 +104,12 @@ export function useDirectorHandlers({
     const updatesMap = new Map(updates.map((u) => [u.id, u]));
 
     const applyUpdates = (prev: DisplayState): DisplayState => ({
-        ...prev,
-        characters: prev.characters.map((c) => {
-          const u = updatesMap.get(c.id);
-          return u ? { ...c, normalizedX: u.normalizedX, normalizedY: u.normalizedY } : c;
-        }),
-      });
+      ...prev,
+      characters: prev.characters.map((c) => {
+        const u = updatesMap.get(c.id);
+        return u ? { ...c, normalizedX: u.normalizedX, normalizedY: u.normalizedY } : c;
+      }),
+    });
 
     if (isTargetStaged) {
       updateDisplay(applyUpdates, description, false);
@@ -114,22 +139,20 @@ export function useDirectorHandlers({
     updates: { id: string; normalizedX: number; normalizedY: number }[]
   ) => {
     const isTargetStaged = operationMode === 'staging' && previewTab === 'staged';
-    const updatesMap = new Map(updates.map((u) => [u.id, u]));
-
-    const applyUpdates = (prev: DisplayState): DisplayState => ({
-      ...prev,
-      characters: prev.characters.map((c) => {
-        const u = updatesMap.get(c.id);
-        return u ? { ...c, normalizedX: u.normalizedX, normalizedY: u.normalizedY } : c;
-      }),
-    });
-
     if (isTargetStaged) {
+      const updatesMap = new Map(updates.map((u) => [u.id, u]));
+      const applyUpdates = (prev: DisplayState): DisplayState => ({
+        ...prev,
+        characters: prev.characters.map((c) => {
+          const u = updatesMap.get(c.id);
+          return u ? { ...c, normalizedX: u.normalizedX, normalizedY: u.normalizedY } : c;
+        }),
+      });
       updateDisplay(applyUpdates, 'Arrastre en vivo', false);
     } else {
-      const nextState = applyUpdates(latestLiveStateRef.current);
-      latestLiveStateRef.current = nextState;
-      sessionCommandBus.dispatchFullState(nextState, sessionRevision);
+      updates.forEach((u) => {
+        sessionCommandBus.dispatchStreamCharacterTransform(u.id, u.normalizedX, u.normalizedY);
+      });
     }
   };
 
@@ -387,6 +410,7 @@ export function useDirectorHandlers({
 
   return {
     handleDirectorUpdateCharacter,
+    handleDirectorStreamCharacterMove,
     handleDirectorAddCharacter,
     handleDirectorLiveDragMove,
     handleDirectorUpdateMultiplePositions,

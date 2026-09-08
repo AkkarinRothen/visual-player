@@ -15,6 +15,7 @@ import {
   distributeHorizontally,
 } from '../../../../domain/display/tacticalFormations';
 import { DEFAULT_TACTICAL_GRID } from '../../../../domain/display/sceneLayoutTemplates';
+import { sessionCommandBus } from '../../../../services/sessionCommandBus';
 
 interface UseLiveModularControlProps {
   campaign: Campaign | null;
@@ -431,6 +432,22 @@ export function useLiveModularControl({
     );
   };
 
+  const handleStreamMoveCharacter = (id: string, normalizedX: number, normalizedY: number) => {
+    sessionCommandBus.dispatchStreamCharacterTransform(id, normalizedX, normalizedY);
+  };
+
+  const handleStreamScaleCharacter = (id: string, scale: number) => {
+    sessionCommandBus.dispatchStreamCharacterTransform(id, undefined, undefined, scale);
+  };
+
+  const handleCameraChange = (camera: { focalPoint: { x: number; y: number }; zoom: number }) => {
+    onUpdateDisplayField?.('camera', camera, `Zoom de cámara: ${camera.zoom.toFixed(1)}x`);
+  };
+
+  const handleStreamCameraChange = (camera: { focalPoint: { x: number; y: number }; zoom: number }) => {
+    sessionCommandBus.dispatchStreamControl('camera', camera);
+  };
+
   // Handlers for instant atmosphere & audio
   const handleWeatherChange = (weather: WeatherType) => {
     onUpdateDisplayField?.('weather', weather, `Clima en vivo: ${weather}`);
@@ -482,6 +499,10 @@ export function useLiveModularControl({
     handleLayerChange,
     handleToggleMirror,
     handleMoveCharacter,
+    handleStreamMoveCharacter,
+    handleStreamScaleCharacter,
+    handleCameraChange,
+    handleStreamCameraChange,
     handleWeatherChange,
     handleWeatherIntensityChange,
     handleLightingChange,

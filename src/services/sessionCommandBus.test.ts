@@ -225,4 +225,31 @@ describe('SessionCommandBus Suite', () => {
       expect.objectContaining({ id: 'guard-1', normalizedX: 31.5, normalizedY: 8.2 })
     );
   });
+
+  it('10. dispatchStreamCharacterTransform envía STREAM_CHARACTER_TRANSFORM sin registrar comandos pendientes', () => {
+    bus.dispatchStreamCharacterTransform('hero-1', 45, 20);
+
+    expect(peerService.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'STREAM_CHARACTER_TRANSFORM',
+        payload: { id: 'hero-1', normalizedX: 45, normalizedY: 20 },
+      })
+    );
+    expect(bus.getPendingCommandsCount()).toBe(0);
+  });
+
+  it('11. dispatchCommitCharacterTransform despacha comando crítico UPDATE_CHARACTER_TRANSFORM', () => {
+    const cmdId = bus.dispatchCommitCharacterTransform('hero-1', { normalizedX: 50, normalizedY: 22 }, 8);
+
+    expect(cmdId).toBeDefined();
+    expect(cmdId.startsWith('update_character_transform-')).toBe(true);
+    expect(bus.getPendingCommandsCount()).toBe(1);
+
+    expect(peerService.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'UPDATE_CHARACTER_TRANSFORM',
+        payload: expect.objectContaining({ id: 'hero-1', normalizedX: 50, normalizedY: 22 }),
+      })
+    );
+  });
 });

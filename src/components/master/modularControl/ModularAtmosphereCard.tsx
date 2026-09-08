@@ -1,6 +1,8 @@
 import React from 'react';
 import { CloudRain, CloudFog, CloudLightning, Sun, Droplets, ChevronRight, Check } from 'lucide-react';
 import type { WeatherType, LightingFilter } from '../../../types';
+import { useLiveStreamSlider } from '../../../hooks/useLiveStreamSlider';
+import { sessionCommandBus } from '../../../services/sessionCommandBus';
 
 export interface ModularAtmosphereCardProps {
   weather: WeatherType;
@@ -31,6 +33,18 @@ export const ModularAtmosphereCard: React.FC<ModularAtmosphereCardProps> = ({
   onOpenAtmospherePresets,
 }) => {
   const isWeatherActive = weather !== 'none';
+
+  const { localValue: localIntensity, sliderProps: intensitySliderProps } = useLiveStreamSlider({
+    value: Math.round(weatherIntensity * 100),
+    min: 0,
+    max: 100,
+    onStreamChange: (val) => {
+      sessionCommandBus.dispatchStreamControl('weatherIntensity', val / 100);
+    },
+    onCommit: (val) => {
+      onWeatherIntensityChange(val / 100);
+    },
+  });
 
   const getWeatherIcon = () => {
     switch (weather) {
@@ -100,17 +114,13 @@ export const ModularAtmosphereCard: React.FC<ModularAtmosphereCardProps> = ({
             <span>Intensidad</span>
           </span>
           <span className="modular-slider-val">
-            {Math.round(weatherIntensity * 100)}%
+            {Math.round(localIntensity)}%
           </span>
         </div>
         <input
-          type="range"
-          min="0"
-          max="100"
-          value={Math.round(weatherIntensity * 100)}
-          onChange={(e) => onWeatherIntensityChange(Number(e.target.value) / 100)}
           className="modular-range-slider"
           aria-label="Intensidad del clima"
+          {...intensitySliderProps}
         />
       </div>
 

@@ -74,7 +74,21 @@ export type SyncMessageType =
   | 'VIDEO_AVAILABILITY_RESPONSE'
   | 'VIDEO_CHUNK_TRANSFER'
   | 'VIDEO_PLAYBACK_COMMAND'
-  | 'VIDEO_PLAYBACK_TELEMETRY';
+  | 'VIDEO_PLAYBACK_TELEMETRY'
+  | 'STREAM_CHARACTER_TRANSFORM'
+  | 'STREAM_CONTROL_VALUE';
+
+export interface StreamCharacterTransformPayload {
+  id: string;
+  normalizedX?: number;
+  normalizedY?: number;
+  scale?: number;
+}
+
+export interface StreamControlValuePayload {
+  field: string;
+  value: unknown;
+}
 
 export interface VideoAvailabilityQueryPayload {
   videoAssetId: string;
@@ -248,6 +262,8 @@ export function getMessageTierInfo(type: SyncMessageType): {
       return { tier: 'critical', requiresAck: true };
 
     case 'TURN_TIMER_TICK':
+    case 'STREAM_CHARACTER_TRANSFORM':
+    case 'STREAM_CONTROL_VALUE':
       return { tier: 'continuous', requiresAck: false };
 
     case 'PLAY_SFX':

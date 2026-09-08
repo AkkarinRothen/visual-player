@@ -15,6 +15,8 @@ import {
   Edit3,
 } from 'lucide-react';
 import type { Character, CharacterOnScreen } from '../../../types';
+import { sessionCommandBus } from '../../../services/sessionCommandBus';
+import { useLiveStreamSlider } from '../../../hooks/useLiveStreamSlider';
 
 export interface ContextualCharacterInspectorProps {
   character: CharacterOnScreen;
@@ -53,6 +55,24 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
   const isVisible = !character.isHidden;
   const currentScale = character.scale || 1.0;
   const currentLayer = character.zIndex || 1;
+
+  const { displayValue: liveScale, sliderProps } = useLiveStreamSlider({
+    value: currentScale,
+    min: 0.15,
+    max: 2.5,
+    step: 0.05,
+    throttleMs: 50,
+    onStreamChange: (val) => {
+      sessionCommandBus.dispatchStreamCharacterTransform(character.id, undefined, undefined, val);
+    },
+    onCommit: (val) => {
+      if (onSetExactScale) {
+        onSetExactScale(character.id, val);
+      } else {
+        onScaleChange(character.id, val - currentScale);
+      }
+    },
+  });
 
   const getScaleLabel = (scale: number): string => {
     if (scale <= 0.35) return 'Mini';
@@ -125,7 +145,7 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
                 <span>Tamaño</span>
               </span>
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#38bdf8' }}>
-                {Math.round(currentScale * 100)}% ({getScaleLabel(currentScale)})
+                {Math.round(liveScale * 100)}% ({getScaleLabel(liveScale)})
               </span>
             </div>
 
@@ -140,19 +160,7 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
                 <Minus size={15} />
               </button>
               <input
-                type="range"
-                min="0.15"
-                max="2.5"
-                step="0.05"
-                value={currentScale}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value);
-                  if (onSetExactScale) {
-                    onSetExactScale(character.id, val);
-                  } else {
-                    onScaleChange(character.id, val - currentScale);
-                  }
-                }}
+                {...sliderProps}
                 style={{ flex: 1, margin: '0 6px' }}
                 aria-label="Deslizador de tamaño"
               />
@@ -176,7 +184,7 @@ export const ContextualCharacterInspector: React.FC<ContextualCharacterInspector
                 { label: 'Gra', scale: 1.4 },
                 { label: 'Enor', scale: 1.9 },
               ].map((p) => {
-                const isActive = Math.abs(currentScale - p.scale) < 0.08;
+                const isActive = Math.abs(liveScale - p.scale) < 0.08;
                 return (
                   <button
                     key={p.label}

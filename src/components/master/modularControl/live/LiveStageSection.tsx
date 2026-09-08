@@ -13,6 +13,11 @@ interface LiveStageSectionProps {
   selectedCharId: string | null;
   setSelectedCharId: (id: string | null) => void;
   onMoveCharacter: (id: string, normalizedX: number, normalizedY: number) => void;
+  onStreamMoveCharacter?: (id: string, normalizedX: number, normalizedY: number) => void;
+  onScaleCharacter?: (id: string, scale: number) => void;
+  onStreamScaleCharacter?: (id: string, scale: number) => void;
+  onCameraChange?: (camera: { focalPoint: { x: number; y: number }; zoom: number }) => void;
+  onStreamCameraChange?: (camera: { focalPoint: { x: number; y: number }; zoom: number }) => void;
   onOpenFullScreen?: () => void;
   onApplyBattleRanks?: () => void;
   onSnapAllToGrid?: () => void;
@@ -28,6 +33,11 @@ export const LiveStageSection: React.FC<LiveStageSectionProps> = ({
   selectedCharId,
   setSelectedCharId,
   onMoveCharacter,
+  onStreamMoveCharacter,
+  onScaleCharacter,
+  onStreamScaleCharacter,
+  onCameraChange,
+  onStreamCameraChange,
   onOpenFullScreen,
   onApplyBattleRanks,
   onSnapAllToGrid,
@@ -92,6 +102,12 @@ export const LiveStageSection: React.FC<LiveStageSectionProps> = ({
         selectedCharId={selectedCharId}
         onSelectCharacter={(id) => setSelectedCharId(id)}
         onMoveCharacter={onMoveCharacter}
+        onStreamMoveCharacter={onStreamMoveCharacter}
+        onScaleCharacter={onScaleCharacter}
+        onStreamScaleCharacter={onStreamScaleCharacter}
+        onCameraChange={onCameraChange}
+        onStreamCameraChange={onStreamCameraChange}
+        camera={liveState.camera}
         isTacticalMode={isTacticalModeActive}
         gridConfig={liveState.tacticalGrid}
       />

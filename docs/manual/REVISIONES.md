@@ -2,6 +2,71 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-07 — MAN-145: Gestos multitáctiles en vivo en el Visor 16:9 (Pinch-to-scale y Pinch-to-zoom)
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos (`tsc -b`), tests unitarios en Vitest (102 suites y 561/561 pruebas aprobadas) y build de producción con Vite. No se realizó prueba en Android físico ni recorrido completo con mesa conectada por WebRTC real.
+- **Funciones y componentes afectados:**
+  1. `StageTouchOverlay.tsx`: registro multi-pointer mediante `activePointersRef` para rastreo simultáneo e independiente de toques en la pantalla táctil. Al recibir 2 toques sobre una figura o token, activa el gesto de pellizco (*pinch-to-scale*), calculando la distancia euclidiana inicial y modulando el factor de escala dinámicamente entre `0.15` y `2.5`.
+  2. Chip flotante de HUD contextual de escala: badge elegante translúcido (`stage-pinch-scale-chip-{id}`) posicionado sobre la figura que muestra el porcentaje en tiempo real y la categoría de tamaño D&D (`140% · Grande`, `Diminuto`, `Pequeño`, `Mediano`, `Enorme`), desvaneciéndose automáticamente al soltar.
+  3. Control de zoom de cámara por pellizco (*pinch-to-zoom*): zona táctil de fondo (`stage-background-touch-area`) que detecta gestos con 2 dedos sobre el escenario para ajustar el zoom de la cámara entre `1.0x` y `2.5x` sin interferir con las hitboxes de los personajes. Incluye doble toque rápido para restablecer inmediatamente a `1.0x`.
+  4. Píldora flotante de zoom (`stage-camera-zoom-pill`): aparece en la esquina superior derecha cuando el zoom excede `1.0x`, mostrando la magnificación actual y un botón de acceso rápido con icono `RotateCcw` para restablecer a escala normal.
+  5. `useLiveModularControl.ts`, `LiveStageSection.tsx` y `LiveModularControlPanel.tsx`: emisión continua de streaming a ~20 Hz (`tier: 'continuous'`) hacia la Mesa mediante `dispatchStreamCharacterTransform` y `dispatchStreamControl('camera', ...)`, culminando con un commit transaccional atómico al soltar los dedos sin saturar el historial de Deshacer ni el canal de datos.
+  6. `StageTouchOverlay.test.tsx`: suites unitarias ampliadas validando la interacción multitáctil de pellizco en tokens/standees, la aparición/desaparición del badge flotante, el zoom de fondo y el botón de reset.
+- **Manual:** actualizar `docs/manual/pantallas/ESCENARIO.md` o secciones de interacción táctil describiendo que ahora el Director puede agrandar o encoger personajes directamente pellizcándolos en el visor 16:9 con dos dedos, así como hacer zoom al escenario y restablecerlo con doble toque o mediante la píldora de zoom.
+- **Evidencia técnica:** 561/561 pruebas unitarias aprobadas, `npx tsc -b` y `npm run build` sin errores.
+- **Resultado:** soporte táctil ergonómico moderno (pinch-to-scale y pinch-to-zoom) completado para Android y Desktop.
+
+## 2026-09-07 — MAN-144: Interpolación y suavizado de movimiento y escala a 60 fps en la Mesa (Lerp / Smoother)
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos (`tsc -b`), tests unitarios en Vitest (102 suites y 558/558 pruebas aprobadas) y build de producción con Vite. No se realizó prueba en Android físico ni recorrido completo con mesa conectada por WebRTC real.
+- **Funciones y componentes afectados:**
+  1. `characterTransformSmoother.ts`: función matemática pura `interpolateTransform` basada en decaimiento exponencial (`1 - e^(-speed * dt)`), independiente del framerate (60/120 Hz). Incorpora umbral de teletransporte (`snapThreshold = 45%`) para cambios de escena o saltos y estabilización en reposo (`isSettled`) con epsilon.
+  2. `useCharacterTransformSmoother.ts`: hook para la Mesa que gestiona el bucle `requestAnimationFrame` por figura. Suspende el ciclo automáticamente cuando todas las figuras alcanzaron su destino para un consumo nulo en reposo. Inicializa inmediatamente en el primer render garantizando paridad sincrónica.
+  3. `DisplayCharactersLayer.tsx`: integración del suavizado para coordenadas (`posX`, `posY`) y escala (`effectiveScale`) en tokens tácticos y standees, retirando las transiciones CSS estáticas (`transition: left 80ms linear`) para eliminar el retraso de arrastre y dotar de zoom fluido a los cambios de tamaño.
+  4. `characterTransformSmoother.test.ts`: suite unitaria dedicada para verificar convergencia temporal, salto instantáneo ante teletransportes y detección de reposo.
+- **Manual:** sin cambios obligatorios de uso; las figuras en la Mesa se desplazan y escalan con absoluta suavidad a 60 fps sin tirones provocados por la tasa de red o fluctuaciones de Wi-Fi.
+- **Evidencia técnica:** 558/558 pruebas unitarias aprobadas, `npx tsc -b` y `npm run build` sin errores.
+- **Resultado:** fluidez y calidad visual de movimiento completada para Android y Desktop.
+
+## 2026-09-07 — MAN-143: Buffer de conflation y descarte de ráfagas en la Mesa (Stream Conflation Buffer)
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos (`tsc -b`), tests unitarios en Vitest (101 suites y 554/554 pruebas aprobadas) y build de producción con Vite. No se realizó prueba en Android físico ni recorrido completo con mesa conectada por WebRTC real.
+- **Funciones y componentes afectados:**
+  1. `streamConflationBuffer.ts`: creación de la clase `StreamConflationBuffer` para absorción de ráfagas por fluctuaciones de red. Realiza filtrado por timestamp para descartar frames atrasados o desordenados (`sentAt <= lastProcessed`), coalescing en el ciclo `requestAnimationFrame` aplicando únicamente el frame más reciente y cancelación inmediata de frames continuos pendientes ante comandos críticos.
+  2. `displayCommandExecutor.ts`: integración de `StreamConflationBuffer` en la ruta rápida de ejecución de la Mesa. Los comandos continuos delegan en el buffer de conflation mientras que los comandos transaccionales (commits de token, cambios de escena, blackout) purgan y cancelan cualquier frame de arrastre residual antes de encolar en la cola FIFO.
+  3. `streamConflationBuffer.test.ts` y `displayCommandExecutor.test.ts`: suites de pruebas automatizadas con validación de descarte de paquetes viejos, coalescing de ráfagas, métricas diagnósticas internas y purga atómica ante eventos críticos.
+- **Manual:** sin cambios obligatorios de uso; las instrucciones para el Director y la Mesa se mantienen idénticas. El sistema amortigua automáticamente los microcortes de Wi-Fi o congestiones momentáneas de red evitando avances acelerados o desincronizaciones visuales en la pantalla compartida.
+- **Evidencia técnica:** 554/554 pruebas unitarias aprobadas, `npx tsc -b` y `npm run build` sin errores.
+- **Resultado:** robustez ante jitter y microcortes de red implementada para Android y Desktop.
+
+## 2026-09-07 — MAN-142: Streaming continuo reactivo en controles interactivos (Volumen, Clima y Escala)
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos (`tsc -b`), tests unitarios en Vitest (100 suites y 546/546 pruebas aprobadas) y build de producción con Vite. No se realizó prueba en Android físico ni recorrido completo con mesa conectada por WebRTC real.
+- **Funciones y componentes afectados:**
+  1. `useLiveStreamSlider.ts`: creación de un hook reactivo y reutilizable que proporciona respuesta visual local inmediata a 60 fps, transmisión throttled a la Mesa a ~20 Hz (50 ms) con mensajes ligeros `tier: 'continuous'` y un único commit de guardado persistente al soltar el dedo (`pointerup` / `touchend`). Soporta además cambios discretos de accesibilidad y pruebas unitarias.
+  2. `soundEngine.ts`: incorporación de `setVolumeDirect` para ajustar instantáneamente la ganancia del audio ambiental en la pantalla de la Mesa sin latencia ni artefactos de crossfade.
+  3. `displayCommandReducer.ts`, `displayCommandExecutor.ts` y `PlayerDisplay.tsx`: extensión de `STREAM_CONTROL_VALUE` para emitir el efecto colateral `set_ambient_volume`, ejecutado inmediatamente en la ruta rápida (*fast-path*) sin generar mensajes inversos de acuse de recibo.
+  4. `ModularAudioCard.tsx`: conexión del deslizador de volumen de ambiente con `useLiveStreamSlider` y despacho vía `sessionCommandBus.dispatchStreamControl`.
+  5. `ModularAtmosphereCard.tsx`: conexión del deslizador de intensidad de clima con `useLiveStreamSlider` y despacho vía `sessionCommandBus.dispatchStreamControl`.
+  6. `ContextualCharacterInspector.tsx`: extensión de `STREAM_CHARACTER_TRANSFORM` con el campo opcional `scale`, conectando el deslizador de tamaño a `useLiveStreamSlider` y sincronizando el redimensionamiento fluido del token/standee en la Mesa.
+- **Manual:** sin cambios obligatorios de uso; los deslizadores de volumen, clima y escala mantienen sus posiciones y controles idénticos, mejorando la respuesta simultánea de los jugadores y generando un solo paso en la pila de Deshacer al soltar el control.
+- **Evidencia técnica:** 546/546 pruebas unitarias aprobadas, `npx tsc -b` y `npm run build` sin errores ni advertencias de tipos.
+- **Resultado:** respuesta continua y fluida de audio, clima y tamaño completada para Android y Desktop.
+
+## 2026-09-07 — MAN-141: Optimización de conectividad y streaming de arrastre continuo
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos (`tsc -b`), tests unitarios en Vitest (55/55 tests aprobados en 6 suites: `protocol.test.ts`, `displayCommandReducer.test.ts`, `displayCommandExecutor.test.ts`, `sessionCommandBus.test.ts`, `StageTouchOverlay.test.tsx`, `LiveModularControlPanel.test.tsx`) y build de producción con Vite. No se realizó prueba en Android físico ni recorrido completo con mesa conectada por WebRTC real.
+- **Funciones y componentes afectados:**
+  1. `types.ts` y `protocolEngine.ts`: adición de los tipos de mensaje `STREAM_CHARACTER_TRANSFORM` y `STREAM_CONTROL_VALUE` clasificados en `tier: 'continuous'` y `requiresAck: false`, eliminando la exigencia de paquetes de confirmación ACK y temporizadores de timeout durante el movimiento en vivo.
+  2. `displayCommandReducer.ts`: soporte directo y puro para `STREAM_CHARACTER_TRANSFORM` y `STREAM_CONTROL_VALUE`, actualizando las coordenadas y parámetros de escena en memoria sin efectos secundarios pesados.
+  3. `displayCommandExecutor.ts`: implementación de *Fast-Path* receptor en la Mesa; los mensajes de streaming continuo se aplican sincrónicamente omitiendo el cálculo de hash criptográfico SHA-256 (`computeStateChecksum`) y la emisión reversa de `COMMAND_RESULT`, previniendo la congestión del canal de datos.
+  4. `sessionCommandBus.ts`: métodos `dispatchStreamCharacterTransform` y `dispatchStreamControl` para despacho ligero y `dispatchCommitCharacterTransform` para el commit crítico final garantizado al soltar el control.
+  5. `StageTouchOverlay.tsx`, `LiveStageSection.tsx`, `LiveModularControlPanel.tsx` y `useLiveModularControl.ts`: limitador de frecuencia (*throttling* a ~20 Hz / 50 ms) durante el arrastre con actualización visual local inmediata en el móvil; al soltar el dedo (`pointerup`), se emite un único evento de commit crítico y un solo paso en el historial de Deshacer (Undo/Redo).
+  6. `DisplayCharactersLayer.tsx`: ajuste de la transición de coordenadas a `80ms linear` para interpolación visual continua y reactiva a 60 fps en pantalla sin acumulación de retardo.
+- **Manual:** sin cambios obligatorios de uso; las instrucciones de arrastre y organización de fichas se mantienen idénticas para el Director, mejorando la fluidez operativa y la precisión de la acción Deshacer.
+- **Evidencia técnica:** 55/55 pruebas unitarias aprobadas, `npx tsc -b` y `npm run build` completados sin errores.
+- **Resultado:** conectividad y rendimiento de arrastre optimizados para Android y Desktop.
+
 ## 2026-09-06 — MAN-140: Visualización dual de personajes (Tokens VTT y Standees JRPG) y formaciones rápidas
 
 - **Walkthrough y entorno:** revisión de código, comprobación de tipos, tests unitarios en Vitest (40/40 tests aprobados en 5 suites: `tacticalFormations.test.ts`, `DisplayCharactersLayer.test.tsx`, `StageFormationActionsMenu.test.tsx`, `StageTouchOverlay.test.tsx`, `LiveModularControlPanel.test.tsx`) y build de producción. No se realizó prueba en Android físico ni recorrido con mesa WebRTC conectada.

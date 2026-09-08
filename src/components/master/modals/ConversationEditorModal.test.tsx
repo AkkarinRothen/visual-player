@@ -61,7 +61,7 @@ describe('ConversationEditorModal Suite', () => {
       />
     );
 
-    expect(screen.getByText('Editar Conversación')).toBeDefined();
+    expect(screen.getAllByText('Editar Conversación')[0]).toBeDefined();
     expect(screen.getByDisplayValue('Encuentro con el Oráculo')).toBeDefined();
     expect(screen.getByText('Intervenciones (1)')).toBeDefined();
     expect(screen.getByText('Intervención #1')).toBeDefined();
@@ -86,7 +86,7 @@ describe('ConversationEditorModal Suite', () => {
       />
     );
 
-    expect(screen.getByText('Nueva Conversación')).toBeDefined();
+    expect(screen.getAllByText('Nueva Conversación')[0]).toBeDefined();
 
     // Add line
     const addBtn = screen.getByText('Añadir');

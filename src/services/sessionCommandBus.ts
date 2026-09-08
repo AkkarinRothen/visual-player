@@ -473,6 +473,57 @@ export class SessionCommandBus {
     });
   }
 
+  /**
+   * Lightweight ephemeral delta stream for live token dragging and scale adjustments.
+   * Bypasses the receipt store, pending timeouts, and ACK requirements.
+   */
+  public dispatchStreamCharacterTransform(
+    id: string,
+    normalizedX?: number,
+    normalizedY?: number,
+    scale?: number
+  ): void {
+    if (this.transport.getStatus() !== 'connected') return;
+    this.transport.send({
+      type: 'STREAM_CHARACTER_TRANSFORM',
+      payload: { id, normalizedX, normalizedY, scale },
+      sessionId: this.sessionId,
+      connectionEpoch: this.connectionEpoch,
+    } as any);
+  }
+
+  /**
+   * Lightweight ephemeral delta stream for interactive sliders (e.g. ambient volume, weather intensity).
+   */
+  public dispatchStreamControl(field: string, value: unknown): void {
+    if (this.transport.getStatus() !== 'connected') return;
+    this.transport.send({
+      type: 'STREAM_CONTROL_VALUE',
+      payload: { field, value },
+      sessionId: this.sessionId,
+      connectionEpoch: this.connectionEpoch,
+    } as any);
+  }
+
+  /**
+   * Final atomic critical commit for character transformation updates on drag end.
+   */
+  public dispatchCommitCharacterTransform(
+    id: string,
+    updates: {
+      normalizedX?: number;
+      normalizedY?: number;
+      scale?: number;
+      isFlipped?: boolean;
+      position?: any;
+    },
+    revision?: number
+  ): string {
+    return this.sendCommand('UPDATE_CHARACTER_TRANSFORM', { id, ...updates }, {
+      params: { id, revision },
+    });
+  }
+
   public dispatchCombatUpdate(combat: CombatState): string {
     return this.sendCommand(combat.isActive ? 'UPDATE_COMBAT' : 'END_COMBAT', combat, {
       params: { round: combat.round, active: combat.isActive },

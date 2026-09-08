@@ -10,6 +10,7 @@ import type {
   TacticalGridConfig,
 } from '../../types';
 import { shouldRenderAsToken } from '../../domain/display/tacticalFormations';
+import { useCharacterTransformSmoother } from './useCharacterTransformSmoother';
 
 interface DisplayCharactersLayerProps {
   characters: CharacterOnScreen[];
@@ -63,6 +64,7 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
   tacticalGrid,
 }) => {
   const hasSpeaking = characters.some((c) => c.isSpeaking);
+  const { getSmoothedTransform } = useCharacterTransformSmoother(characters);
 
   // Track previous items to detect elements removed with an 'exit' transition directive
   const prevItemsRef = useRef<StageItem[]>([]);
@@ -167,10 +169,15 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
 
         if (item.type === 'character') {
           const char = item.data;
-          const posX =
+          const rawPosX =
             char.normalizedX !== undefined ? char.normalizedX : getSlotPositionPercent(char.position);
-          const posY = (char.normalizedY !== undefined ? char.normalizedY : 0) + (groundLineY || 0);
-          const effectiveScale = char.scale !== undefined ? char.scale : 1.0;
+          const rawPosY = (char.normalizedY !== undefined ? char.normalizedY : 0) + (groundLineY || 0);
+          const rawScale = char.scale !== undefined ? char.scale : 1.0;
+
+          const smoothed = getSmoothedTransform(char.id, rawPosX, rawPosY, rawScale);
+          const posX = smoothed.x;
+          const posY = smoothed.y;
+          const effectiveScale = smoothed.scale;
           const isFlipped = !!char.isFlipped;
           const isDimmed = hasSpeaking && !char.isSpeaking;
           const visualAnchorOffsetY = char.visualAnchorOffsetY || 0;
@@ -230,7 +237,6 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
                   zIndex: item.zIndex,
                   pointerEvents: 'none',
                   transform: 'translate(-50%, 50%)',
-                  transition: 'left 0.4s cubic-bezier(0.16, 1, 0.3, 1), bottom 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}
               >
                 <div
@@ -319,7 +325,6 @@ export const DisplayCharactersLayer: React.FC<DisplayCharactersLayerProps> = ({
                 bottom: `${posY}%`,
                 zIndex: item.zIndex,
                 pointerEvents: 'none',
-                transition: 'left 0.4s cubic-bezier(0.16, 1, 0.3, 1), bottom 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             >
               {/* Procedural ground shadow */}

@@ -167,4 +167,166 @@ describe('StageTouchOverlay (Lienzo Táctico y Standees)', () => {
     const polygons = svgGrid?.querySelectorAll('polygon');
     expect(polygons && polygons.length).toBeGreaterThan(10);
   });
+
+  it('7. Emite streaming con onStreamMoveCharacter durante el arrastre y onMoveCharacter al soltar', () => {
+    const onMove = vi.fn();
+    const onStream = vi.fn();
+
+    const { container } = render(
+      <div style={{ width: '1000px', height: '562px' }}>
+        <StageTouchOverlay
+          characters={mockCharacters}
+          selectedCharId="char-1"
+          onSelectCharacter={vi.fn()}
+          onMoveCharacter={onMove}
+          onStreamMoveCharacter={onStream}
+          isTacticalMode={false}
+        />
+      </div>
+    );
+
+    const overlay = container.firstElementChild?.firstElementChild as HTMLElement;
+    if (overlay) {
+      vi.spyOn(overlay, 'getBoundingClientRect').mockReturnValue({
+        width: 1000,
+        height: 562,
+        top: 0,
+        left: 0,
+        bottom: 562,
+        right: 1000,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      });
+    }
+
+    const valeros = screen.getByTestId('stage-char-hitbox-char-1');
+    fireEvent.pointerDown(valeros, { clientX: 200, clientY: 300, pointerId: 1 });
+    // Simulate drag movement
+    fireEvent.pointerMove(valeros, { clientX: 250, clientY: 300, pointerId: 1 });
+
+    expect(onStream).toHaveBeenCalled();
+    // onMove (commit) is NOT yet called while dragging
+    expect(onMove).not.toHaveBeenCalled();
+
+    // Release pointer
+    fireEvent.pointerUp(valeros, { clientX: 250, clientY: 300, pointerId: 1 });
+
+    // onMove (commit) is called exactly once on release
+    expect(onMove).toHaveBeenCalledTimes(1);
+    expect(onMove).toHaveBeenCalledWith('char-1', expect.any(Number), expect.any(Number));
+  });
+
+  it('8. Pellizco con 2 dedos sobre un personaje escala en vivo (onStreamScaleCharacter) y confirma al soltar (onScaleCharacter)', () => {
+    const onScale = vi.fn();
+    const onStreamScale = vi.fn();
+
+    render(
+      <StageTouchOverlay
+        characters={mockCharacters}
+        selectedCharId="char-1"
+        onSelectCharacter={vi.fn()}
+        onScaleCharacter={onScale}
+        onStreamScaleCharacter={onStreamScale}
+        isTacticalMode={false}
+      />
+    );
+
+    const valeros = screen.getByTestId('stage-char-hitbox-char-1');
+
+    // Primer dedo toca el personaje
+    fireEvent.pointerDown(valeros, { clientX: 200, clientY: 200, pointerId: 1 });
+    // Segundo dedo toca el personaje -> inicia pinch
+    fireEvent.pointerDown(valeros, { clientX: 300, clientY: 200, pointerId: 2 });
+
+    // Badge flotante de escala debe aparecer
+    const chip = screen.getByTestId('stage-pinch-scale-chip-char-1');
+    expect(chip).toBeDefined();
+    expect(chip.textContent).toContain('100%');
+
+    // Separar dedos (distancia inicial = 100px -> nueva distancia = 150px => factor 1.5x)
+    fireEvent.pointerMove(valeros, { clientX: 350, clientY: 200, pointerId: 2 });
+
+    expect(onStreamScale).toHaveBeenCalledWith('char-1', 1.5);
+    expect(chip.textContent).toContain('150% · Grande');
+
+    // Levantar segundo dedo -> commit atómico
+    fireEvent.pointerUp(valeros, { clientX: 350, clientY: 200, pointerId: 2 });
+    expect(onScale).toHaveBeenCalledWith('char-1', 1.5);
+
+    // Levantar primer dedo
+    fireEvent.pointerUp(valeros, { clientX: 200, clientY: 200, pointerId: 1 });
+    // El chip debe desaparecer
+    expect(screen.queryByTestId('stage-pinch-scale-chip-char-1')).toBeNull();
+  });
+
+  it('9. Pellizco con 2 dedos sobre el fondo del escenario ajusta el zoom de la cámara y muestra la píldora flotante', () => {
+    const onCamera = vi.fn();
+    const onStreamCamera = vi.fn();
+
+    render(
+      <StageTouchOverlay
+        characters={mockCharacters}
+        selectedCharId={null}
+        onSelectCharacter={vi.fn()}
+        onCameraChange={onCamera}
+        onStreamCameraChange={onStreamCamera}
+        camera={{ focalPoint: { x: 50, y: 50 }, zoom: 1.0 }}
+        isTacticalMode={false}
+      />
+    );
+
+    const bgTouch = screen.getByTestId('stage-background-touch-area');
+
+    // Dedo 1 y dedo 2 tocan el fondo a 100px de distancia
+    fireEvent.pointerDown(bgTouch, { clientX: 200, clientY: 200, pointerId: 1 });
+    fireEvent.pointerDown(bgTouch, { clientX: 300, clientY: 200, pointerId: 2 });
+
+    // Separar dedos a 140px (1.4x zoom)
+    fireEvent.pointerMove(bgTouch, { clientX: 340, clientY: 200, pointerId: 2 });
+
+    expect(onStreamCamera).toHaveBeenCalledWith(
+      expect.objectContaining({
+        zoom: 1.4,
+      })
+    );
+
+    // Debe mostrar la píldora de zoom
+    const zoomPill = screen.getByTestId('stage-camera-zoom-pill');
+    expect(zoomPill).toBeDefined();
+    expect(zoomPill.textContent).toContain('1.4x');
+
+    // Soltar dedos -> commit
+    fireEvent.pointerUp(bgTouch, { clientX: 340, clientY: 200, pointerId: 2 });
+    expect(onCamera).toHaveBeenCalledWith(
+      expect.objectContaining({
+        zoom: 1.4,
+      })
+    );
+  });
+
+  it('10. Botón de reinicio en píldora de zoom restablece la cámara a 1.0x', () => {
+    const onCamera = vi.fn();
+
+    render(
+      <StageTouchOverlay
+        characters={mockCharacters}
+        selectedCharId={null}
+        onSelectCharacter={vi.fn()}
+        onCameraChange={onCamera}
+        camera={{ focalPoint: { x: 50, y: 50 }, zoom: 1.6 }}
+        isTacticalMode={false}
+      />
+    );
+
+    const resetBtn = screen.getByTestId('stage-camera-reset-zoom-btn');
+    expect(resetBtn).toBeDefined();
+
+    fireEvent.click(resetBtn);
+
+    expect(onCamera).toHaveBeenCalledWith({
+      focalPoint: { x: 50, y: 50 },
+      zoom: 1.0,
+    });
+  });
 });

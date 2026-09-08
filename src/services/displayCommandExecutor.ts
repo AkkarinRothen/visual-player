@@ -10,6 +10,11 @@ import {
   reduceDisplayCommand,
   type DisplayCommandSideEffect,
 } from '../domain/display/displayCommandReducer';
+import {
+  StreamConflationBuffer,
+  type ConflationMetrics,
+  type StreamConflationBufferOptions,
+} from '../domain/display/streamConflationBuffer';
 import { computeStateChecksum } from './sessionRecovery';
 
 export interface DisplayExecutorCallbacks {
@@ -29,9 +34,11 @@ export class DisplayCommandExecutor {
   private activeSessionId: string | null = null;
   private activeConnectionEpoch: number = 1;
   private currentRevision: number = 1;
+  private conflationBuffer: StreamConflationBuffer;
 
-  constructor(maxCacheSize: number = 200) {
+  constructor(maxCacheSize: number = 200, bufferOptions?: StreamConflationBufferOptions) {
     this.maxCacheSize = maxCacheSize;
+    this.conflationBuffer = new StreamConflationBuffer(bufferOptions);
   }
 
   public setSessionContext(sessionId: string | null, connectionEpoch: number = 1): void {
@@ -39,6 +46,7 @@ export class DisplayCommandExecutor {
       // New session invalidates cached commands from previous session
       this.appliedCommands.clear();
       this.activeSessionId = sessionId;
+      this.conflationBuffer.resetSession();
     }
     this.activeConnectionEpoch = connectionEpoch;
   }
@@ -49,6 +57,15 @@ export class DisplayCommandExecutor {
     this.activeConnectionEpoch = 1;
     this.currentRevision = 1;
     this.queue = Promise.resolve();
+    this.conflationBuffer.resetSession();
+  }
+
+  public getConflationMetrics(): Readonly<ConflationMetrics> {
+    return this.conflationBuffer.getMetrics();
+  }
+
+  public flushConflationSync(): void {
+    this.conflationBuffer.flushSync();
   }
 
   /**
@@ -59,6 +76,28 @@ export class DisplayCommandExecutor {
     msg: VersionedSyncMessage,
     callbacks: DisplayExecutorCallbacks
   ): Promise<CommandResultPayload | null> {
+    // Fast-path for ephemeral / continuous streaming (e.g. live token drag or slider updates)
+    // Coalesces packets and drops stale bursts via StreamConflationBuffer, bypassing the heavy SHA-256 queue.
+    if (
+      msg.tier === 'continuous' ||
+      msg.type === 'STREAM_CHARACTER_TRANSFORM' ||
+      msg.type === 'STREAM_CONTROL_VALUE'
+    ) {
+      if (
+        msg.sessionId &&
+        this.activeSessionId &&
+        msg.sessionId !== this.activeSessionId
+      ) {
+        return Promise.resolve(null);
+      }
+      this.conflationBuffer.ingest(msg, callbacks);
+      return Promise.resolve(null);
+    }
+
+    // Critical / sequential command: immediately cancel and purge any pending continuous frames
+    // so that authoritative state mutations take immediate effect without residual drag overwrites.
+    this.conflationBuffer.cancelPending();
+
     return new Promise((resolve) => {
       this.queue = this.queue.then(async () => {
         try {

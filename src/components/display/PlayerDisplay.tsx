@@ -407,6 +407,8 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
             eff.payload.volume,
             eff.payload.crossfade
           );
+        } else if (eff.type === 'set_ambient_volume') {
+          soundEngine.setVolumeDirect(eff.payload.volume);
         } else if (eff.type === 'play_synth') {
           soundEngine.playSynth(eff.payload.preset);
         } else if (eff.type === 'stop_sfx') {
