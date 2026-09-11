@@ -23,44 +23,8 @@ interface ManageFavoritesModalProps {
   onClose: () => void;
 }
 
-export const DEFAULT_FAVORITES: DMFavoriteItem[] = [
-  {
-    id: 'fav-lightning',
-    type: 'sfx',
-    label: 'Rayo y Trueno',
-    icon: 'Zap',
-    color: '#38bdf8',
-    targetId: 'thunder',
-    params: { synthPreset: 'thunder' },
-  },
-  {
-    id: 'fav-sword',
-    type: 'sfx',
-    label: 'Choque de Espadas',
-    icon: 'Swords',
-    color: '#fbbf24',
-    targetId: 'sword_clash',
-    params: { synthPreset: 'sword_clash' },
-  },
-  {
-    id: 'fav-victory',
-    type: 'sfx',
-    label: 'Fanfarria',
-    icon: 'Sparkles',
-    color: '#34d399',
-    targetId: 'victory_fanfare',
-    params: { synthPreset: 'victory_fanfare' },
-  },
-  {
-    id: 'fav-monster',
-    type: 'sfx',
-    label: 'Rugido Bestial',
-    icon: 'Skull',
-    color: '#f87171',
-    targetId: 'monster_growl',
-    params: { synthPreset: 'monster_growl' },
-  },
-];
+import { DEFAULT_FAVORITES } from '../../../domain/session/smartFavorites';
+export { DEFAULT_FAVORITES };
 
 export const ManageFavoritesModal: React.FC<ManageFavoritesModalProps> = ({
   campaign,

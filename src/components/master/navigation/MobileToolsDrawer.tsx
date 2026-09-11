@@ -24,6 +24,7 @@ import {
 import * as Tabs from '@radix-ui/react-tabs';
 import { AndroidSheet } from '../../ui/AndroidSheet';
 import { ActionTile } from '../../ui/ActionTile';
+import { prefetchModal } from '../modals/modalPrefetch';
 
 interface MobileToolsDrawerProps {
   operationMode: 'live' | 'staging';
@@ -114,7 +115,15 @@ export const MobileToolsDrawer: React.FC<MobileToolsDrawerProps> = ({
               </div>
             </div>
           )}
-          <ActionTile icon={<CheckCheck size={18} />} label="Revisar cambios" hint="Publicación selectiva" onClick={onSelectivePublish} tone="accent" />
+          <ActionTile
+            icon={<CheckCheck size={18} />}
+            label="Revisar cambios"
+            hint="Publicación selectiva"
+            onClick={onSelectivePublish}
+            onMouseEnter={() => prefetchModal('selectivePublish')}
+            onTouchStart={() => prefetchModal('selectivePublish')}
+            tone="accent"
+          />
         </section>
       </Tabs.Content>
 
@@ -122,14 +131,64 @@ export const MobileToolsDrawer: React.FC<MobileToolsDrawerProps> = ({
         <section className="mobile-tools-section">
           <div className="mobile-tools-section-title"><ImagePlus size={16} /> Escena</div>
           <div className="mobile-tools-grid">
-            <ActionTile icon={<ImagePlus size={18} />} label="Mover personajes" hint="Fondo y composición" onClick={onOpenCompositor} />
-            <ActionTile icon={<Camera size={18} />} label="Vista completa" hint="Previsualizar Mesa" onClick={onOpenFullScreenPreview} />
-            <ActionTile icon={<Lightbulb size={18} />} label="Iluminación" onClick={onOpenLighting} />
-            <ActionTile icon={<Music size={18} />} label="Música ambiental" onClick={onOpenSoundtrack} />
-            <ActionTile icon={<Volume2 size={18} />} label="Panel de sonidos" onClick={onOpenSoundboard} />
-            <ActionTile icon={<BookOpen size={18} />} label="Mostrar recurso" onClick={onOpenHandout} />
-            <ActionTile icon={<RotateCcw size={18} />} label="Insertar preset" onClick={onOpenInsertPreset} />
-            <ActionTile icon={<Sparkles size={18} />} label="Guardar preset" onClick={onOpenSavePreset} />
+            <ActionTile
+              icon={<ImagePlus size={18} />}
+              label="Mover personajes"
+              hint="Fondo y composición"
+              onClick={onOpenCompositor}
+              onMouseEnter={() => prefetchModal('sceneCompositor')}
+              onTouchStart={() => prefetchModal('sceneCompositor')}
+            />
+            <ActionTile
+              icon={<Camera size={18} />}
+              label="Vista completa"
+              hint="Previsualizar Mesa"
+              onClick={onOpenFullScreenPreview}
+              onMouseEnter={() => prefetchModal('fullScreenPreview')}
+              onTouchStart={() => prefetchModal('fullScreenPreview')}
+            />
+            <ActionTile
+              icon={<Lightbulb size={18} />}
+              label="Iluminación"
+              onClick={onOpenLighting}
+              onMouseEnter={() => prefetchModal('lightingPresets')}
+              onTouchStart={() => prefetchModal('lightingPresets')}
+            />
+            <ActionTile
+              icon={<Music size={18} />}
+              label="Música ambiental"
+              onClick={onOpenSoundtrack}
+              onMouseEnter={() => prefetchModal('biomeSoundtrack')}
+              onTouchStart={() => prefetchModal('biomeSoundtrack')}
+            />
+            <ActionTile
+              icon={<Volume2 size={18} />}
+              label="Panel de sonidos"
+              onClick={onOpenSoundboard}
+              onMouseEnter={() => prefetchModal('soundboard')}
+              onTouchStart={() => prefetchModal('soundboard')}
+            />
+            <ActionTile
+              icon={<BookOpen size={18} />}
+              label="Mostrar recurso"
+              onClick={onOpenHandout}
+              onMouseEnter={() => prefetchModal('handoutViewer')}
+              onTouchStart={() => prefetchModal('handoutViewer')}
+            />
+            <ActionTile
+              icon={<RotateCcw size={18} />}
+              label="Insertar preset"
+              onClick={onOpenInsertPreset}
+              onMouseEnter={() => prefetchModal('scenePreset')}
+              onTouchStart={() => prefetchModal('scenePreset')}
+            />
+            <ActionTile
+              icon={<Sparkles size={18} />}
+              label="Guardar preset"
+              onClick={onOpenSavePreset}
+              onMouseEnter={() => prefetchModal('scenePreset')}
+              onTouchStart={() => prefetchModal('scenePreset')}
+            />
           </div>
         </section>
       </Tabs.Content>
@@ -140,11 +199,41 @@ export const MobileToolsDrawer: React.FC<MobileToolsDrawerProps> = ({
           <div className="mobile-tools-grid">
             <ActionTile icon={<Gamepad2 size={18} />} label="Combate" hint="Iniciativa y turnos" onClick={() => { onClose(); onSelectTab('combat'); }} />
             <ActionTile icon={<Sparkles size={18} />} label="Momentos" hint="Macros y efectos" onClick={() => { onClose(); onSelectTab('moments'); }} />
-            <ActionTile icon={<MessageSquare size={18} />} label="Diálogos" onClick={onOpenDialogue} />
-            <ActionTile icon={<Flame size={18} />} label="Preparar sesión" onClick={onOpenPrep} />
-            <ActionTile icon={<FileOutput size={18} />} label="Recap de campaña" onClick={onOpenRecap} />
-            <ActionTile icon={<Clock3 size={18} />} label="Historial" onClick={onOpenHistory} />
-            <ActionTile icon={<DatabaseBackup size={18} />} label="Puntos de control" onClick={onOpenCheckpoints} />
+            <ActionTile
+              icon={<MessageSquare size={18} />}
+              label="Diálogos"
+              onClick={onOpenDialogue}
+              onMouseEnter={() => prefetchModal('conversationEditor')}
+              onTouchStart={() => prefetchModal('conversationEditor')}
+            />
+            <ActionTile
+              icon={<Flame size={18} />}
+              label="Preparar sesión"
+              onClick={onOpenPrep}
+              onMouseEnter={() => prefetchModal('sessionPrepWizard')}
+              onTouchStart={() => prefetchModal('sessionPrepWizard')}
+            />
+            <ActionTile
+              icon={<FileOutput size={18} />}
+              label="Recap de campaña"
+              onClick={onOpenRecap}
+              onMouseEnter={() => prefetchModal('campaignRecap')}
+              onTouchStart={() => prefetchModal('campaignRecap')}
+            />
+            <ActionTile
+              icon={<Clock3 size={18} />}
+              label="Historial"
+              onClick={onOpenHistory}
+              onMouseEnter={() => prefetchModal('history')}
+              onTouchStart={() => prefetchModal('history')}
+            />
+            <ActionTile
+              icon={<DatabaseBackup size={18} />}
+              label="Puntos de control"
+              onClick={onOpenCheckpoints}
+              onMouseEnter={() => prefetchModal('checkpoints')}
+              onTouchStart={() => prefetchModal('checkpoints')}
+            />
           </div>
         </section>
       </Tabs.Content>
@@ -154,12 +243,37 @@ export const MobileToolsDrawer: React.FC<MobileToolsDrawerProps> = ({
           <div className="mobile-tools-section-title"><Settings2 size={16} /> Sistema y campaña</div>
           <div className="mobile-tools-grid">
             <ActionTile icon={<Gamepad2 size={18} />} label="Modo Partida" hint="Pantalla activa y controles" onClick={onOpenPartyMode} />
-            <ActionTile icon={<BarChart3 size={18} />} label="Diagnóstico" onClick={onOpenDiagnostics} />
-            <ActionTile icon={<Library size={18} />} label="Biblioteca de sesiones" onClick={onOpenSessionLibrary} />
+            <ActionTile
+              icon={<BarChart3 size={18} />}
+              label="Diagnóstico"
+              onClick={onOpenDiagnostics}
+              onMouseEnter={() => prefetchModal('connectionDiagnostic')}
+              onTouchStart={() => prefetchModal('connectionDiagnostic')}
+            />
+            <ActionTile
+              icon={<Library size={18} />}
+              label="Biblioteca de sesiones"
+              onClick={onOpenSessionLibrary}
+              onMouseEnter={() => prefetchModal('sessionLibrary')}
+              onTouchStart={() => prefetchModal('sessionLibrary')}
+            />
             {onOpenResourcePacks && (
-              <ActionTile icon={<Package size={18} />} label="Packs de recursos" hint="Instalar tokens y mapas" onClick={onOpenResourcePacks} />
+              <ActionTile
+                icon={<Package size={18} />}
+                label="Packs de recursos"
+                hint="Instalar tokens y mapas"
+                onClick={onOpenResourcePacks}
+                onMouseEnter={() => prefetchModal('resourcePacks')}
+                onTouchStart={() => prefetchModal('resourcePacks')}
+              />
             )}
-            <ActionTile icon={<Library size={18} />} label="Campaña" onClick={onOpenCampaign} />
+            <ActionTile
+              icon={<Library size={18} />}
+              label="Campaña"
+              onClick={onOpenCampaign}
+              onMouseEnter={() => prefetchModal('campaignPicker')}
+              onTouchStart={() => prefetchModal('campaignPicker')}
+            />
           </div>
         </section>
       </Tabs.Content>

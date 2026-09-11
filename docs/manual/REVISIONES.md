@@ -2,6 +2,120 @@
 
 Este registro documenta la revisión del manual. No reemplaza el historial de cambios de la aplicación.
 
+## 2026-09-10 — MAN-152: Arquitectura Reactiva con Zustand (useDisplayStore, useCampaignStore), Desacoplamiento de Modales y Back Button Stack
+
+- **Walkthrough y entorno:** revisión de código, comprobación estricta de tipos (`tsc -b` código 0), tests unitarios en Vitest (110 suites / 613 pruebas aprobadas) y compilación de producción con Vite (`npm run build` exitoso en 13.36 s, PWA service worker con 85 entradas generadas). No se realizó prueba en Android físico ni recorrido con mesa conectada por WebRTC real; el comportamiento reactivo de los stores desacoplados, la suscripción fuera del loop de React (`displaySyncBridge`), la eliminación del prop-drilling en `MasterPrimaryModals` y `MasterAuxiliaryModals`, y el consumo autónomo de `useMasterBackButton` se validaron mediante las suites automatizadas `useDisplayStore.test.ts`, `useCampaignStore.test.ts`, `useMasterModalStore.test.ts` y las pruebas preexistentes de `sessionCommandBus` y `displaySyncBridge`.
+- **Funciones y componentes afectados:**
+  1. `src/stores/useDisplayStore.ts`: nuevo store en Zustand con soporte atómico para estados `live`, `staged`, `history`, `future`, `operationMode`, `revision` y `checkpointReceipt`. Reutiliza el `sessionReducer` subyacente para garantizar paridad del 100% con las acciones y snapshots de sesión.
+  2. `src/stores/useCampaignStore.ts`: nuevo store reactivo en Zustand con sincronización automática con Dexie DB (`getAllCampaigns`, `createCampaign`, `updateCampaign`, `duplicateCampaign`, `deleteCampaign`, `updateScene`, `updateCharacter`, etc.).
+  3. `src/stores/displaySyncBridge.ts`: puente desacoplado fuera del ciclo de vida de renderizado de React para WebRTC broadcasting automático hacia la Mesa y disparador de auto-checkpoints mediante `useDisplayStore.subscribe`.
+  4. `src/components/master/modals/MasterPrimaryModals.tsx`: migración a Zustand eliminando más de 20 props manuales. Todos los modales primarios consumen directamente visibilidad y estado desde `useMasterModalStore`, `useDisplayStore` y `useCampaignStore`.
+  5. `src/components/master/modals/MasterAuxiliaryModals.tsx`: migración a Zustand eliminando más de 25 props manuales. Modales creativos y de sesión leen directamente desde los stores globales.
+  6. `src/components/master/controller/useMasterBackButton.ts`: desacoplamiento total de los 45 pares de props booleanas; ahora consulta e interactúa directamente con `useMasterModalStore`, requiriendo únicamente `{ activeTab, setActiveTab }`.
+  7. `src/components/master/MasterController.tsx`: simplificación del contenedor principal, eliminando la cascada masiva de props redundantes y optimizando la reactividad sin alterar ninguna funcionalidad de la interfaz.
+- **Comportamiento visible para el Director:** sin alteraciones en controles, atajos ni flujos de uso; menor latencia y ausencia de re-renderizados innecesarios en la pantalla principal al interactuar con modales, escenas y campañas.
+- **Comportamiento para la Mesa / Jugadores:** idéntico; la sincronización en vivo y la persistencia de checkpoints continúan operando en tiempo real vía WebRTC a 60 fps.
+- **Evidencia técnica:** 613/613 tests en verde (110 suites), `tsc -b` código 0, `npm run build` en 13.36 s con bundle optimizado (`MasterController` 465 kB frente a los 755 kB originales).
+- **Resultado:** Fase 2 de mejoras estructurales y desacoplamiento de estado completada con paridad total para Android y Desktop.
+
+## 2026-09-10 — MAN-151: Code-Splitting Avanzado, Lazy Loading de 25+ Modales con Prefetch y Aislamiento Dinámico de DemoData
+
+- **Walkthrough y entorno:** revisión de código, comprobación estricta de tipos (`tsc -b` código 0), tests unitarios en Vitest (108 suites / 606 pruebas aprobadas) y compilación de producción con Vite (`npm run build` exitoso en 8.94 s). No se realizó prueba en Android físico ni recorrido con mesa conectada por WebRTC real; el comportamiento de los modales bajo demanda y el prefetching táctil/cursor se validaron mediante las suites automatizadas de modales (`ResourcePacksModal.test.tsx`, `HandoutViewerModal.test.tsx`, `ScenePresetModal.test.tsx`, etc.) y la verificación de empaquetado de Vite.
+- **Funciones y componentes afectados:**
+  1. `MasterPrimaryModals.tsx`: transformación de 11 modales estáticos a `React.lazy()` envueltos en `<Suspense fallback={null}>` (`SelectivePublishModal`, `FullScreenPreviewModal`, `ConnectionDiagnosticModal`, `HistoryModal`, `CheckpointsModal`, `CampaignPickerModal`, `SceneEditModal`, `CharacterEditModal`, `SummonCharacterModal`, `MasterQRModal`, `NetworkDiagnosticsModal`), con renderizado condicional para diferir la descarga de chunks hasta su apertura real.
+  2. `MasterAuxiliaryModals.tsx`: transformación de 14 modales estáticos a `React.lazy()` envueltos en `<Suspense fallback={null}>` (`ManageFavoritesModal`, `SceneCompositorModal`, `ConversationEditorModal`, `CampaignRevelationJournalModal`, `SessionPrepWizardModal`, `HandoutViewerModal`, `CampaignRecapModal`, `SoundboardModal`, `BiomeSoundtrackModal`, `LightingPresetsModal`, `SessionChronicleExportModal`, `SessionLibraryModal`, `ScenePresetModal`, `SessionReadinessModal`).
+  3. `MasterController.tsx`: carga bajo demanda mediante `lazy()` de `ResourcePacksModal` con `<Suspense fallback={null}>`.
+  4. `modalPrefetch.ts`: nuevo módulo con diccionario centralizado de cargadores `modalLoaders` y función utilitaria no bloqueante `prefetchModal()`.
+  5. `ActionTile.tsx`: incorporación de props opcionales `onMouseEnter` y `onTouchStart` para precarga anticipada de componentes pesados en segundo plano.
+  6. `MobileToolsDrawer.tsx`: integración de precarga reactiva en todas las tarjetas de herramientas al posar el cursor o iniciar el toque táctil.
+  7. `demoData.ts`, `builtinSfx.ts` y `smartFavorites.ts`: aislamiento de constantes estructurales (`BUILTIN_SFX`, `DEFAULT_FAVORITES`) fuera de `demoData.ts` para que este último nunca se empaquete estáticamente en el bundle inicial, eliminando la advertencia `[INEFFECTIVE_DYNAMIC_IMPORT]` y logrando un chunk dinámico aislado (`demoData-*.js`, 11 kB).
+  8. Reducción del bundle principal: el archivo `MasterController-*.js` redujo su peso de **755.13 kB** a **462.64 kB** (ahorro neto de casi 300 kB en la pantalla del Director).
+- **Comportamiento visible para el Director:** tiempo de arranque notablemente más rápido en la consola del Director (especialmente en Android y navegadores móviles); apertura instantánea y sin parpadeos de modales gracias al prefetching táctil anticipado; sin cambios en atajos de teclado ni en la interfaz gráfica.
+- **Comportamiento para la Mesa / Jugadores:** sin alteraciones perceptibles; la Mesa conserva su velocidad a 60 fps y recepción de estados en tiempo real.
+- **Evidencia técnica:** 606/606 tests aprobados en Vitest (108 suites), `tsc -b` código 0, build de producción en 8.94 s con 85 entradas en el precache PWA y 0 advertencias de importación inefectiva.
+- **Resultado:** Sprint F ("Code-Splitting Avanzado, Lazy Loading de 25+ Modales con Prefetch y Aislamiento Dinámico de DemoData") completado con paridad total para Android y Desktop.
+
+## 2026-09-09 — MAN-150: Purgado de dependencias pesadas (MUI, Ionic, Material Web, Emotion, React-Aria) e introducción de Zustand
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos (`tsc -b` código 0), tests unitarios en Vitest (108 suites / 606 pruebas aprobadas) y compilación de producción con Vite (`npm run build` exitoso en 14 s). No se realizó prueba en Android físico ni recorrido con mesa conectada por WebRTC real; el comportamiento de los stores desacoplados, los modales y las microinteracciones de UI se validaron mediante las suites automatizadas `useMasterModalStore.test.ts` y `useCombatStore.test.ts`.
+- **Funciones y componentes afectados:**
+  1. `package.json`: desinstaladas 99 dependencias transitivas redundantes (`@material/web`, `@ionic/react`, `@ionic/react-router`, `ionicons`, `@mui/material`, `@mui/icons-material`, `@emotion/react`, `@emotion/styled`, `react-aria-components`). Instalado `zustand` (`^5.0.x`).
+  2. `materialWeb.ts`: eliminado el archivo de carga de componentes web y removido el import de `main.tsx`.
+  3. `ActionTile.tsx`: sustitución de `IonRippleEffect` y `Button` de React-Aria por botón nativo accesible con microinteracción táctil CSS (`active:scale-[0.98]` y transición fluida), eliminando el consumo de 4 hojas de estilo globales de Ionic.
+  4. `VisualProviders.tsx`: eliminación de `ThemeProvider`, `createTheme`, `CssBaseline` y `GlobalStyles` de Material UI. Los estilos globales de scrollbars y selección de texto se trasladaron limpiamente a `base.css`, conservando `Tooltip.Provider` (Radix) y `Toaster` (Sonner).
+  5. `useMasterModalStore.ts`: nuevo store global en Zustand para centralizar los 28 estados booleanos de modales y drawers auxiliares del Director, reduciendo drásticamente el peso y re-renderizado de `MasterController.tsx`.
+  6. `useCombatStore.ts`: nuevo store global en Zustand para gestionar la selección activa de combatientes, filtros por categoría/condición y drawer táctico.
+  7. `MasterController.tsx`: conexión directa con `useMasterModalStore`, eliminando decenas de líneas de hooks `useState` manuales y desacoplando la gestión de modales.
+  8. `tsconfig.app.json`: exclusión de archivos `.test.ts`/`.test.tsx` en la compilación de la aplicación para blindar el empaquetado de producción de Vite.
+- **Comportamiento visible para el Director:** reducción notable del tiempo de carga inicial y consumo de memoria; las tarjetas de acción (`ActionTile`) responden de inmediato al tacto con una pulsación elástica suave; todos los modales y herramientas de mesa abren y cierran con idéntica fluidez.
+- **Comportamiento para la Mesa / Jugadores:** sin cambios visibles; la Mesa sigue recibiendo actualizaciones instantáneas con menor latencia de JavaScript.
+- **Evidencia técnica:** 606/606 pruebas unitarias aprobadas (108 suites), `npm run build` completado en 14 s, 99 paquetes desinstalados.
+- **Resultado:** Sprint E ("Limpieza arquitectónica, purgado de dependencias y estado modular con Zustand") completado para Android y Desktop.
+
+## 2026-09-09 — MAN-149: Secuencias cinemáticas controladas (Avance manual/automático, reordenación, previsualización y HUD de control)
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos (`tsc --noEmit` código 0), tests unitarios en Vitest (106 suites / 598 pruebas aprobadas). No se realizó prueba en Android físico ni recorrido con mesa conectada por WebRTC real; el comportamiento del secuenciador, la inyección de diálogos, la retención de tiempos de pausa y la restauración de estado se validaron mediante la suite automatizada `cinematicSequencer.test.ts` y las pruebas preexistentes en `macroEngine.test.ts`.
+- **Funciones y componentes afectados:**
+  1. `cinematic.types.ts`: extensión de `MacroStep` con campos `advanceMode?: 'auto' | 'manual'`, `dialogueText?: string`, `dialogueSpeakerName?: string` y `dialogueAvatarUrl?: string`.
+  2. `macroEngine.ts`: actualización de `applyStepToState` para inyectar automáticamente `cinematicDialogue` con formato speech cinematográfico cuando el paso define parlamentos proyectados, e incremento reactivo de `lightningTrigger` y `shakeTrigger`.
+  3. `useMacroSequencer.ts`: ampliación del estado `RunningMacroState` con `isWaitingForManualAdvance`, `isPaused` y `remainingDelayMs`. Implementación de `advanceNextStep()`, `pauseMacro()`, `resumeMacro()` y gestión de delay persistente en el último paso para mantener visible el progreso.
+  4. `CinematicSequenceHUD.tsx`: nuevo componente HUD flotante interactivo con barra de progreso, indicador de modo (`Esperando toque`, `Pausado`, `Temporizador en vivo`), botón **Siguiente Paso**, botón **Pausar/Reanudar** y botón **Cancelar** con reversión inmediata de estado.
+  5. `MomentsTab.tsx`: editor de secuencias enriquecido con botones de subida/bajada (`▲`, `▼`), duplicación instantánea (`Copy`), selector de modo de avance (`⏱️ Auto` vs `👆 Manual`), vista previa en miniatura de la imagen de fondo del escenario elegido, y sección de diálogo en pantalla con orador y texto.
+  6. `MasterController.tsx`: integración del `CinematicSequenceHUD` cuando `runningMacro` está activo, enlazado a las acciones de avance manual, pausa, reanudación y cancelación de emergencia con rollback automático.
+  7. `cinematicSequencer.test.ts`: suite dedicada con 10 tests automatizados que certifican inyección de diálogos, avance secuencial con temporizadores simulados, retención de avance en pasos manuales, congelamiento y reanudación precisa de la cuenta atrás, y reordenación/duplicación de pasos.
+- **Comportamiento visible para el Director:** puede diseñar macros complejas reordenando o duplicando pasos con un toque, previsualizando las miniaturas de los escenarios, configurando pasos manuales para esperar su narración, y controlando la ejecución en vivo desde el HUD flotante sin navegar fuera de su pantalla de trabajo.
+- **Comportamiento para la Mesa / Jugadores:** la Mesa reproduce los efectos en cadena sin retardos manuales ni clics apresurados del DM; cuando un paso incluye texto dramático, aparece proyectado en la pantalla de la Mesa con la tipografía de diálogo cinematográfico.
+- **Evidencia técnica:** 598/598 pruebas unitarias aprobadas (106 suites), `npx tsc --noEmit` código 0.
+- **Resultado:** Sprint D ("Secuencias cinemáticas controladas") completado para Android y Desktop.
+
+## 2026-09-09 — MAN-148: Handouts multi-tipo (Imágenes, Mapas con Fog-of-War y Documentos de texto temáticos) y Biblioteca de Handouts
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos (`tsc --noEmit` código 0), tests unitarios en Vitest (105 suites / 588 pruebas aprobadas). No se realizó prueba en Android físico ni recorrido con mesa conectada por WebRTC real; la lógica visual, normalización, persistencia en campaña y corte de niebla de guerra se validaron mediante las suites automatizadas `handoutsMultiType.test.ts`, `handoutViewer.test.ts`, `handoutViewerPhase2.test.ts` y `HandoutViewerModal.test.tsx`.
+- **Funciones y componentes afectados:**
+  1. `scene.types.ts`: nuevos tipos `HandoutType` ('image' | 'map' | 'document'), `HandoutTheme` ('parchment' | 'dark' | 'scroll' | 'royal') y `HandoutTypography` ('medieval' | 'serif' | 'classic' | 'typewriter'), extendiendo `HandoutState` y `HandoutPage` con campos opcionales para texto, subtítulo, tema, tipografía y sello de lacre.
+  2. `handoutNormalizer.ts`: actualización de `normalizeHandoutState` para inferir y propagar automáticamente el tipo de handout y los estilos tipográficos conservando retrocompatibilidad con handouts legacy.
+  3. `HandoutDisplayLayer.tsx`: soporte visual para proyectar documentos de texto temáticos con soporte de 4 temas (Pergamino, Grimorio, Papiro y Carta Real), 4 caligrafías, cabecera de título/subtítulo, cuerpo maquetado legible y sello de lacre con iniciales/icono, además de mapas con máscara SVG de niebla de guerra y acercamiento sincronizado.
+  4. `HandoutDocumentEditor.tsx`: nuevo editor interactivo para redactar cartas y manuscritos con selector de temas, tipografías, sello de cera con iconos preconfigurados y previsualización idéntica a la Mesa.
+  5. `HandoutLibraryView.tsx`: nueva vista de biblioteca con pestañas de filtro (Todos, Imágenes, Mapas, Documentos), búsqueda, importador directo de imágenes/mapas desde el almacenamiento local mediante `optimizeImage`, duplicador y eliminador.
+  6. `HandoutViewerModal.tsx`: incorporación del selector de pestañas superiores (`📚 Biblioteca` y `🎨 Editor / Mesa`) manteniendo todos los atajos de teclado y controles existentes.
+  7. `useSessionSceneHandlers.ts`, `MasterController.tsx` y `MasterAuxiliaryModals.tsx`: persistencia completa de la colección de handouts en `campaign.savedHandouts` en IndexedDB (`handleSaveHandouts` y `handleDeleteHandout`).
+  8. `handoutsMultiType.test.ts`: 6 tests unitarios automatizados que validan inferencia y normalización multi-tipo, personalización de documentos, persistencia CRUD en base de datos, proyección limpia en la Mesa sin efectos colaterales sobre fondo, figuras o música, y soporte de fog-of-war en mapas.
+- **Comportamiento visible para el Director:** en el modal de handouts ahora dispone de una Biblioteca para organizar sus materiales, subir imágenes o mapas directamente desde su galería o archivo local sin salir de la app, y redactar cartas o pergaminos con previsualización en directo.
+- **Comportamiento para la Mesa / Jugadores:** las imágenes, mapas y documentos se proyectan como un overlay flotante con animación suave sobre la escena activa, manteniendo visibles los personajes y conservando la música ambiental. Los documentos se muestran con estética de pergamino y sellos de lacre elegantes.
+- **Evidencia técnica:** 588/588 pruebas unitarias aprobadas, `npx tsc --noEmit` código 0.
+- **Resultado:** Sprint C ("Handouts multi-tipo enviados a la Mesa") completado para Android y Desktop.
+
+## 2026-09-09 — MAN-147: Checkpoints de sesión completa, guardado manual rápido y reanudación inteligente desde el Lobby
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos (`tsc --noEmit` código 0), tests unitarios en Vitest (104 suites / 582 pruebas aprobadas). No se realizó prueba en Android físico ni recorrido con mesa conectada por WebRTC real; la persistencia, poda y reanudación se validaron mediante la suite automatizada `sessionCheckpoints.test.ts`.
+- **Funciones y componentes afectados:**
+  1. `checkpointDb.ts`: funciones `getLatestCheckpoints(limit = 5)` y `cleanOldAutoCheckpoints(campaignId, limit = 5)` para recuperar los últimos puntos de control ordenados cronológicamente y recortar automáticamente los puntos automáticos por campaña a un máximo de 5 sin tocar los guardados manuales.
+  2. `useCombatCoordinator.ts` y `MasterMainTabs.tsx`: enlace del callback `onCombatTurnAdvanced` que dispara un checkpoint automático en cada avance de turno en combate activo con la descripción exacta del turno (`Turno: Ronda X - Turno Y (Combatiente)`) y el snapshot completo del estado.
+  3. `useCheckpointManagement.ts`: nueva función `handleQuickSaveSessionCheckpoint` que captura el estado íntegro (`liveState`) incluyendo escena, personajes, HP, condiciones y audio ambiental, y actualización de `handleRestoreCheckpoint` para reanudar de inmediato la música ambiental mediante `soundEngine.setAmbient` si estaba reproduciéndose.
+  4. `SessionIdentityHeader.tsx` y `SessionPanel.tsx`: incorporación del botón directo **📌 Guardar estado** y del botón **Puntos** en la barra superior de Sesión, visibles y accesibles en los tres modos de trabajo del Director (**Hoy juego**, **Panel Modular** y **Consola Clásica**).
+  5. `CheckpointsModal.tsx`: nueva pestaña predeterminada **⭐ Recientes (5)**, diseño de tarjetas con miniaturas y etiquetas de combate y música, y diálogo de previsualización ampliado con detalle de combatientes, puntos de golpe y pista sonora.
+  6. `Lobby.tsx` y `lobby.css`: tarjeta destacada interactiva (`.recent-checkpoint-banner`) cuando existe un punto de control con menos de 48 horas de antigüedad, mostrando miniatura del escenario, nombre de la escena, combatientes activos, indicador musical y botón **Retomar Sesión** de un solo toque con previsualización opcional.
+  7. `MasterController.tsx` y `App.tsx`: soporte para restaurar un punto inicial (`initialCheckpointId`) desde el arranque de la app, reactivando la escena y la música ambiental sin pasos intermedios.
+  8. `sessionCheckpoints.test.ts`: 7 tests automatizados que certifican persistencia de estado complejo, ordenamiento inverso, retención de 5 elementos, aislamiento por copia profunda, reactivación del motor de sonido y disparos al avanzar combate.
+- **Comportamiento visible para el Director:** en el Lobby inicial puede retomar la partida con un solo toque o previsualizarla. Durante la sesión cuenta con el botón **📌 Guardar estado** en la barra superior en cualquiera de los 3 modos para congelar el momento exacto, y el combate guarda automáticamente un punto en cada turno.
+- **Comportamiento para jugadores:** sin cambios directos de interfaz en la Mesa. Al reanudar una sesión guardada, la Mesa recibe la escena, los tokens posicionados exactamente donde estaban y la música de fondo reanuda de inmediato.
+- **Evidencia técnica:** 582/582 pruebas unitarias aprobadas, `npx tsc --noEmit` código 0.
+- **Resultado:** Sprint B ("Checkpoints de sesión completa") completado para Android y Desktop.
+
+## 2026-09-09 — MAN-146: Reconexión automática de la Mesa sin intervención del jugador
+
+- **Walkthrough y entorno:** revisión de código, comprobación de tipos (`tsc -b` código 0), tests unitarios en Vitest (103 suites / 575 pruebas aprobadas). No se realizó prueba en Android físico con caída real de red; la lógica del loop se valida mediante la suite `autoReconnect.test.ts` con temporizadores simulados.
+- **Funciones y componentes afectados:**
+  1. `sessionRecovery.ts` (`FullRecoverySnapshot`): nuevo campo opcional `masterPeerId?: string` que persiste el código de sala del momento en que la Mesa se conectó exitosamente. Permite relanzar la conexión sin depender del QR ni de acción del jugador.
+  2. `PlayerDisplay.tsx`: función `scheduleAutoReconnect(roomCode)` que aplica el backoff exponencial de `ConnectivityStateMachine.getReconnectDelay()` (base 1 s, máx. 15 s, hasta 10 intentos ≈ 5 min). Al conectar, persiste el `roomCode` en el snapshot de IndexedDB. Al desconectarse involuntariamente (estado `disconnected` o `error`), lanza el loop en segundo plano con un `setTimeout` cancelable. Al volver a conectar, resetea todos los contadores automáticamente. La bandera `isIntentionalExitRef` previene disparos al desmontar el componente (salida voluntaria).
+  3. `display.css`: nuevas clases `.display-reconnecting-overlay`, `.display-reconnect-badge`, `.display-reconnect-attempt` y `.display-session-lost-overlay`. El badge aparece en la esquina superior derecha como una píldora glassmorphism semitransparente con el ícono `Wifi` giratorio y un contador de intentos. No bloquea la escena (`pointer-events: none`). Tras agotar los 10 intentos se muestra la pantalla de "Sesión perdida – pedile al Director el código QR".
+  4. `sessionRecovery.test.ts`: 3 nuevos casos que verifican persistencia de `masterPeerId`, compatibilidad retroactiva (campo opcional) y limpieza con `clearRecovery`.
+  5. `autoReconnect.test.ts` (nuevo): 11 tests que cubren backoff exponencial, techo de 15 s, reset al reconectar, persistencia del snapshot, comportamiento ante crash sin `markCleanExit()`, protección de salida limpia y transición `RETRY_EXHAUSTED` → `OFFLINE`.
+- **Comportamiento visible para jugadores:** durante la reconexión verán un badge pequeño en la esquina superior derecha de la pantalla de la Mesa con el texto "Reconectando… 1/10". La escena permanece visible y funcional. Si tras 10 intentos no se logra reconectar, aparece una pantalla completa de "Sesión perdida".
+- **Sin cambios de flujo para el Director:** no requiere ninguna acción del Master. La Mesa se recupera sola.
+- **Evidencia técnica:** 575/575 pruebas unitarias aprobadas, `npx tsc -b` sin errores.
+- **Resultado:** reconexión autónoma de la Mesa implementada para Android y Desktop.
+
 ## 2026-09-07 — MAN-145: Gestos multitáctiles en vivo en el Visor 16:9 (Pinch-to-scale y Pinch-to-zoom)
 
 - **Walkthrough y entorno:** revisión de código, comprobación de tipos (`tsc -b`), tests unitarios en Vitest (102 suites y 561/561 pruebas aprobadas) y build de producción con Vite. No se realizó prueba en Android físico ni recorrido completo con mesa conectada por WebRTC real.

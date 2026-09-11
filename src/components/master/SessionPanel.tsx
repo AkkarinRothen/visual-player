@@ -165,6 +165,8 @@ export interface SessionPanelProps {
   onToggleCombatantCondition?: (combatantId: string, condition: string) => void;
   onStartCombat?: () => void;
   onEndCombat?: () => void;
+  onSaveManualCheckpoint?: () => void;
+  onOpenCheckpoints?: () => void;
 }
 
 export const SessionPanel: React.FC<SessionPanelProps> = ({
@@ -254,6 +256,8 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
   onToggleCombatantCondition,
   onStartCombat,
   onEndCombat,
+  onSaveManualCheckpoint,
+  onOpenCheckpoints,
   hasRunningMacro = false,
   runningMacroName,
   onCancelMacro,
@@ -448,6 +452,8 @@ export const SessionPanel: React.FC<SessionPanelProps> = ({
         onOpenResourcePacks={onOpenResourcePacks}
         onSaveInitialBaseline={onSaveInitialBaseline}
         onEvaluateReadiness={onEvaluateReadiness}
+        onSaveManualCheckpoint={onSaveManualCheckpoint}
+        onOpenCheckpoints={onOpenCheckpoints}
       />
 
       {/* SELECTOR DE VISTA DE SESIÓN (HOY JUEGO / PANEL MODULAR / CONSOLA CLÁSICA) */}

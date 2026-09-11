@@ -1,6 +1,5 @@
 import type { Campaign, SavedEncounter } from '../types';
 import { db } from './index';
-import { DEMO_CAMPAIGN } from './demoData';
 
 // ─── Campaign CRUD ────────────────────────────────────────────────────────────
 
@@ -11,7 +10,7 @@ export async function getAllCampaigns(): Promise<Campaign[]> {
 export async function getActiveCampaignId(): Promise<string> {
   const setting = await db.settings.get('activeCampaignId');
   if (setting) return setting.value;
-  return DEMO_CAMPAIGN.id;
+  return 'camp-default';
 }
 
 export async function setActiveCampaignId(id: string): Promise<void> {
@@ -71,9 +70,9 @@ export async function deleteEncounter(id: string): Promise<void> {
 export async function initDefaultDataIfNeeded(): Promise<Campaign> {
   const count = await db.campaigns.count();
   if (count === 0) {
+    const { DEMO_CAMPAIGN, DEMO_CHARACTERS, DEMO_SCENES, DEMO_ENCOUNTERS } = await import('./demoData');
     await db.campaigns.put(DEMO_CAMPAIGN);
     await setActiveCampaignId(DEMO_CAMPAIGN.id);
-    const { DEMO_CHARACTERS, DEMO_SCENES, DEMO_ENCOUNTERS } = await import('./demoData');
     for (const char of DEMO_CHARACTERS) {
       await db.characters.put(char);
     }
@@ -104,5 +103,7 @@ export async function initDefaultDataIfNeeded(): Promise<Campaign> {
   }
 
   const campaigns = await db.campaigns.toArray();
-  return campaigns[0] || DEMO_CAMPAIGN;
+  if (campaigns[0]) return campaigns[0];
+  const { DEMO_CAMPAIGN } = await import('./demoData');
+  return DEMO_CAMPAIGN;
 }

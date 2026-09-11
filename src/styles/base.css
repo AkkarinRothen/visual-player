@@ -167,3 +167,31 @@ body, html {
   to { transform: rotate(360deg); }
 }
 
+::selection {
+  background: rgba(245, 158, 11, 0.34);
+  color: #fff7ed;
+}
+
+* {
+  scrollbar-color: rgba(251, 191, 36, 0.42) rgba(15, 23, 42, 0.66);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.66);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(251, 191, 36, 0.36);
+  border: 2px solid rgba(15, 23, 42, 0.66);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(251, 191, 36, 0.54);
+}
+

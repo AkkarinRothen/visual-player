@@ -258,11 +258,21 @@ export interface RevealedRegionCircle {
   r: number;
 }
 
+export type HandoutType = 'image' | 'map' | 'document';
+export type HandoutTheme = 'parchment' | 'dark' | 'scroll' | 'royal';
+export type HandoutTypography = 'medieval' | 'serif' | 'classic' | 'typewriter';
+
 export interface HandoutPage {
   id: string;
   pageNumber: number;
   title?: string;
+  subtitle?: string;
+  type?: HandoutType;
   imageUrl: string;
+  textContent?: string;
+  theme?: HandoutTheme;
+  typography?: HandoutTypography;
+  authorSeal?: string;
   revealedRects: RevealedRegionRect[];
   revealedCircles?: RevealedRegionCircle[];
   isFullyRevealed: boolean;
@@ -273,7 +283,13 @@ export interface HandoutPage {
 export interface HandoutState {
   id: string;
   title: string;
+  subtitle?: string;
+  type?: HandoutType;
   imageUrl?: string;
+  textContent?: string;
+  theme?: HandoutTheme;
+  typography?: HandoutTypography;
+  authorSeal?: string;
   revealedRects?: RevealedRegionRect[];
   revealedCircles?: RevealedRegionCircle[];
   isFullyRevealed?: boolean;
@@ -282,6 +298,7 @@ export interface HandoutState {
   isConfidential?: boolean;
   pages?: HandoutPage[];
   activePageIndex?: number;
+  createdAt?: number;
 }
 
 export interface PresetDependencyReport {

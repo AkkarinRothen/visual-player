@@ -12,7 +12,7 @@ import {
   SlidersHorizontal,
   Zap,
 } from 'lucide-react';
-import { DEFAULT_FAVORITES } from './modals/ManageFavoritesModal';
+import { DEFAULT_FAVORITES } from '../../domain/session/smartFavorites';
 
 interface SessionFavoritesBarProps {
   campaign: Campaign | null;

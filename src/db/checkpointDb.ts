@@ -12,10 +12,18 @@ export async function getSessionCheckpoints(sessionId: string): Promise<SessionC
   return all.sort((a, b) => b.createdAt - a.createdAt);
 }
 
+/**
+ * Obtiene los checkpoints más recientes en orden cronológico inverso (por defecto hasta 5).
+ */
+export async function getLatestCheckpoints(limit: number = 5): Promise<SessionCheckpoint[]> {
+  const all = await db.checkpoints.toArray();
+  return all.sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+}
+
 export async function saveCheckpoint(cp: SessionCheckpoint): Promise<void> {
   await db.checkpoints.put(cp);
   if (cp.type === 'auto') {
-    await cleanOldAutoCheckpoints(cp.campaignId, 30);
+    await cleanOldAutoCheckpoints(cp.campaignId, 5);
   }
 }
 
@@ -23,7 +31,7 @@ export async function deleteCheckpoint(id: string): Promise<void> {
   await db.checkpoints.delete(id);
 }
 
-export async function cleanOldAutoCheckpoints(campaignId: string, limit: number = 30): Promise<void> {
+export async function cleanOldAutoCheckpoints(campaignId: string, limit: number = 5): Promise<void> {
   const autoCheckpoints = await db.checkpoints
     .where('campaignId')
     .equals(campaignId)

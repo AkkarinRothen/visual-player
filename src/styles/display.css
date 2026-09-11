@@ -892,4 +892,94 @@
   z-index: -1;
 }
 
+/* ==========================================================================
+   AUTO-RECONNECT OVERLAY — visible but non-intrusive
+   ========================================================================== */
 
+/** Root wrapper: sits on top of scene, does NOT block player interaction */
+.display-reconnecting-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9000;
+}
+
+/** Badge shown in top-right corner, glassmorphism pill */
+.display-reconnect-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 9999px;
+  color: #fde68a;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(251, 191, 36, 0.12);
+  animation: reconnect-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.display-reconnect-badge svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: #fbbf24;
+  animation: reconnect-spin 2.5s linear infinite;
+}
+
+.display-reconnect-attempt {
+  opacity: 0.65;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/** Session lost full-screen message (appears after MAX attempts) */
+.display-session-lost-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.90) 0%, rgba(2, 6, 23, 0.97) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: 9100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  color: #e2e8f0;
+  text-align: center;
+  padding: 32px;
+}
+
+.display-session-lost-overlay h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fde68a;
+  margin: 0;
+}
+
+.display-session-lost-overlay p {
+  font-size: 15px;
+  opacity: 0.8;
+  max-width: 360px;
+  margin: 0;
+  line-height: 1.6;
+}
+
+@keyframes reconnect-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 4px 16px rgba(0,0,0,0.55), 0 0 0 1px rgba(251,191,36,0.12); }
+  50% { opacity: 0.85; box-shadow: 0 4px 20px rgba(0,0,0,0.6), 0 0 8px rgba(251,191,36,0.25); }
+}
+
+@keyframes reconnect-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

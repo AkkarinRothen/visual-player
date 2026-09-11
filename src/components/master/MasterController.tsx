@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import type {
   Campaign,
   Character,
@@ -19,11 +19,13 @@ import {
   getCampaignCheckpoints,
   getCampaignEncounters,
   saveCheckpoint,
+  db,
 } from '../../db';
 import { gameSessionService } from '../../services/gameSessionService';
 import { useMasterConnection } from '../../hooks/useMasterConnection';
 import { useDisplaySession } from '../../hooks/useDisplaySession';
 import { useMacroSequencer } from '../../hooks/useMacroSequencer';
+import { CinematicSequenceHUD } from './cinematic/CinematicSequenceHUD';
 import { accumulateMacroToState } from '../../domain/macros/macroEngine';
 import { useEmergencyActions } from '../../hooks/useEmergencyActions';
 import { useFavoritesActions } from '../../hooks/useFavoritesActions';
@@ -48,7 +50,11 @@ import { MasterAuxiliaryModals } from './modals/MasterAuxiliaryModals';
 import { MasterBottomNav } from './navigation/MasterBottomNav';
 import { MobileToolsDrawer } from './navigation/MobileToolsDrawer';
 import { MasterCommandPalette } from './navigation/MasterCommandPalette';
-import { ResourcePacksModal } from './modals/ResourcePacksModal';
+import { useMasterModalStore } from '../../stores/useMasterModalStore';
+
+const ResourcePacksModal = lazy(() =>
+  import('./modals/ResourcePacksModal').then((m) => ({ default: m.ResourcePacksModal }))
+);
 import { getPlatformBridge } from '../../platform';
 import { useHotkey } from '@tanstack/react-hotkeys';
 import { toast } from 'sonner';
@@ -58,12 +64,14 @@ export interface MasterControllerProps {
   initialRoomCode?: string;
   pairingSecret?: string;
   onExitToLobby?: () => void;
+  initialCheckpointId?: string;
 }
 
 export const MasterController: React.FC<MasterControllerProps> = ({
   initialRoomCode,
   pairingSecret,
   onExitToLobby,
+  initialCheckpointId,
 }) => {
   // Keep screen awake during live Master directing
   useEffect(() => {
@@ -115,32 +123,19 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   }, []);
 
   const [activeTab, setActiveTab] = useState<'live' | 'moments' | 'combat' | 'notes' | 'library'>('live');
-  const [showQRModal, setShowQRModal] = useState<boolean>(false);
   const [previewTab, setPreviewTab] = useState<'live' | 'staged'>('live');
-  const [showFullScreenPreview, setShowFullScreenPreview] = useState<boolean>(false);
-  const [showUnsavedStagingDialog, setShowUnsavedStagingDialog] = useState<boolean>(false);
-  const [showSelectivePublishModal, setShowSelectivePublishModal] = useState<boolean>(false);
-
-  // Modals & UI State
-  const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
-  const [showCheckpointsModal, setShowCheckpointsModal] = useState<boolean>(false);
-  const [showQuickMoments, setShowQuickMoments] = useState<boolean>(false);
-  const [showDiagnosticsModal, setShowDiagnosticsModal] = useState<boolean>(false);
 
   // Campaigns & DB State
   const [campaignList, setCampaignList] = useState<Campaign[]>([]);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [encountersList, setEncountersList] = useState<SavedEncounter[]>([]);
-  const [showCampaignPickerModal, setShowCampaignPickerModal] = useState<boolean>(false);
 
-  // Forms & Edit Modals
-  const [showSummonModal, setShowSummonModal] = useState<boolean>(false);
-  const [showNewSceneModal, setShowNewSceneModal] = useState<boolean>(false);
+  // Forms & Edit State
   const [editingScene, setEditingScene] = useState<Scene | null>(null);
-  const [showNewCharModal, setShowNewCharModal] = useState<boolean>(false);
   const [editingChar, setEditingChar] = useState<Character | null>(null);
+  const [editingConversation, setEditingConversation] = useState<SavedConversation | null>(null);
 
-  // Session View & Auxiliary Modals State (defaults to 'session' on touch/mobile screens)
+  // Session View Mode (defaults to 'session' on touch/mobile screens)
   const [sessionViewMode, setSessionViewMode] = useState<'session' | 'classic'>(() => {
     if (typeof window !== 'undefined') {
       const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
@@ -151,29 +146,46 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     }
     return 'classic';
   });
-  const [showManageFavoritesModal, setShowManageFavoritesModal] = useState<boolean>(false);
-  const [showCompositorModal, setShowCompositorModal] = useState<boolean>(false);
-  const [showConversationEditor, setShowConversationEditor] = useState<boolean>(false);
-  const [editingConversation, setEditingConversation] = useState<SavedConversation | null>(null);
-  const [showRevelationJournalModal, setShowRevelationJournalModal] = useState<boolean>(false);
-  const [showSessionPrepWizardModal, setShowSessionPrepWizardModal] = useState<boolean>(false);
-  const [showHandoutViewerModal, setShowHandoutViewerModal] = useState<boolean>(false);
-  const [showCampaignRecapModal, setShowCampaignRecapModal] = useState<boolean>(false);
-  const [showSoundboardModal, setShowSoundboardModal] = useState<boolean>(false);
-  const [showBiomeSoundtrackModal, setShowBiomeSoundtrackModal] = useState<boolean>(false);
-  const [showLightingPresetsModal, setShowLightingPresetsModal] = useState<boolean>(false);
-  const [showChronicleExportModal, setShowChronicleExportModal] = useState<boolean>(false);
-  const [showSessionLibraryModal, setShowSessionLibraryModal] = useState<boolean>(false);
-  const [showScenePresetModal, setShowScenePresetModal] = useState<boolean>(false);
-  const [scenePresetMode, setScenePresetMode] = useState<'save' | 'insert'>('save');
-  const [showReadinessModal, setShowReadinessModal] = useState<boolean>(false);
-  const [showResourcePacksModal, setShowResourcePacksModal] = useState<boolean>(false);
+
   const [partyMode, setPartyMode] = useState(false);
   const [partyMenuOpen, setPartyMenuOpen] = useState(false);
   const [partyControlsVisible, setPartyControlsVisible] = useState(true);
   const [partyKeepAwake, setPartyKeepAwake] = useState(false);
   const [partyImmersive, setPartyImmersive] = useState(false);
-  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+
+  // Zustand: Centralized Master Modal Store
+  const {
+    showResourcePacksModal,
+    setShowResourcePacksModal,
+    mobileToolsOpen,
+    setMobileToolsOpen,
+    setShowFullScreenPreview,
+    setShowUnsavedStagingDialog,
+    setShowSelectivePublishModal,
+    setShowQuickMoments,
+    setShowHistoryModal,
+    setShowCheckpointsModal,
+    setShowDiagnosticsModal,
+    setShowCampaignPickerModal,
+    setShowSummonModal,
+    setShowNewSceneModal,
+    setShowNewCharModal,
+    setShowManageFavoritesModal,
+    setShowCompositorModal,
+    setShowConversationEditor,
+    setShowRevelationJournalModal,
+    setShowSessionPrepWizardModal,
+    setShowHandoutViewerModal,
+    setShowCampaignRecapModal,
+    setShowSoundboardModal,
+    setShowBiomeSoundtrackModal,
+    setShowLightingPresetsModal,
+    setShowChronicleExportModal,
+    setShowSessionLibraryModal,
+    setShowScenePresetModal,
+    setScenePresetMode,
+    setShowReadinessModal,
+  } = useMasterModalStore();
 
   // 1. Connection Hook
   const {
@@ -226,7 +238,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     undo,
     redo,
     publishAllStaged,
-    publishSelectiveStaged,
     discardStaged,
     restoreSnapshot,
   } = useDisplaySession({
@@ -254,6 +265,7 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     setCheckpointsList,
     createAutoCheckpoint,
     handleSaveManualCheckpoint,
+    handleQuickSaveSessionCheckpoint,
     handleRestoreCheckpoint,
     handleDeleteCheckpoint,
     handleRestoreFromHistory,
@@ -272,7 +284,14 @@ export const MasterController: React.FC<MasterControllerProps> = ({
   } = useStormCoordinator({ liveState });
 
   // 3. Macro Sequencer Hook
-  const { runningMacro, executeMacro, cancelMacro } = useMacroSequencer({
+  const {
+    runningMacro,
+    executeMacro,
+    cancelMacro,
+    advanceNextStep,
+    pauseMacro,
+    resumeMacro,
+  } = useMacroSequencer({
     onBroadcastState: (state) => {
       broadcastFullState(state);
     },
@@ -299,7 +318,27 @@ export const MasterController: React.FC<MasterControllerProps> = ({
       const encs = await getCampaignEncounters(camp.id);
       setEncountersList(encs.length > 0 ? encs : []);
 
-      if (camp.scenes.length > 0) {
+      let restoredFromCheckpoint = false;
+      if (initialCheckpointId) {
+        const cp = await db.checkpoints.get(initialCheckpointId);
+        if (cp) {
+          initSessionState(cp.state);
+          if (cp.state.ambientAudioUrl && cp.state.ambientPlaying) {
+            soundEngine.setAmbient(
+              cp.state.ambientAudioUrl,
+              true,
+              cp.state.ambientVolume ?? 0.5,
+              true
+            );
+          }
+          toast.success('Sesión retomada', {
+            description: `Punto restaurado: ${cp.name}`,
+          });
+          restoredFromCheckpoint = true;
+        }
+      }
+
+      if (!restoredFromCheckpoint && camp.scenes.length > 0) {
         const activeSession = await gameSessionService.loadOrCreateSession(camp.id);
         const persistedDraft = activeSession?.stagedState;
 
@@ -341,56 +380,10 @@ export const MasterController: React.FC<MasterControllerProps> = ({
       }
     };
     loadData();
-  }, [initSessionState, setCheckpointsList]);
+  }, [initSessionState, setCheckpointsList, initialCheckpointId]);
 
   // Platform Bridge: Native Back Button with LIFO Stack Hook
   useMasterBackButton({
-    showQRModal,
-    setShowQRModal,
-    showDiagnosticsModal,
-    setShowDiagnosticsModal,
-    showHistoryModal,
-    setShowHistoryModal,
-    showCheckpointsModal,
-    setShowCheckpointsModal,
-    showQuickMoments,
-    setShowQuickMoments,
-    showSummonModal,
-    setShowSummonModal,
-    showNewSceneModal,
-    setShowNewSceneModal,
-    showNewCharModal,
-    setShowNewCharModal,
-    showCampaignPickerModal,
-    setShowCampaignPickerModal,
-    showSelectivePublishModal,
-    setShowSelectivePublishModal,
-    showCompositorModal,
-    setShowCompositorModal,
-    showConversationEditor,
-    setShowConversationEditor,
-    showSessionLibraryModal,
-    setShowSessionLibraryModal,
-    showManageFavoritesModal,
-    setShowManageFavoritesModal,
-    showRevelationJournalModal,
-    setShowRevelationJournalModal,
-    showSessionPrepWizardModal,
-    setShowSessionPrepWizardModal,
-    showHandoutViewerModal,
-    setShowHandoutViewerModal,
-    showCampaignRecapModal,
-    setShowCampaignRecapModal,
-    showSoundboardModal,
-    setShowSoundboardModal,
-    showLightingPresetsModal,
-    setShowLightingPresetsModal,
-    showChronicleExportModal,
-    setShowChronicleExportModal,
-    showReadinessModal,
-    setShowReadinessModal,
-    showFullScreenPreview,
-    setShowFullScreenPreview,
     activeTab,
     setActiveTab,
   });
@@ -676,6 +669,9 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     liveState,
     updateDisplay,
     handleSetCameraTransform,
+    onCombatTurnAdvanced: (desc, nextState) => {
+      createAutoCheckpoint(desc, nextState);
+    },
   });
 
   // Session Scene Handlers Hook
@@ -706,6 +702,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({
     handleSaveSessionPrepDraft,
     handleProjectHandout,
     handleDismissHandout,
+    handleSaveHandouts,
+    handleDeleteHandout,
     handleProjectRecap,
     handleDismissRecap,
     handleSaveRecap,
@@ -910,6 +908,8 @@ export const MasterController: React.FC<MasterControllerProps> = ({
             onUndo={undo}
             pastEvents={pastEvents}
             onOpenHistory={() => setShowHistoryModal(true)}
+            onSaveManualCheckpoint={handleQuickSaveSessionCheckpoint}
+            onOpenCheckpoints={() => setShowCheckpointsModal(true)}
             onTriggerLightning={triggerLightning}
             onTriggerShake={triggerScreenShake}
             onToggleBlackout={toggleBlackout}
@@ -1080,61 +1080,23 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         setPartyImmersive={setPartyImmersive}
       />
 
-      {/* PRIMARY MODALS LAYER (Modularized) */}
+      {/* PRIMARY MODALS LAYER (Modularized with Zustand) */}
       <MasterPrimaryModals
-        campaign={campaign}
-        campaignList={campaignList}
-        setCampaign={setCampaign}
-        setCampaignList={setCampaignList}
-        liveState={liveState}
-        stagedState={stagedState}
-        activeDisplay={activeDisplay}
-        operationMode={operationMode}
         previewTab={previewTab}
         setPreviewTab={setPreviewTab}
-        setOperationMode={setOperationMode}
-        pendingChangesCount={pendingChangesCount}
         currentScene={currentScene}
         mesaTelemetry={mesaTelemetry}
         pendingCommandsCount={pendingCommandsCount}
-        pastEvents={pastEvents}
         checkpointsList={checkpointsList}
         roomCode={roomCode}
         pairingSecret={pairingSecret}
         connectionStatus={connectionStatus}
         latencyMs={latencyMs}
         joinUrl={joinUrl}
-        showSelectivePublishModal={showSelectivePublishModal}
-        setShowSelectivePublishModal={setShowSelectivePublishModal}
-        showFullScreenPreview={showFullScreenPreview}
-        setShowFullScreenPreview={setShowFullScreenPreview}
-        showDiagnosticsModal={showDiagnosticsModal}
-        setShowDiagnosticsModal={setShowDiagnosticsModal}
-        showQuickMoments={showQuickMoments}
-        setShowQuickMoments={setShowQuickMoments}
-        showHistoryModal={showHistoryModal}
-        setShowHistoryModal={setShowHistoryModal}
-        showCheckpointsModal={showCheckpointsModal}
-        setShowCheckpointsModal={setShowCheckpointsModal}
-        showUnsavedStagingDialog={showUnsavedStagingDialog}
-        setShowUnsavedStagingDialog={setShowUnsavedStagingDialog}
-        showCampaignPickerModal={showCampaignPickerModal}
-        setShowCampaignPickerModal={setShowCampaignPickerModal}
-        showNewSceneModal={showNewSceneModal}
-        setShowNewSceneModal={setShowNewSceneModal}
         editingScene={editingScene}
         setEditingScene={setEditingScene}
-        showNewCharModal={showNewCharModal}
-        setShowNewCharModal={setShowNewCharModal}
         editingChar={editingChar}
         setEditingChar={setEditingChar}
-        showSummonModal={showSummonModal}
-        setShowSummonModal={setShowSummonModal}
-        showQRModal={showQRModal}
-        setShowQRModal={setShowQRModal}
-        publishAllStaged={publishAllStaged}
-        publishSelectiveStaged={publishSelectiveStaged}
-        discardStaged={discardStaged}
         broadcastFullState={broadcastFullState}
         connectToRoom={connectToRoom}
         handleExecuteMacro={handleExecuteMacro}
@@ -1148,7 +1110,6 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         handleDeleteCampaign={handleDeleteCampaign}
         selectScene={selectScene}
         summonCharacter={summonCharacter}
-        undo={undo}
         onSaveCameraPreset={handleSaveCameraPreset}
         onSaveWaypoint={handleDirectorSaveWaypoint}
         onSaveOcclusionRegion={handleDirectorSaveOcclusionRegion}
@@ -1166,64 +1127,29 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         onLiveDragMove={handleDirectorLiveDragMove}
       />
 
-      {/* AUXILIARY CREATIVE & SESSION MODALS LAYER */}
+      {/* AUXILIARY CREATIVE & SESSION MODALS LAYER (Modularized with Zustand) */}
       <MasterAuxiliaryModals
-        campaign={campaign}
-        liveState={liveState}
-        stagedState={stagedState}
-        operationMode={operationMode}
-        showManageFavoritesModal={showManageFavoritesModal}
-        onCloseManageFavorites={() => setShowManageFavoritesModal(false)}
         onSaveFavorites={handleSaveFavorites}
-        showCompositorModal={showCompositorModal}
-        onCloseCompositor={() => setShowCompositorModal(false)}
         onSaveCompositorCharacters={handleSaveCompositorCharacters}
         onPreviewCompositorCharacters={handlePreviewCompositorCharacters}
         onSaveCompositionPreset={handleSaveCompositionPreset}
-        showConversationEditor={showConversationEditor}
         editingConversation={editingConversation}
-        onCloseConversationEditor={() => {
-          setShowConversationEditor(false);
-          setEditingConversation(null);
-        }}
         onSaveConversation={handleSaveConversation}
-        showRevelationJournalModal={showRevelationJournalModal}
-        onCloseRevelationJournal={() => setShowRevelationJournalModal(false)}
-        setCampaign={setCampaign}
-        showSessionPrepWizardModal={showSessionPrepWizardModal}
-        onCloseSessionPrepWizard={() => setShowSessionPrepWizardModal(false)}
         onApplySessionPrepDraft={handleApplySessionPrepDraft}
         onSaveSessionPrepDraft={handleSaveSessionPrepDraft}
-        showHandoutViewerModal={showHandoutViewerModal}
-        onCloseHandoutViewer={() => setShowHandoutViewerModal(false)}
         onProjectHandout={handleProjectHandout}
         onDismissHandout={handleDismissHandout}
-        showCampaignRecapModal={showCampaignRecapModal}
-        onCloseCampaignRecap={() => setShowCampaignRecapModal(false)}
+        onSaveHandouts={handleSaveHandouts}
+        onDeleteHandout={handleDeleteHandout}
         onProjectRecap={handleProjectRecap}
         onDismissRecap={handleDismissRecap}
         onSaveRecap={handleSaveRecap}
-        showSoundboardModal={showSoundboardModal}
-        onCloseSoundboard={() => setShowSoundboardModal(false)}
-        showBiomeSoundtrackModal={showBiomeSoundtrackModal}
-        onCloseBiomeSoundtrack={() => setShowBiomeSoundtrackModal(false)}
         onApplySoundtrack={handleApplySoundtrack}
         onSaveBiomeProfiles={handleSaveBiomeProfiles}
-        showLightingPresetsModal={showLightingPresetsModal}
-        onCloseLightingPresets={() => setShowLightingPresetsModal(false)}
         onApplyLightingPreset={handleApplyLightingPreset}
         onSaveLightingPreset={handleSaveLightingPreset}
-        showChronicleExportModal={showChronicleExportModal}
-        onCloseChronicleExport={() => setShowChronicleExportModal(false)}
-        showSessionLibraryModal={showSessionLibraryModal}
-        onCloseSessionLibrary={() => setShowSessionLibraryModal(false)}
         onLoadSessionFromLibrary={handleLoadSessionFromLibrary}
-        showScenePresetModal={showScenePresetModal}
-        scenePresetMode={scenePresetMode}
-        onCloseScenePresetModal={() => setShowScenePresetModal(false)}
         onPresetInstantiated={handlePresetInstantiated}
-        showReadinessModal={showReadinessModal}
-        onCloseReadinessModal={() => setShowReadinessModal(false)}
       />
 
       {/* MOBILE ONE-HAND BOTTOM NAVIGATION BAR */}
@@ -1265,10 +1191,25 @@ export const MasterController: React.FC<MasterControllerProps> = ({
         onOpenScene={() => setShowCompositorModal(true)}
       />
 
-      <ResourcePacksModal
-        isOpen={showResourcePacksModal}
-        onClose={() => setShowResourcePacksModal(false)}
-      />
+      {/* FLOATING CINEMATIC MACRO SEQUENCER HUD */}
+      {runningMacro && (
+        <CinematicSequenceHUD
+          runningMacro={runningMacro}
+          onAdvanceNextStep={advanceNextStep}
+          onPause={pauseMacro}
+          onResume={resumeMacro}
+          onCancel={handleCancelRunningMacro}
+        />
+      )}
+
+      {showResourcePacksModal && (
+        <Suspense fallback={null}>
+          <ResourcePacksModal
+            isOpen={showResourcePacksModal}
+            onClose={() => setShowResourcePacksModal(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };

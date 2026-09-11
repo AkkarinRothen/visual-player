@@ -14,6 +14,11 @@ import {
   ChevronRight,
   X,
   Volume2,
+  ArrowUp,
+  ArrowDown,
+  Copy,
+  MessageSquare,
+  Hand,
 } from 'lucide-react';
 
 interface MomentsTabProps {
@@ -109,11 +114,33 @@ export const MomentsTab: React.FC<MomentsTabProps> = ({
     }
   };
 
+  const moveStep = (index: number, direction: 'up' | 'down') => {
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= macroSteps.length) return;
+    const next = [...macroSteps];
+    const temp = next[index];
+    next[index] = next[target];
+    next[target] = temp;
+    setMacroSteps(next);
+  };
+
+  const duplicateStep = (index: number) => {
+    const copy: MacroStep = {
+      ...JSON.parse(JSON.stringify(macroSteps[index])),
+      id: `step-${Date.now()}-${macroSteps.length + 1}`,
+      actionLabel: `${macroSteps[index].actionLabel || `Paso ${index + 1}`} (Copia)`,
+    };
+    const next = [...macroSteps];
+    next.splice(index + 1, 0, copy);
+    setMacroSteps(next);
+  };
+
   const addStepToForm = () => {
     const newStep: MacroStep = {
       id: `step-${Date.now()}-${macroSteps.length + 1}`,
-      delayMs: 1000,
+      delayMs: 1500,
       actionLabel: `Paso ${macroSteps.length + 1}`,
+      advanceMode: 'auto',
       sfxPreset: 'magic_spell',
     };
     setMacroSteps([...macroSteps, newStep]);
@@ -282,25 +309,80 @@ export const MomentsTab: React.FC<MomentsTabProps> = ({
                   {macroSteps.map((step, idx) => (
                     <div key={step.id || idx} className="step-edit-card">
                       <div className="step-card-header">
-                        <span className="step-card-title">Paso {idx + 1}</span>
                         <div className="flex-align-gap">
-                          <label className="step-delay-label">
-                            Demora:
-                            <input
-                              type="number"
-                              min="0"
-                              max="10"
-                              step="0.5"
-                              value={(step.delayMs || 0) / 1000}
-                              onChange={(e) =>
-                                updateStepInForm(idx, {
-                                  delayMs: Math.round(parseFloat(e.target.value || '0') * 1000),
-                                })
-                              }
-                              className="delay-input"
-                            />
-                            seg
-                          </label>
+                          <div className="step-order-controls">
+                            <button
+                              type="button"
+                              className="step-order-btn"
+                              onClick={() => moveStep(idx, 'up')}
+                              disabled={idx === 0}
+                              title="Mover arriba"
+                            >
+                              <ArrowUp size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              className="step-order-btn"
+                              onClick={() => moveStep(idx, 'down')}
+                              disabled={idx === macroSteps.length - 1}
+                              title="Mover abajo"
+                            >
+                              <ArrowDown size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              className="step-order-btn"
+                              onClick={() => duplicateStep(idx)}
+                              title="Duplicar paso"
+                            >
+                              <Copy size={12} />
+                            </button>
+                          </div>
+                          <span className="step-card-title">Paso {idx + 1}</span>
+                        </div>
+
+                        <div className="flex-align-gap">
+                          {/* Advance Mode Selector */}
+                          <div className="step-advance-toggle">
+                            <button
+                              type="button"
+                              className={step.advanceMode !== 'manual' ? 'active' : ''}
+                              onClick={() => updateStepInForm(idx, { advanceMode: 'auto' })}
+                              title="Avanzar automáticamente según el temporizador"
+                            >
+                              <Clock size={12} />
+                              <span>Auto</span>
+                            </button>
+                            <button
+                              type="button"
+                              className={step.advanceMode === 'manual' ? 'active' : ''}
+                              onClick={() => updateStepInForm(idx, { advanceMode: 'manual' })}
+                              title="Pausar la secuencia hasta que el DM presione Siguiente"
+                            >
+                              <Hand size={12} />
+                              <span>Manual</span>
+                            </button>
+                          </div>
+
+                          {step.advanceMode !== 'manual' && (
+                            <label className="step-delay-label">
+                              <input
+                                type="number"
+                                min="0"
+                                max="30"
+                                step="0.5"
+                                value={(step.delayMs || 0) / 1000}
+                                onChange={(e) =>
+                                  updateStepInForm(idx, {
+                                    delayMs: Math.round(parseFloat(e.target.value || '0') * 1000),
+                                  })
+                                }
+                                className="delay-input"
+                              />
+                              s
+                            </label>
+                          )}
+
                           <button
                             type="button"
                             className="icon-action-btn danger"
@@ -376,10 +458,18 @@ export const MomentsTab: React.FC<MomentsTabProps> = ({
                         </select>
                       </div>
 
-                      {/* Scene switch option */}
+                      {/* Scene switch option with thumbnail */}
                       {campaign?.scenes && campaign.scenes.length > 0 && (
-                        <div className="step-select-row">
+                        <div className="step-select-row" style={{ alignItems: 'center' }}>
                           <label>Escenario:</label>
+                          {step.backgroundUrl && (
+                            <img
+                              src={step.backgroundUrl}
+                              alt="Preview escenario"
+                              className="step-thumb-preview"
+                              title="Vista previa del fondo"
+                            />
+                          )}
                           <select
                             value={step.sceneId || ''}
                             onChange={(e) => {
@@ -404,6 +494,32 @@ export const MomentsTab: React.FC<MomentsTabProps> = ({
                           </select>
                         </div>
                       )}
+
+                      {/* Dialogue Injection */}
+                      <div className="step-dialogue-section">
+                        <div className="step-dialogue-header">
+                          <MessageSquare size={13} />
+                          <span>Diálogo en Pantalla (Opcional)</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <input
+                            type="text"
+                            placeholder="Nombre del orador (ej. Señor Oscuro)"
+                            value={step.dialogueSpeakerName || ''}
+                            onChange={(e) => updateStepInForm(idx, { dialogueSpeakerName: e.target.value })}
+                            className="master-input"
+                            style={{ width: '35%', fontSize: '0.78rem', padding: '4px 8px' }}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Texto proyectado en la mesa..."
+                            value={step.dialogueText || ''}
+                            onChange={(e) => updateStepInForm(idx, { dialogueText: e.target.value })}
+                            className="master-input"
+                            style={{ flex: 1, fontSize: '0.78rem', padding: '4px 8px' }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -27,12 +27,14 @@ export interface UseCombatCoordinatorOptions {
     syncImmediate?: boolean
   ) => void;
   handleSetCameraTransform: (camera: CameraTransform, durationMs?: number) => Promise<void>;
+  onCombatTurnAdvanced?: (desc: string, nextState: DisplayState) => void;
 }
 
 export function useCombatCoordinator({
   liveState,
   updateDisplay,
   handleSetCameraTransform,
+  onCombatTurnAdvanced,
 }: UseCombatCoordinatorOptions) {
   const handleNextCombatTurn = () => {
     const cs = liveState.combatState;
@@ -65,10 +67,19 @@ export function useCombatCoordinator({
       };
     }
 
+    const nextState: DisplayState = {
+      ...liveState,
+      combatState: updatedCombat,
+      camera: newCamera || liveState.camera,
+    };
+
     updateDisplay(
       (prev) => ({ ...prev, combatState: updatedCombat, camera: newCamera || prev.camera }),
       `Avanzado Turno: Ronda ${updatedCombat.round}`
     );
+
+    const desc = `Turno: Ronda ${updatedCombat.round} - Turno ${newTurnIndex + 1}${activeCombatant ? ` (${activeCombatant.name})` : ''}`;
+    onCombatTurnAdvanced?.(desc, nextState);
   };
 
   const handlePrevCombatTurn = () => {

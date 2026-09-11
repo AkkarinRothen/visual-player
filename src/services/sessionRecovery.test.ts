@@ -129,4 +129,63 @@ describe('SessionRecoveryService & Process Death Resilience Suite', () => {
     expect(safeState.lastSfx).toBeNull(); // No repeat sound shock
     expect(safeState.sceneName).toBe('Batalla Épica'); // Visual context preserved
   });
+
+  // ── New tests for Display role auto-reconnect token ────────────────────────
+
+  it('persists masterPeerId in display-role snapshot for autonomous reconnection', async () => {
+    await sessionRecoveryService.saveIncrementalSnapshot({
+      role: 'display',
+      roomId: 'VP-TABLET',
+      masterPeerId: 'VP-TABLET',
+      sessionId: 'VP-TABLET',
+      connectionEpoch: Date.now(),
+      sessionRevision: 1,
+      combatActive: false,
+      hasStagedChanges: false,
+      liveState: mockLiveState,
+    });
+
+    const pending = await sessionRecoveryService.getPendingRecovery();
+    expect(pending).not.toBeNull();
+    expect(pending?.role).toBe('display');
+    expect(pending?.masterPeerId).toBe('VP-TABLET');
+    expect(pending?.roomId).toBe('VP-TABLET');
+  });
+
+  it('display snapshot with masterPeerId survives clearRecovery', async () => {
+    await sessionRecoveryService.saveIncrementalSnapshot({
+      role: 'display',
+      roomId: 'VP-CLEAR2',
+      masterPeerId: 'VP-CLEAR2',
+      sessionId: 'VP-CLEAR2',
+      connectionEpoch: Date.now(),
+      sessionRevision: 1,
+      combatActive: false,
+      hasStagedChanges: false,
+      liveState: mockLiveState,
+    });
+
+    expect(await sessionRecoveryService.getPendingRecovery()).not.toBeNull();
+    await sessionRecoveryService.clearRecovery();
+    expect(await sessionRecoveryService.getPendingRecovery()).toBeNull();
+  });
+
+  it('masterPeerId is optional and does not break snapshots without it', async () => {
+    await sessionRecoveryService.saveIncrementalSnapshot({
+      role: 'master',
+      roomId: 'VP-NOTOKEN',
+      sessionId: 'sess_notoken',
+      connectionEpoch: Date.now(),
+      sessionRevision: 5,
+      combatActive: false,
+      hasStagedChanges: false,
+      liveState: mockLiveState,
+    });
+
+    const pending = await sessionRecoveryService.getPendingRecovery();
+    expect(pending).not.toBeNull();
+    expect(pending?.masterPeerId).toBeUndefined();
+    expect(pending?.roomId).toBe('VP-NOTOKEN');
+  });
 });
+

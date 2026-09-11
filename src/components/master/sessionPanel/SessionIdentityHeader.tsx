@@ -11,6 +11,7 @@ import {
   CheckCircle,
   XCircle,
   Library,
+  Bookmark,
   BookmarkPlus,
   Sparkles,
   Package,
@@ -33,6 +34,8 @@ export interface SessionIdentityHeaderProps {
   onOpenResourcePacks?: () => void;
   onSaveInitialBaseline?: () => void;
   onEvaluateReadiness?: () => void;
+  onSaveManualCheckpoint?: () => void;
+  onOpenCheckpoints?: () => void;
 }
 
 export const SessionIdentityHeader: React.FC<SessionIdentityHeaderProps> = ({
@@ -52,6 +55,8 @@ export const SessionIdentityHeader: React.FC<SessionIdentityHeaderProps> = ({
   onOpenResourcePacks,
   onSaveInitialBaseline,
   onEvaluateReadiness,
+  onSaveManualCheckpoint,
+  onOpenCheckpoints,
 }) => {
   return (
     <header className="session-identity-header">
@@ -121,6 +126,34 @@ export const SessionIdentityHeader: React.FC<SessionIdentityHeaderProps> = ({
             <><XCircle size={11} className="text-red-400" /><span className="text-red-400">Error de disco</span></>
           )}
         </span>
+
+        {/* Guardar Estado de Sesión / Checkpoint button */}
+        {onSaveManualCheckpoint && (
+          <button
+            className="btn-session-library"
+            onClick={onSaveManualCheckpoint}
+            title="Guardar punto de restauración del estado actual de la sesión (escena, personajes, combate y música)"
+            aria-label="Guardar estado de sesión"
+            style={{ background: 'rgba(59, 130, 246, 0.14)', borderColor: 'rgba(59, 130, 246, 0.35)', color: '#60a5fa' }}
+          >
+            <Bookmark size={13} />
+            <span>📌 Guardar estado</span>
+          </button>
+        )}
+
+        {/* Ver Checkpoints button */}
+        {onOpenCheckpoints && (
+          <button
+            className="btn-session-library"
+            onClick={onOpenCheckpoints}
+            title="Ver historial de puntos de restauración y checkpoints"
+            aria-label="Ver checkpoints"
+          >
+            <BookmarkPlus size={13} />
+            <span>Puntos</span>
+          </button>
+        )}
+
         {/* Fijar Configuración Inicial button */}
         {onSaveInitialBaseline && (
           <button

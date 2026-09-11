@@ -1,3 +1,4 @@
+import React, { Suspense, lazy } from 'react';
 import type {
   Campaign,
   Character,
@@ -10,200 +11,212 @@ import type {
   PublishCategoryKey,
 } from '../../../types';
 import { soundEngine } from '../../../services/soundEngine';
-import { SelectivePublishModal } from '../SelectivePublishModal';
-import { FullScreenPreviewModal } from '../FullScreenPreviewModal';
-import { ConnectionDiagnosticModal } from '../../common/ConnectionDiagnosticModal';
 import { QuickMomentsDropdown } from '../QuickMomentsDropdown';
-import { HistoryModal } from '../HistoryModal';
-import { CheckpointsModal } from '../CheckpointsModal';
-import { CampaignPickerModal } from './CampaignPickerModal';
-import { SceneEditModal } from './SceneEditModal';
-import { CharacterEditModal } from './CharacterEditModal';
-import { SummonCharacterModal } from './SummonCharacterModal';
-import { MasterQRModal } from './MasterQRModal';
-import { NetworkDiagnosticsModal } from '../NetworkDiagnosticsModal';
 import { Send, Trash2 } from 'lucide-react';
+import { modalLoaders } from './modalPrefetch';
+
+const SelectivePublishModal = lazy(() => modalLoaders.selectivePublish().then(m => ({ default: m.SelectivePublishModal })));
+const FullScreenPreviewModal = lazy(() => modalLoaders.fullScreenPreview().then(m => ({ default: m.FullScreenPreviewModal })));
+const ConnectionDiagnosticModal = lazy(() => modalLoaders.connectionDiagnostic().then(m => ({ default: m.ConnectionDiagnosticModal })));
+const HistoryModal = lazy(() => modalLoaders.history().then(m => ({ default: m.HistoryModal })));
+const CheckpointsModal = lazy(() => modalLoaders.checkpoints().then(m => ({ default: m.CheckpointsModal })));
+const CampaignPickerModal = lazy(() => modalLoaders.campaignPicker().then(m => ({ default: m.CampaignPickerModal })));
+const SceneEditModal = lazy(() => modalLoaders.sceneEdit().then(m => ({ default: m.SceneEditModal })));
+const CharacterEditModal = lazy(() => modalLoaders.characterEdit().then(m => ({ default: m.CharacterEditModal })));
+const SummonCharacterModal = lazy(() => modalLoaders.summonCharacter().then(m => ({ default: m.SummonCharacterModal })));
+const MasterQRModal = lazy(() => modalLoaders.masterQR().then(m => ({ default: m.MasterQRModal })));
+const NetworkDiagnosticsModal = lazy(() => modalLoaders.networkDiagnostics().then(m => ({ default: m.NetworkDiagnosticsModal })));
+
+import { useMasterModalStore } from '../../../stores/useMasterModalStore';
+import { useDisplayStore, selectPendingChangesCount } from '../../../stores/useDisplayStore';
+import { useCampaignStore } from '../../../stores/useCampaignStore';
 
 export interface MasterPrimaryModalsProps {
-  campaign: Campaign | null;
-  campaignList: Campaign[];
-  setCampaign: React.Dispatch<React.SetStateAction<Campaign | null>>;
-  setCampaignList: React.Dispatch<React.SetStateAction<Campaign[]>>;
-  liveState: DisplayState;
-  stagedState: DisplayState;
-  activeDisplay: DisplayState;
-  operationMode: 'live' | 'staging';
-  previewTab: 'live' | 'staged';
-  setPreviewTab: (tab: 'live' | 'staged') => void;
-  setOperationMode: (mode: 'live' | 'staging') => void;
-  pendingChangesCount: number;
-  currentScene: Scene | null;
-  mesaTelemetry: any;
-  pendingCommandsCount: number;
-  pastEvents: HistoryEvent[];
-  checkpointsList: SessionCheckpoint[];
+  campaign?: Campaign | null;
+  campaignList?: Campaign[];
+  setCampaign?: React.Dispatch<React.SetStateAction<Campaign | null>>;
+  setCampaignList?: React.Dispatch<React.SetStateAction<Campaign[]>>;
+  liveState?: DisplayState;
+  stagedState?: DisplayState;
+  activeDisplay?: DisplayState;
+  operationMode?: 'live' | 'staging';
+  previewTab?: 'live' | 'staged';
+  setPreviewTab?: (tab: 'live' | 'staged') => void;
+  setOperationMode?: (mode: 'live' | 'staging') => void;
+  pendingChangesCount?: number;
+  currentScene?: Scene | null;
+  mesaTelemetry?: any;
+  pendingCommandsCount?: number;
+  pastEvents?: HistoryEvent[];
+  checkpointsList?: SessionCheckpoint[];
   roomCode?: string;
   pairingSecret?: string;
-  connectionStatus: string;
-  latencyMs: number;
-  joinUrl: string;
+  connectionStatus?: string;
+  latencyMs?: number;
+  joinUrl?: string;
   // Modals Visibility
-  showSelectivePublishModal: boolean;
-  setShowSelectivePublishModal: (show: boolean) => void;
-  showFullScreenPreview: boolean;
-  setShowFullScreenPreview: (show: boolean) => void;
-  showDiagnosticsModal: boolean;
-  setShowDiagnosticsModal: (show: boolean) => void;
-  showQuickMoments: boolean;
-  setShowQuickMoments: (show: boolean) => void;
-  showHistoryModal: boolean;
-  setShowHistoryModal: (show: boolean) => void;
-  showCheckpointsModal: boolean;
-  setShowCheckpointsModal: (show: boolean) => void;
-  showUnsavedStagingDialog: boolean;
-  setShowUnsavedStagingDialog: (show: boolean) => void;
-  showCampaignPickerModal: boolean;
-  setShowCampaignPickerModal: (show: boolean) => void;
-  showNewSceneModal: boolean;
-  setShowNewSceneModal: (show: boolean) => void;
-  editingScene: Scene | null;
-  setEditingScene: (scene: Scene | null) => void;
-  showNewCharModal: boolean;
-  setShowNewCharModal: (show: boolean) => void;
-  editingChar: Character | null;
-  setEditingChar: (char: Character | null) => void;
-  showSummonModal: boolean;
-  setShowSummonModal: (show: boolean) => void;
-  showQRModal: boolean;
-  setShowQRModal: (show: boolean) => void;
+  showSelectivePublishModal?: boolean;
+  setShowSelectivePublishModal?: (show: boolean) => void;
+  showFullScreenPreview?: boolean;
+  setShowFullScreenPreview?: (show: boolean) => void;
+  showDiagnosticsModal?: boolean;
+  setShowDiagnosticsModal?: (show: boolean) => void;
+  showQuickMoments?: boolean;
+  setShowQuickMoments?: (show: boolean) => void;
+  showHistoryModal?: boolean;
+  setShowHistoryModal?: (show: boolean) => void;
+  showCheckpointsModal?: boolean;
+  setShowCheckpointsModal?: (show: boolean) => void;
+  showUnsavedStagingDialog?: boolean;
+  setShowUnsavedStagingDialog?: (show: boolean) => void;
+  showCampaignPickerModal?: boolean;
+  setShowCampaignPickerModal?: (show: boolean) => void;
+  showNewSceneModal?: boolean;
+  setShowNewSceneModal?: (show: boolean) => void;
+  editingScene?: Scene | null;
+  setEditingScene?: (scene: Scene | null) => void;
+  showNewCharModal?: boolean;
+  setShowNewCharModal?: (show: boolean) => void;
+  editingChar?: Character | null;
+  setEditingChar?: (char: Character | null) => void;
+  showSummonModal?: boolean;
+  setShowSummonModal?: (show: boolean) => void;
+  showQRModal?: boolean;
+  setShowQRModal?: (show: boolean) => void;
   // Actions
-  publishAllStaged: () => void;
-  publishSelectiveStaged: (keys: PublishCategoryKey[]) => void;
-  discardStaged: () => void;
-  broadcastFullState: (state: DisplayState) => void;
-  connectToRoom: (code: string, secret?: string) => Promise<void> | void;
-  handleExecuteMacro: (macro: any) => void;
-  handleLoadMacroToStaging: (macro: any) => void;
-  handleRestoreFromHistory: (evt: HistoryEvent) => void;
-  handleSaveManualCheckpoint: (name: string) => Promise<void>;
-  handleRestoreCheckpoint: (cp: SessionCheckpoint) => Promise<void>;
-  handleDeleteCheckpoint: (id: string) => Promise<void>;
-  handleSwitchCampaign: (camp: Campaign) => Promise<void>;
-  handleDuplicateCampaign: (id: string) => Promise<void>;
-  handleDeleteCampaign: (id: string, title: string) => Promise<void>;
-  selectScene: (scene: Scene) => void;
-  summonCharacter: (char: Character) => void;
-  undo: () => void;
+  publishAllStaged?: () => void;
+  publishSelectiveStaged?: (keys: PublishCategoryKey[]) => void;
+  discardStaged?: () => void;
+  broadcastFullState?: (state: DisplayState) => void;
+  connectToRoom?: (code: string, secret?: string) => Promise<void> | void;
+  handleExecuteMacro?: (macro: any) => void;
+  handleLoadMacroToStaging?: (macro: any) => void;
+  handleRestoreFromHistory?: (evt: HistoryEvent) => void;
+  handleSaveManualCheckpoint?: (name: string) => Promise<void>;
+  handleRestoreCheckpoint?: (cp: SessionCheckpoint) => Promise<void>;
+  handleDeleteCheckpoint?: (id: string) => Promise<void>;
+  handleSwitchCampaign?: (camp: Campaign) => Promise<void>;
+  handleDuplicateCampaign?: (id: string) => Promise<void>;
+  handleDeleteCampaign?: (id: string, title: string) => Promise<void>;
+  selectScene?: (scene: Scene) => void;
+  summonCharacter?: (char: Character) => void;
+  undo?: () => void;
   // Director actions
-  onSaveCameraPreset: (name: string, camera: CameraTransform) => Promise<void>;
-  onSaveWaypoint: (waypoint: any) => Promise<void>;
-  onSaveOcclusionRegion: (region: any) => Promise<void>;
-  onDeleteWaypoint: (id: string) => Promise<void>;
-  onDeleteOcclusionRegion: (id: string) => Promise<void>;
-  onUpdateCharacter: (id: string, updates: any, desc: string) => Promise<void>;
-  onUpdateProp: (id: string, updates: any, desc: string) => Promise<void>;
-  onReorderLayers: (
+  onSaveCameraPreset?: (name: string, camera: CameraTransform) => Promise<void>;
+  onSaveWaypoint?: (waypoint: any) => Promise<void>;
+  onSaveOcclusionRegion?: (region: any) => Promise<void>;
+  onDeleteWaypoint?: (id: string) => Promise<void>;
+  onDeleteOcclusionRegion?: (id: string) => Promise<void>;
+  onUpdateCharacter?: (id: string, updates: any, desc: string) => Promise<void>;
+  onUpdateProp?: (id: string, updates: any, desc: string) => Promise<void>;
+  onReorderLayers?: (
     items: { id: string; type: 'character' | 'prop' | 'occlusion'; zIndex: number }[],
     description: string
   ) => Promise<void> | void;
-  onUpdateCampaignCharacter: (id: string, updates: Partial<Character>) => Promise<void>;
-  onUpdateMultipleCharacterPositions: (
+  onUpdateCampaignCharacter?: (id: string, updates: Partial<Character>) => Promise<void>;
+  onUpdateMultipleCharacterPositions?: (
     updates: { id: string; normalizedX: number; normalizedY: number }[],
     description: string
   ) => Promise<void> | void;
-  onFocusCamera: (focalX: number, focalY: number) => Promise<void> | void;
-  onOpenCharacterLibrary: () => void;
-  onRemoveCharacters: (ids: string[]) => void;
+  onFocusCamera?: (focalX: number, focalY: number) => Promise<void> | void;
+  onOpenCharacterLibrary?: () => void;
+  onRemoveCharacters?: (ids: string[]) => void;
   onAddCharacter?: (character: CharacterOnScreen, description: string) => Promise<void> | void;
   onLiveDragMove?: (updates: { id: string; normalizedX: number; normalizedY: number }[]) => void;
 }
 
-export const MasterPrimaryModals: React.FC<MasterPrimaryModalsProps> = ({
-  campaign,
-  campaignList,
-  setCampaign,
-  setCampaignList,
-  liveState,
-  stagedState,
-  activeDisplay,
-  operationMode,
-  previewTab,
-  setPreviewTab,
-  setOperationMode,
-  pendingChangesCount,
-  currentScene,
-  mesaTelemetry,
-  pendingCommandsCount,
-  pastEvents,
-  checkpointsList,
-  roomCode,
-  pairingSecret,
-  connectionStatus,
-  latencyMs,
-  joinUrl,
-  showSelectivePublishModal,
-  setShowSelectivePublishModal,
-  showFullScreenPreview,
-  setShowFullScreenPreview,
-  showDiagnosticsModal,
-  setShowDiagnosticsModal,
-  showQuickMoments,
-  setShowQuickMoments,
-  showHistoryModal,
-  setShowHistoryModal,
-  showCheckpointsModal,
-  setShowCheckpointsModal,
-  showUnsavedStagingDialog,
-  setShowUnsavedStagingDialog,
-  showCampaignPickerModal,
-  setShowCampaignPickerModal,
-  showNewSceneModal,
-  setShowNewSceneModal,
-  editingScene,
-  setEditingScene,
-  showNewCharModal,
-  setShowNewCharModal,
-  editingChar,
-  setEditingChar,
-  showSummonModal,
-  setShowSummonModal,
-  showQRModal,
-  setShowQRModal,
-  publishAllStaged,
-  publishSelectiveStaged,
-  discardStaged,
-  broadcastFullState,
-  connectToRoom,
-  handleExecuteMacro,
-  handleLoadMacroToStaging,
-  handleRestoreFromHistory,
-  handleSaveManualCheckpoint,
-  handleRestoreCheckpoint,
-  handleDeleteCheckpoint,
-  handleSwitchCampaign,
-  handleDuplicateCampaign,
-  handleDeleteCampaign,
-  selectScene,
-  summonCharacter,
-  undo,
-  onSaveCameraPreset,
-  onSaveWaypoint,
-  onSaveOcclusionRegion,
-  onDeleteWaypoint,
-  onDeleteOcclusionRegion,
-  onUpdateCharacter,
-  onUpdateProp,
-  onReorderLayers,
-  onUpdateCampaignCharacter,
-  onUpdateMultipleCharacterPositions,
-  onFocusCamera,
-  onOpenCharacterLibrary,
-  onRemoveCharacters,
-  onAddCharacter,
-  onLiveDragMove,
-}) => {
+export const MasterPrimaryModals: React.FC<MasterPrimaryModalsProps> = (props) => {
+  const modalStore = useMasterModalStore();
+  const displayStore = useDisplayStore();
+  const campaignStore = useCampaignStore();
+
+  const campaign = props.campaign !== undefined ? props.campaign : campaignStore.campaign;
+  const campaignList = props.campaignList ?? campaignStore.campaignList;
+  const setCampaign = props.setCampaign ?? campaignStore.setCampaign;
+  const setCampaignList = props.setCampaignList ?? campaignStore.setCampaignList;
+  const liveState = props.liveState ?? displayStore.liveState;
+  const stagedState = props.stagedState ?? displayStore.stagedState;
+  const activeDisplay = props.activeDisplay ?? (displayStore.operationMode === 'live' ? displayStore.liveState : displayStore.stagedState);
+  const operationMode = props.operationMode ?? displayStore.operationMode;
+  const previewTab = props.previewTab ?? 'live';
+  const setPreviewTab = props.setPreviewTab ?? (() => {});
+  const setOperationMode = props.setOperationMode ?? displayStore.setOperationMode;
+  const pendingChangesCount = props.pendingChangesCount ?? selectPendingChangesCount(displayStore);
+  const currentScene = props.currentScene ?? null;
+  const mesaTelemetry = props.mesaTelemetry;
+  const pendingCommandsCount = props.pendingCommandsCount ?? 0;
+  const pastEvents = props.pastEvents ?? displayStore.pastEvents;
+  const checkpointsList = props.checkpointsList ?? [];
+  const roomCode = props.roomCode;
+  const pairingSecret = props.pairingSecret;
+  const connectionStatus = props.connectionStatus ?? 'disconnected';
+  const latencyMs = props.latencyMs ?? 0;
+  const joinUrl = props.joinUrl ?? '';
+
+  const showSelectivePublishModal = props.showSelectivePublishModal ?? modalStore.showSelectivePublishModal;
+  const setShowSelectivePublishModal = props.setShowSelectivePublishModal ?? modalStore.setShowSelectivePublishModal;
+  const showFullScreenPreview = props.showFullScreenPreview ?? modalStore.showFullScreenPreview;
+  const setShowFullScreenPreview = props.setShowFullScreenPreview ?? modalStore.setShowFullScreenPreview;
+  const showDiagnosticsModal = props.showDiagnosticsModal ?? modalStore.showDiagnosticsModal;
+  const setShowDiagnosticsModal = props.setShowDiagnosticsModal ?? modalStore.setShowDiagnosticsModal;
+  const showQuickMoments = props.showQuickMoments ?? modalStore.showQuickMoments;
+  const setShowQuickMoments = props.setShowQuickMoments ?? modalStore.setShowQuickMoments;
+  const showHistoryModal = props.showHistoryModal ?? modalStore.showHistoryModal;
+  const setShowHistoryModal = props.setShowHistoryModal ?? modalStore.setShowHistoryModal;
+  const showCheckpointsModal = props.showCheckpointsModal ?? modalStore.showCheckpointsModal;
+  const setShowCheckpointsModal = props.setShowCheckpointsModal ?? modalStore.setShowCheckpointsModal;
+  const showUnsavedStagingDialog = props.showUnsavedStagingDialog ?? modalStore.showUnsavedStagingDialog;
+  const setShowUnsavedStagingDialog = props.setShowUnsavedStagingDialog ?? modalStore.setShowUnsavedStagingDialog;
+  const showCampaignPickerModal = props.showCampaignPickerModal ?? modalStore.showCampaignPickerModal;
+  const setShowCampaignPickerModal = props.setShowCampaignPickerModal ?? modalStore.setShowCampaignPickerModal;
+  const showNewSceneModal = props.showNewSceneModal ?? modalStore.showNewSceneModal;
+  const setShowNewSceneModal = props.setShowNewSceneModal ?? modalStore.setShowNewSceneModal;
+  const editingScene = props.editingScene ?? null;
+  const setEditingScene = props.setEditingScene ?? (() => {});
+  const showNewCharModal = props.showNewCharModal ?? modalStore.showNewCharModal;
+  const setShowNewCharModal = props.setShowNewCharModal ?? modalStore.setShowNewCharModal;
+  const editingChar = props.editingChar ?? null;
+  const setEditingChar = props.setEditingChar ?? (() => {});
+  const showSummonModal = props.showSummonModal ?? modalStore.showSummonModal;
+  const setShowSummonModal = props.setShowSummonModal ?? modalStore.setShowSummonModal;
+  const showQRModal = props.showQRModal ?? modalStore.showQRModal;
+  const setShowQRModal = props.setShowQRModal ?? modalStore.setShowQRModal;
+
+  const publishAllStaged = props.publishAllStaged ?? displayStore.publishAllStaged;
+  const publishSelectiveStaged = props.publishSelectiveStaged ?? displayStore.publishSelectiveStaged;
+  const discardStaged = props.discardStaged ?? displayStore.discardStaged;
+  const broadcastFullState = props.broadcastFullState ?? (() => {});
+  const connectToRoom = props.connectToRoom ?? (() => {});
+  const handleExecuteMacro = props.handleExecuteMacro ?? (() => {});
+  const handleLoadMacroToStaging = props.handleLoadMacroToStaging ?? (() => {});
+  const handleRestoreFromHistory = props.handleRestoreFromHistory ?? (() => {});
+  const handleSaveManualCheckpoint = props.handleSaveManualCheckpoint ?? (async () => {});
+  const handleRestoreCheckpoint = props.handleRestoreCheckpoint ?? (async () => {});
+  const handleDeleteCheckpoint = props.handleDeleteCheckpoint ?? (async () => {});
+  const handleSwitchCampaign = props.handleSwitchCampaign ?? (async (c) => campaignStore.selectCampaign(c.id));
+  const handleDuplicateCampaign = props.handleDuplicateCampaign ?? (async (id) => { await campaignStore.duplicateCampaign(id); });
+  const handleDeleteCampaign = props.handleDeleteCampaign ?? (async (id) => { await campaignStore.deleteCampaign(id); });
+  const selectScene = props.selectScene ?? (() => {});
+  const summonCharacter = props.summonCharacter ?? (() => {});
+  const undo = props.undo ?? displayStore.undo;
+
+  const onSaveCameraPreset = props.onSaveCameraPreset ?? (async () => {});
+  const onSaveWaypoint = props.onSaveWaypoint ?? (async () => {});
+  const onSaveOcclusionRegion = props.onSaveOcclusionRegion ?? (async () => {});
+  const onDeleteWaypoint = props.onDeleteWaypoint ?? (async () => {});
+  const onDeleteOcclusionRegion = props.onDeleteOcclusionRegion ?? (async () => {});
+  const onUpdateCharacter = props.onUpdateCharacter ?? (async () => {});
+  const onUpdateProp = props.onUpdateProp ?? (async () => {});
+  const onReorderLayers = props.onReorderLayers ?? (() => {});
+  const onUpdateCampaignCharacter = props.onUpdateCampaignCharacter ?? (async () => {});
+  const onUpdateMultipleCharacterPositions = props.onUpdateMultipleCharacterPositions ?? (() => {});
+  const onFocusCamera = props.onFocusCamera ?? (() => {});
+  const onOpenCharacterLibrary = props.onOpenCharacterLibrary ?? (() => modalStore.setShowSummonModal(true));
+  const onRemoveCharacters = props.onRemoveCharacters ?? (() => {});
+  const onAddCharacter = props.onAddCharacter;
+  const onLiveDragMove = props.onLiveDragMove;
   return (
-    <>
+    <Suspense fallback={null}>
       {/* SELECTIVE PUBLISH MODAL */}
       {showSelectivePublishModal && (
         <SelectivePublishModal
@@ -266,14 +279,16 @@ export const MasterPrimaryModals: React.FC<MasterPrimaryModalsProps> = ({
       )}
 
       {/* CONNECTION DIAGNOSTIC & MESA AUDIT/RESYNC MODAL */}
-      <ConnectionDiagnosticModal
-        isOpen={showDiagnosticsModal}
-        onClose={() => setShowDiagnosticsModal(false)}
-        liveState={liveState}
-        onResyncMesa={() => {
-          broadcastFullState(liveState);
-        }}
-      />
+      {showDiagnosticsModal && (
+        <ConnectionDiagnosticModal
+          isOpen={showDiagnosticsModal}
+          onClose={() => setShowDiagnosticsModal(false)}
+          liveState={liveState}
+          onResyncMesa={() => {
+            broadcastFullState(liveState);
+          }}
+        />
+      )}
 
       {/* QUICK MOMENTS DROPDOWN */}
       {showQuickMoments && (
@@ -355,148 +370,159 @@ export const MasterPrimaryModals: React.FC<MasterPrimaryModalsProps> = ({
       )}
 
       {/* MODAL: CAMPAIGN PICKER & MANAGER */}
-      <CampaignPickerModal
-        isOpen={showCampaignPickerModal}
-        campaigns={campaignList}
-        activeCampaignId={campaign?.id}
-        onSelectCampaign={handleSwitchCampaign}
-        onCreateCampaign={async (title, desc) => {
-          const { DEMO_SCENES, DEMO_CHARACTERS, DEMO_MACROS, createCampaign, getAllCampaigns, setActiveCampaignId } = await import('../../../db');
-          const newCamp: Campaign = {
-            id: `camp-${Date.now()}`,
-            title,
-            description: desc,
-            scenes: DEMO_SCENES,
-            characters: DEMO_CHARACTERS,
-            macros: DEMO_MACROS,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          };
-          await createCampaign(newCamp);
-          const list = await getAllCampaigns();
-          setCampaignList(list);
-          setCampaign(newCamp);
-          await setActiveCampaignId(newCamp.id);
-          selectScene(newCamp.scenes[0]);
-          setShowCampaignPickerModal(false);
-        }}
-        onDuplicateCampaign={handleDuplicateCampaign}
-        onDeleteCampaign={(campId) => handleDeleteCampaign(campId, '')}
-        onClose={() => setShowCampaignPickerModal(false)}
-      />
+      {showCampaignPickerModal && (
+        <CampaignPickerModal
+          isOpen={showCampaignPickerModal}
+          campaigns={campaignList}
+          activeCampaignId={campaign?.id}
+          onSelectCampaign={handleSwitchCampaign}
+          onCreateCampaign={async (title, desc) => {
+            const { createCampaign, getAllCampaigns, setActiveCampaignId } = await import('../../../db');
+            const { DEMO_SCENES, DEMO_CHARACTERS, DEMO_MACROS } = await import('../../../db/demoData');
+            const newCamp: Campaign = {
+              id: `camp-${Date.now()}`,
+              title,
+              description: desc,
+              scenes: DEMO_SCENES,
+              characters: DEMO_CHARACTERS,
+              macros: DEMO_MACROS,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            };
+            await createCampaign(newCamp);
+            const list = await getAllCampaigns();
+            setCampaignList(list);
+            setCampaign(newCamp);
+            await setActiveCampaignId(newCamp.id);
+            selectScene(newCamp.scenes[0]);
+            setShowCampaignPickerModal(false);
+          }}
+          onDuplicateCampaign={handleDuplicateCampaign}
+          onDeleteCampaign={(campId) => handleDeleteCampaign(campId, '')}
+          onClose={() => setShowCampaignPickerModal(false)}
+        />
+      )}
 
       {/* MODAL: EDIT / CREATE SCENE */}
-      <SceneEditModal
-        isOpen={showNewSceneModal}
-        sceneToEdit={editingScene}
-        onSave={async (sceneData) => {
-          if (!sceneData.name || !sceneData.backgroundUrl || !campaign) return;
-          const { updateCampaign } = await import('../../../db');
-          if (editingScene) {
-            const updatedScene: Scene = {
-              ...editingScene,
-              name: sceneData.name,
-              backgroundUrl: sceneData.backgroundUrl,
-              locationBanner: sceneData.locationBanner || sceneData.name,
-              subtitle: sceneData.subtitle || '',
-              weather: sceneData.weather || 'none',
-              lighting: sceneData.lighting || 'normal',
-              ambientAudioUrl: sceneData.ambientAudioUrl || '',
-              ambientAudioName: sceneData.ambientAudioName || '',
-              dmNotes: sceneData.dmNotes || '',
-            };
-            const updatedScenes = campaign.scenes.map((s) => (s.id === updatedScene.id ? updatedScene : s));
-            const updatedCamp = { ...campaign, scenes: updatedScenes };
-            await updateCampaign(updatedCamp);
-            setCampaign(updatedCamp);
-            if (activeDisplay.currentSceneId === updatedScene.id) {
-              selectScene(updatedScene);
+      {showNewSceneModal && (
+        <SceneEditModal
+          isOpen={showNewSceneModal}
+          sceneToEdit={editingScene}
+          onSave={async (sceneData) => {
+            if (!sceneData.name || !sceneData.backgroundUrl || !campaign) return;
+            const { updateCampaign } = await import('../../../db');
+            if (editingScene) {
+              const updatedScene: Scene = {
+                ...editingScene,
+                name: sceneData.name,
+                backgroundUrl: sceneData.backgroundUrl,
+                locationBanner: sceneData.locationBanner || sceneData.name,
+                subtitle: sceneData.subtitle || '',
+                weather: sceneData.weather || 'none',
+                lighting: sceneData.lighting || 'normal',
+                ambientAudioUrl: sceneData.ambientAudioUrl || '',
+                ambientAudioName: sceneData.ambientAudioName || '',
+                dmNotes: sceneData.dmNotes || '',
+              };
+              const updatedScenes = campaign.scenes.map((s) => (s.id === updatedScene.id ? updatedScene : s));
+              const updatedCamp = { ...campaign, scenes: updatedScenes };
+              await updateCampaign(updatedCamp);
+              setCampaign(updatedCamp);
+              if (activeDisplay.currentSceneId === updatedScene.id) {
+                selectScene(updatedScene);
+              }
+            } else {
+              const newScene: Scene = {
+                id: `scene-${Date.now()}`,
+                name: sceneData.name,
+                backgroundUrl: sceneData.backgroundUrl,
+                locationBanner: sceneData.locationBanner || sceneData.name,
+                subtitle: sceneData.subtitle || '',
+                weather: sceneData.weather || 'none',
+                lighting: sceneData.lighting || 'normal',
+                ambientAudioUrl: sceneData.ambientAudioUrl || '',
+                ambientAudioName: sceneData.ambientAudioName || '',
+                dmNotes: sceneData.dmNotes || '',
+              };
+              const updatedScenes = [...campaign.scenes, newScene];
+              const updatedCamp = { ...campaign, scenes: updatedScenes };
+              await updateCampaign(updatedCamp);
+              setCampaign(updatedCamp);
             }
-          } else {
-            const newScene: Scene = {
-              id: `scene-${Date.now()}`,
-              name: sceneData.name,
-              backgroundUrl: sceneData.backgroundUrl,
-              locationBanner: sceneData.locationBanner || sceneData.name,
-              subtitle: sceneData.subtitle || '',
-              weather: sceneData.weather || 'none',
-              lighting: sceneData.lighting || 'normal',
-              ambientAudioUrl: sceneData.ambientAudioUrl || '',
-              ambientAudioName: sceneData.ambientAudioName || '',
-              dmNotes: sceneData.dmNotes || '',
-            };
-            const updatedScenes = [...campaign.scenes, newScene];
-            const updatedCamp = { ...campaign, scenes: updatedScenes };
-            await updateCampaign(updatedCamp);
-            setCampaign(updatedCamp);
-          }
-          setEditingScene(null);
-        }}
-        onClose={() => {
-          setShowNewSceneModal(false);
-          setEditingScene(null);
-        }}
-      />
+            setEditingScene(null);
+          }}
+          onClose={() => {
+            setShowNewSceneModal(false);
+            setEditingScene(null);
+          }}
+        />
+      )}
 
       {/* MODAL: EDIT / CREATE CHARACTER */}
-      <CharacterEditModal
-        isOpen={showNewCharModal}
-        charToEdit={editingChar}
-        onSave={async (charData) => {
-          if (!charData.name || !charData.defaultAvatarUrl || !campaign) return;
-          const { updateCampaign } = await import('../../../db');
-          if (editingChar) {
-            const updatedChar: Character = {
-              ...editingChar,
-              name: charData.name,
-              roleOrTitle: charData.roleOrTitle || 'Aventurero',
-              defaultAvatarUrl: charData.defaultAvatarUrl,
-              bio: charData.bio || '',
-              maxHp: charData.maxHp || 30,
-            };
-            const updatedChars = campaign.characters.map((c) => (c.id === updatedChar.id ? updatedChar : c));
-            const updatedCamp = { ...campaign, characters: updatedChars };
-            await updateCampaign(updatedCamp);
-            setCampaign(updatedCamp);
-          } else {
-            const newChar: Character = {
-              id: `char-${Date.now()}`,
-              name: charData.name,
-              roleOrTitle: charData.roleOrTitle || 'Aventurero',
-              defaultAvatarUrl: charData.defaultAvatarUrl,
-              bio: charData.bio || '',
-              maxHp: charData.maxHp || 30,
-            };
-            const updatedChars = [...campaign.characters, newChar];
-            const updatedCamp = { ...campaign, characters: updatedChars };
-            await updateCampaign(updatedCamp);
-            setCampaign(updatedCamp);
-          }
-          setEditingChar(null);
-        }}
-        onClose={() => {
-          setShowNewCharModal(false);
-          setEditingChar(null);
-        }}
-      />
+      {showNewCharModal && (
+        <CharacterEditModal
+          isOpen={showNewCharModal}
+          charToEdit={editingChar}
+          onSave={async (charData) => {
+            if (!charData.name || !charData.defaultAvatarUrl || !campaign) return;
+            const { updateCampaign } = await import('../../../db');
+            if (editingChar) {
+              const updatedChar: Character = {
+                ...editingChar,
+                name: charData.name,
+                roleOrTitle: charData.roleOrTitle || 'Aventurero',
+                defaultAvatarUrl: charData.defaultAvatarUrl,
+                bio: charData.bio || '',
+                maxHp: charData.maxHp || 30,
+              };
+              const updatedChars = campaign.characters.map((c) => (c.id === updatedChar.id ? updatedChar : c));
+              const updatedCamp = { ...campaign, characters: updatedChars };
+              await updateCampaign(updatedCamp);
+              setCampaign(updatedCamp);
+            } else {
+              const newChar: Character = {
+                id: `char-${Date.now()}`,
+                name: charData.name,
+                roleOrTitle: charData.roleOrTitle || 'Aventurero',
+                defaultAvatarUrl: charData.defaultAvatarUrl,
+                bio: charData.bio || '',
+                maxHp: charData.maxHp || 30,
+              };
+              const updatedChars = [...campaign.characters, newChar];
+              const updatedCamp = { ...campaign, characters: updatedChars };
+              await updateCampaign(updatedCamp);
+              setCampaign(updatedCamp);
+            }
+            setEditingChar(null);
+          }}
+          onClose={() => {
+            setShowNewCharModal(false);
+            setEditingChar(null);
+          }}
+        />
+      )}
 
       {/* MODAL: SUMMON NPC */}
-      <SummonCharacterModal
-        isOpen={showSummonModal}
-        characters={campaign?.characters || []}
-        onSummon={summonCharacter}
-        onClose={() => setShowSummonModal(false)}
-      />
+      {showSummonModal && (
+        <SummonCharacterModal
+          isOpen={showSummonModal}
+          characters={campaign?.characters || []}
+          onSummon={summonCharacter}
+          onClose={() => setShowSummonModal(false)}
+        />
+      )}
 
       {/* MODAL: QR & CONNECTION */}
-      <MasterQRModal
-        isOpen={showQRModal}
-        joinUrl={joinUrl}
-        roomCode={roomCode || ''}
-        latencyMs={latencyMs}
-        onReconnect={() => connectToRoom(roomCode || '', pairingSecret)}
-        onClose={() => setShowQRModal(false)}
-      />
+      {showQRModal && (
+        <MasterQRModal
+          isOpen={showQRModal}
+          joinUrl={joinUrl}
+          roomCode={roomCode || ''}
+          latencyMs={latencyMs}
+          onReconnect={() => connectToRoom(roomCode || '', pairingSecret)}
+          onClose={() => setShowQRModal(false)}
+        />
+      )}
 
       {/* MODAL: NETWORK DIAGNOSTICS & CHAOS */}
       {showDiagnosticsModal && (
@@ -513,6 +539,6 @@ export const MasterPrimaryModals: React.FC<MasterPrimaryModalsProps> = ({
           onClose={() => setShowDiagnosticsModal(false)}
         />
       )}
-    </>
+    </Suspense>
   );
 };

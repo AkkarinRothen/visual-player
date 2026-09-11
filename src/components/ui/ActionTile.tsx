@@ -1,20 +1,14 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
-import { IonRippleEffect, setupIonicReact } from '@ionic/react';
-import '@ionic/react/css/core.css';
-import '@ionic/react/css/normalize.css';
-import '@ionic/react/css/structure.css';
-import '@ionic/react/css/typography.css';
-import { Button } from 'react-aria-components';
 import { FloatingHint } from './FloatingHint';
-
-setupIonicReact({ mode: 'md' });
 
 interface ActionTileProps {
   icon: React.ReactNode;
   label: string;
   hint?: string;
   onClick: () => void;
+  onMouseEnter?: () => void;
+  onTouchStart?: () => void;
   tone?: 'default' | 'accent' | 'danger';
   compact?: boolean;
 }
@@ -24,22 +18,27 @@ export const ActionTile: React.FC<ActionTileProps> = ({
   label,
   hint,
   onClick,
+  onMouseEnter,
+  onTouchStart,
   tone = 'default',
   compact = false,
 }) => {
   const tile = (
-    <Button
-      className={`action-tile action-tile-${tone} ${compact ? 'action-tile-compact' : ''} ion-activatable`}
-      onPress={onClick}
+    <button
+      type="button"
+      className={`action-tile action-tile-${tone} ${compact ? 'action-tile-compact' : ''}`}
+      onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onTouchStart={onTouchStart}
+      aria-label={label}
     >
-    <span className="action-tile-icon">{icon}</span>
-    <span className="action-tile-copy">
-      <strong>{label}</strong>
-      {hint && <small>{hint}</small>}
-    </span>
-    <ArrowRight size={15} aria-hidden="true" />
-      <IonRippleEffect />
-    </Button>
+      <span className="action-tile-icon">{icon}</span>
+      <span className="action-tile-copy">
+        <strong>{label}</strong>
+        {hint && <small>{hint}</small>}
+      </span>
+      <ArrowRight size={15} aria-hidden="true" />
+    </button>
   );
 
   return hint ? <FloatingHint label={hint}>{tile}</FloatingHint> : tile;

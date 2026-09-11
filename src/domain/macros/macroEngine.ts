@@ -13,6 +13,8 @@ export function applyStepToState(step: MacroStep, baseState: DisplayState): Disp
   if (step.lighting !== undefined) next.lighting = step.lighting;
   if (step.blackout !== undefined) next.isBlackout = step.blackout;
   if (step.locationBanner) next.locationBanner = step.locationBanner;
+  if (step.lightning) next.lightningTrigger = (next.lightningTrigger || 0) + 1;
+  if (step.shake) next.shakeTrigger = (next.shakeTrigger || 0) + 1;
 
   if (step.charactersToAdd && step.charactersToAdd.length > 0) {
     const existingIds = next.characters.map((c) => c.id);
@@ -35,6 +37,20 @@ export function applyStepToState(step: MacroStep, baseState: DisplayState): Disp
     next.ambientAudioUrl = step.ambientAudioUrl;
     next.ambientPlaying = step.ambientPlaying ?? true;
     if (step.ambientVolume !== undefined) next.ambientVolume = step.ambientVolume;
+  }
+
+  if (step.dialogueText) {
+    const dial = {
+      id: `macro-dial-${step.id || Date.now()}`,
+      speakerName: step.dialogueSpeakerName,
+      text: step.dialogueText,
+      avatarUrl: step.dialogueAvatarUrl,
+      style: 'speech' as const,
+      visible: true,
+      isCompleted: true,
+    };
+    next.cinematicDialogue = dial;
+    next.dialogue = dial;
   }
 
   return next;

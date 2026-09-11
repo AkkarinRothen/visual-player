@@ -109,9 +109,10 @@ export const db = new VisualPlayerDB();
 
 // ─── Re-exportaciones Modulares de la Capa de Datos ──────────────────────────
 
-export * from './demoData';
 export * from './dbUtils';
 export * from './campaignDb';
 export * from './checkpointDb';
 export * from './assetDb';
 export * from './sessionDb';
+export { BUILTIN_SFX } from '../domain/audio/builtinSfx';
+

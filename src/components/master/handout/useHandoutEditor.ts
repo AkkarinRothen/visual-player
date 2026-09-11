@@ -293,6 +293,14 @@ export function useHandoutEditor({
     onProjectHandout(updatedHandout);
   }, [safeEditorIdx, currentHandout, draftPages, onProjectHandout]);
 
+  const selectHandout = useCallback((h: HandoutState) => {
+    setCurrentHandout(h);
+    const norm = normalizeHandoutState(h);
+    setDraftPages(norm.pages);
+    setEditorPageIndex(norm.activePageIndex);
+    setMesaPageIndex(norm.activePageIndex);
+  }, []);
+
   const isCurrentlyProjected = activeHandout?.id === currentHandout.id;
   const isThisPageOnMesa = isCurrentlyProjected && mesaPageIndex === safeEditorIdx;
   const totalRevealedShapes =
@@ -300,6 +308,7 @@ export function useHandoutEditor({
 
   return {
     currentHandout,
+    selectHandout,
     draftPages,
     editorPageIndex,
     setEditorPageIndex,

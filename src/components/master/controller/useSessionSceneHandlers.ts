@@ -570,6 +570,34 @@ export function useSessionSceneHandlers({
     await sessionCommandBus.waitForResult(cmdId, 5000);
   };
 
+  const handleSaveHandouts = async (handouts: HandoutState[]) => {
+    if (campaign) {
+      const updatedCampaign: Campaign = {
+        ...campaign,
+        savedHandouts: handouts,
+        updatedAt: Date.now(),
+      };
+      await db.campaigns.put(updatedCampaign);
+      setCampaign(updatedCampaign);
+    }
+  };
+
+  const handleDeleteHandout = async (handoutId: string) => {
+    if (campaign) {
+      const updatedList = (campaign.savedHandouts || []).filter((h) => h.id !== handoutId);
+      const updatedCampaign: Campaign = {
+        ...campaign,
+        savedHandouts: updatedList,
+        updatedAt: Date.now(),
+      };
+      await db.campaigns.put(updatedCampaign);
+      setCampaign(updatedCampaign);
+      if (liveState.activeHandout?.id === handoutId) {
+        await handleDismissHandout();
+      }
+    }
+  };
+
   const handleProjectRecap = async (recap: CampaignRecap) => {
     updateDisplay(
       (prev) => ({ ...prev, activeRecap: recap }),
@@ -703,6 +731,8 @@ export function useSessionSceneHandlers({
     handleSaveSessionPrepDraft,
     handleProjectHandout,
     handleDismissHandout,
+    handleSaveHandouts,
+    handleDeleteHandout,
     handleProjectRecap,
     handleDismissRecap,
     handleSaveRecap,

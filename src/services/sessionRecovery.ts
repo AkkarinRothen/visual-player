@@ -12,6 +12,8 @@ export interface FullRecoverySnapshot {
   sessionId: string;
   connectionEpoch: number;
   sessionRevision: number;
+  /** roomCode persisted so the Display can reconnect autonomously without rescanning QR */
+  masterPeerId?: string;
   campaignId?: string;
   activeSceneId?: string;
   liveState: DisplayState;

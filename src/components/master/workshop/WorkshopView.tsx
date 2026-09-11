@@ -16,7 +16,6 @@ import {
   createCampaign,
   updateCampaign,
 } from '../../../db/campaignDb';
-import { DEMO_CAMPAIGN } from '../../../db/demoData';
 import { SceneCanvasComposer } from '../composer/SceneCanvasComposer';
 import { CharacterEditModal } from '../modals/CharacterEditModal';
 import { AssetPickerModal } from '../../common/AssetPickerModal';
@@ -91,6 +90,7 @@ export const WorkshopView: React.FC<WorkshopViewProps> = ({ onExitToLobby }) => 
     try {
       let all = await getAllCampaigns();
       if (all.length === 0) {
+        const { DEMO_CAMPAIGN } = await import('../../../db/demoData');
         await createCampaign(DEMO_CAMPAIGN);
         all = [DEMO_CAMPAIGN];
       }

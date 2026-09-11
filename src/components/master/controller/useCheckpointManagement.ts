@@ -59,11 +59,45 @@ export const useCheckpointManagement = ({
     [campaign, activeDisplay]
   );
 
+  // Quick Save Session Checkpoint (from session button)
+  const handleQuickSaveSessionCheckpoint = useCallback(
+    async () => {
+      if (!campaign) return null;
+      const sceneName = liveState.sceneName || activeDisplay.sceneName || 'Escena';
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const defaultName = `Guardado: ${sceneName} (${timeStr})`;
+      const stateToSave = liveState || activeDisplay;
+      const cp: SessionCheckpoint = {
+        id: `cp-manual-${Date.now()}`,
+        campaignId: campaign.id,
+        name: defaultName,
+        type: 'manual',
+        trigger: 'Guardado Rápido de Sesión',
+        createdAt: Date.now(),
+        state: stateToSave,
+      };
+      await saveCheckpoint(cp);
+      const updated = await getCampaignCheckpoints(campaign.id);
+      setCheckpointsList(updated);
+      soundEngine.playSynth('church_bell');
+      return cp;
+    },
+    [campaign, liveState, activeDisplay]
+  );
+
   // Restore Checkpoint
   const handleRestoreCheckpoint = useCallback(
     async (checkpoint: SessionCheckpoint) => {
       await createAutoCheckpoint(`Seguridad: Antes de restaurar "${checkpoint.name}"`, liveState);
       restoreSnapshot(checkpoint.state, `Restaurado Checkpoint: ${checkpoint.name}`);
+      if (checkpoint.state.ambientAudioUrl && checkpoint.state.ambientPlaying) {
+        soundEngine.setAmbient(
+          checkpoint.state.ambientAudioUrl,
+          true,
+          checkpoint.state.ambientVolume ?? 0.5,
+          true
+        );
+      }
       soundEngine.playSynth('fanfare_victory');
     },
     [createAutoCheckpoint, liveState, restoreSnapshot]
@@ -93,6 +127,7 @@ export const useCheckpointManagement = ({
     setCheckpointsList,
     createAutoCheckpoint,
     handleSaveManualCheckpoint,
+    handleQuickSaveSessionCheckpoint,
     handleRestoreCheckpoint,
     handleDeleteCheckpoint,
     handleRestoreFromHistory,

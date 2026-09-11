@@ -469,18 +469,26 @@ Al usar una conversación guardada, los controles incluyen **Mostrar** o **Actua
 Las notas privadas y las ramas de conversación tienen controles separados del texto para jugadores. Escribí allí tus recordatorios y reservá el texto público para lo que querés mostrar. La comprobación de privacidad con dos dispositivos está pendiente.
 
 
-### Mapas, cartas y pistas: Handouts
+### Mapas, cartas y pistas: Handouts multi-tipo
 
-Un *handout* es un material visual que mostrás al grupo, como una carta, un mapa o una pista.
+Un *handout* es un material visual o escrito que mostrás al grupo para ambientar la aventura: un mapa interactivo, una carta sellada, un pergamino antiguo o una imagen. Se proyecta como una capa flotante sobre la Mesa sin quitar el fondo de la escena, sin mover a los personajes ni interrumpir la música.
 
-1. Abrí **Sesión → Documentos**. Si ya hay uno proyectado, el botón puede decir **Handout en Mesa**.
-2. Prepará el título y la **URL de imagen** de la página. **Página** permite añadir más páginas.
-3. Elegí la página y usá **Proyectar Pág. … a la Mesa** o **Mostrar Pág. … en Mesa**.
-4. Usá **Pincel** o **Recuadro** para descubrir regiones cubiertas. **Mover** desplaza la imagen sin pintar.
-5. Podés **Deshacer**, **Ocultar Todo**, **Revelar Todo** y ajustar el acercamiento.
-6. Si aparece **Actualizar en Mesa**, usalo para enviar la edición. Para cerrar la presentación, tocá **Retirar de la Mesa**.
-
-**Ejemplo:** mostrale al grupo una parte del mapa y descubrí una habitación cuando entren. Esta guía describe páginas basadas en imágenes; la importación directa de archivos PDF no está comprobada.
+1. **Abrir la Biblioteca de Handouts:** en el panel de **Sesión**, tocá **Documentos** (o **Handout en Mesa** si ya hay uno proyectado) para abrir el **Visor y Biblioteca de Handouts**.
+2. **Pestañas Biblioteca / Editor:**
+   - **Biblioteca:** explorá todos los handouts guardados en tu campaña organizados por categorías: **⭐ Todos**, **🖼️ Imágenes**, **🗺️ Mapas (Fog)** y **📜 Documentos**. Podés buscar por texto o título, duplicar, eliminar o proyectar con un toque.
+   - **Subir Imagen / Mapa:** tocá el botón para abrir el selector de archivos de tu teléfono o computadora. La app optimiza la imagen automáticamente en formato WebP ligero y la añade a la biblioteca de tu campaña.
+   - **Nueva Carta:** tocá para crear un documento de texto temático desde cero.
+3. **Cartas y Documentos Temáticos:**
+   - Podés elegir entre 4 soportes visuales: **Pergamino Clásico**, **Grimorio Oscuro** (para magia y misterio), **Papiro Antiguo** o **Carta Real** (con ribetes dorados).
+   - Elegí la caligrafía deseada: **Medieval / Gótica**, **Serif Clásica**, **Moderna** o **Máquina de escribir**.
+   - Asigná un **Sello de lacre** (elegí entre iconos como flor de lis ⚜️, pergamino 📜, corona 👑, sangre 🩸, escudo 🛡️ o espadas ⚔️) y el nombre de quien firma.
+   - La previsualización en vivo te muestra exactamente cómo se leerá el documento en la pantalla de los jugadores.
+4. **Mapas con Niebla de Guerra (Fog-of-War):**
+   - Usá **Pincel** (con radio regulable) o **Recuadro** para descubrir pasillos o habitaciones a medida que el grupo avanza.
+   - Usá **Mover** para desplazar el mapa por la pantalla y los botones de **Zoom (+ / -)** para enfocar detalles clave.
+   - Con **Ocultar Todo** volvés a cubrir el mapa completo con niebla, y con **Revelar Todo** descubrís el escenario entero.
+5. **Páginas Múltiples:** si un manuscrito o atlas tiene varios folios, usá **Añadir página** y navegá entre ellas con las pestañas superiores. Podés proyectar a la Mesa una página puntual mientras revisás otra en privado.
+6. **Proyectar y Retirar:** tocá **Proyectar a la Mesa** (o **Actualizar en Mesa**) para compartir el material. Al terminar el momento narrativo, tocá **Retirar de la Mesa** para que la pantalla de los jugadores regrese con una transición suave a la escena activa.
 
 <a id="combate"></a>
 ## Dirigir un combate
@@ -510,15 +518,30 @@ Para mantener la inmersión narrativa sin ensuciar la pantalla con números flot
 <a id="momentos"></a>
 ## Momentos y favoritos
 
-Un **Momento** es una secuencia preparada: por ejemplo, oscurecer la pantalla, lanzar un trueno y cambiar de escena.
+Un **Momento** es una secuencia dramática preparada: por ejemplo, oscurecer la pantalla, lanzar un relámpago con trueno, cambiar de fondo y proyectar el discurso de un villano.
 
-1. Abrí **Momentos → + Nuevo Momento**.
-2. Escribí nombre y descripción; usá **Agregar Paso** para construir la secuencia.
-3. Ajustá la espera y los efectos de cada paso, como Blackout, Rayo, Temblor, sonido o escenario.
-4. Guardá el Momento. Usá **Cargar Borrador** para cargar su resultado en Preparación o **Ejecutar en Vivo** para reproducir la secuencia en la Mesa.
-5. Mientras se ejecuta, **Parar Momento** o **Cancelar** detienen la secuencia y solicitan restaurar el estado anterior.
+### Diseñar y organizar la secuencia
+1. Abrí **Momentos → + Nuevo Momento** (o tocá **Editar** en uno existente).
+2. Escribí el nombre y descripción del momento.
+3. Usá **Agregar Paso** para sumar acciones. En cada tarjeta de paso podés:
+   - **Reordenar y duplicar:** tocá las flechas `▲` y `▼` para mover un paso hacia arriba o abajo, o el botón de copia para duplicarlo con todos sus efectos.
+   - **Modo de avance (Auto vs Manual):** elegí **⏱️ Auto** y definí los segundos de espera para que avance solo, o **👆 Manual** para pausar la secuencia y esperar tu toque antes de disparar el siguiente efecto.
+   - **Efectos visuales y sonoros:** activá **Blackout**, **Rayo**, **Temblor** y elegí un sonido de impacto (**SFX**) como trueno, rugido, choque de espadas o latido.
+   - **Cambio de escenario con miniatura:** seleccioná un escenario de la campaña; verás una miniatura en miniatura del fondo elegido directamente en la tarjeta.
+   - **Diálogo en pantalla:** escribí el nombre del orador y el texto del parlamento para que aparezca proyectado en la Mesa de los jugadores con tipografía cinematográfica.
+4. Guardá el Momento tocando **Crear Momento** o **Guardar Momento**.
 
-En la barra de favoritos de **Sesión**, abrí la gestión de favoritos, agregá escenas, momentos o sonidos y tocá **Guardar Favoritos**. Un favorito funciona como un acceso rápido; revisá qué acción contiene antes de tocarlo en una partida.
+### Ejecución en vivo y HUD de control
+- Tocá **Ejecutar en Vivo** para reproducir la secuencia inmediatamente en la Mesa de los jugadores (o **Cargar Borrador** para revisar el resultado final en tu panel antes de proyectar).
+- Mientras la secuencia está en curso, aparece un **HUD flotante** en la parte inferior del panel del Director con:
+  - **Barra de progreso y contador:** visualiza el paso actual y el total (ej. `2/4: Revelación del Monstruo`).
+  - **Estado en vivo:** indica si está esperando el temporizador, si está pausada o si está esperando el toque del Director (`Esperando toque`).
+  - **Siguiente Paso:** adelanta inmediatamente al próximo paso sin esperar el temporizador.
+  - **Pausa / Reanudar:** congela la cuenta regresiva temporal para darte tiempo a narrar y la retoma cuando estés listo.
+  - **Cancelar:** detiene la secuencia al instante y restaura el estado exacto de la Mesa previo a la ejecución.
+
+### Favoritos
+En la barra de favoritos de **Sesión**, abrí la gestión de favoritos, agregá escenas, momentos o sonidos y tocá **Guardar Favoritos**. Un favorito funciona como un acceso rápido de un toque para momentos dramáticos frecuentes.
 
 <a id="biblioteca"></a>
 ## Gestionar preparaciones y reutilizar sesiones
@@ -708,13 +731,15 @@ Para no depender de cables, computadoras ni comandos de terminal, Visual Player 
 
 En **Campañas → Exportar** podés descargar una campaña puntual en formato `.json`. Guardala con un nombre y fecha reconocibles. **Importar** permite cargarla individualmente. Recordá que los archivos `.json` individuales no siempre incluyen los archivos pesados de imágenes locales, mientras que el paquete `.vpbackup` empaqueta la biblioteca multimedia completa.
 
-### Deshacer y puntos de restauración
+### Deshacer y puntos de restauración (Checkpoints)
 
 - **Deshacer / Rehacer:** recorren cambios del estado de la sesión. También aparecen los atajos **Ctrl+Z** y **Ctrl+Y**. No supongas que revierten una eliminación en la biblioteca o un efecto sonoro que ya se escuchó.
 - **Historial:** permite revisar las acciones registradas.
-- **Checkpoint:** guarda un punto de restauración local del estado de la sesión. Esperá la indicación **Guardado local**.
-- **Puntos de Restauración (Checkpoints):** permite previsualizar un punto y **Restaurar** el estado a pantalla. Revisá cuál estás eligiendo antes de confirmar.
-- **Reanudar:** aparece en el inicio si se detecta una sesión interrumpida. Retoma el rol y la sala registrados; comprobá después la conexión y el contenido recuperado.
+- **Guardar estado rápido (📌 Guardar estado):** en la barra superior de Sesión del Director (disponible en **Hoy juego**, **Panel Modular** y **Consola Clásica**), tocá **📌 Guardar estado** en cualquier momento para capturar una instantánea completa de la sesión: la escena activa, la posición exacta de cada personaje y token, el estado del combate (ronda, turno, orden de iniciativa, puntos de vida y condiciones activas) y la música ambiental.
+- **Puntos automáticos durante el combate:** cada vez que avanzás el turno con **Siguiente turno** durante una batalla activa, el sistema guarda automáticamente un punto de control con el detalle exacto (ej. *«Turno: Ronda 2 - Turno 1 (Valeros)»*). Para no sobrecargar el almacenamiento, la app conserva automáticamente los 5 puntos más recientes por campaña y preserva siempre los guardados manuales.
+- **Retomar sesión desde el Lobby:** al abrir Visual Player en el dispositivo del Director, si existe un punto de control reciente (de las últimas 48 horas), verás una tarjeta destacada con la miniatura del escenario, el nombre de la escena, la cantidad de personajes, el estado de combate y de la música, y el botón **Retomar Sesión** para entrar directamente a dirigir donde quedaste. Podés tocar **Previsualizar** para ver todos los combatientes y detalles antes de restaurar.
+- **Puntos de Restauración (Checkpoints):** tocá el botón **Puntos** en la cabecera de Sesión para abrir el gestor. La pestaña inicial **⭐ Recientes (5)** te muestra los últimos puntos cronológicos con sus miniaturas, etiquetas de combate y audio. Al pulsar **Restaurar**, la app restablece la escena y reanuda inmediatamente la reproducción de música si estaba sonando.
+- **Reanudar conexión:** aparece en el inicio si se detecta una sesión interrumpida. Retoma el rol y la sala registrados; comprobá después la conexión y el contenido recuperado.
 - **Borrador automático de la preparación:** el panel guarda el estado de Preparación cada vez que hacés un cambio. Al reabrir la app, encontrás el borrador exacto donde lo dejaste, sin necesidad de hacer nada adicional.
 
 **Reset Demo** borra las campañas y otros registros de biblioteca para cargar la demostración. No lo uses como solución a una desconexión ni antes de exportar las campañas que quieras conservar.

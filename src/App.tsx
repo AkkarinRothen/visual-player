@@ -101,6 +101,7 @@ export const App: React.FC = () => {
   const [role, setRole] = useState<Role>(initialRoute.role);
   const [roomCode, setRoomCode] = useState<string>(initialRoute.roomCode);
   const [pairingSecret, setPairingSecret] = useState<string>(initialRoute.pairingSecret);
+  const [initialCheckpointId, setInitialCheckpointId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (initialRoute.shouldScrubUrl) {
@@ -181,10 +182,11 @@ export const App: React.FC = () => {
     };
   }, [role]);
 
-  const handleSelectRole = (selectedRole: Role, code?: string) => {
+  const handleSelectRole = (selectedRole: Role, code?: string, checkpointId?: string) => {
     if (code) {
       setRoomCode(code);
     }
+    setInitialCheckpointId(checkpointId || undefined);
     setRole(selectedRole);
   };
 
@@ -209,6 +211,7 @@ export const App: React.FC = () => {
               <MasterController
                 initialRoomCode={roomCode}
                 pairingSecret={pairingSecret}
+                initialCheckpointId={initialCheckpointId}
                 onExitToLobby={() => setRole('lobby')}
               />
             )}

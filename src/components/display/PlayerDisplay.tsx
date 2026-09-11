@@ -1,13 +1,15 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import type { ConnectionStatus, DisplayState, WeatherStormEvent } from '../../types';
 import type { DisplayAssetsStatus } from '../../domain/protocol/types';
 import { peerService } from '../../services/peerService';
 import { soundEngine } from '../../services/soundEngine';
 import { startTurnRenewalWatcher } from '../../services/iceConfig';
+import { connectivityStateMachine } from '../../services/connectivityStateMachine';
+import { sessionRecoveryService } from '../../services/sessionRecovery';
 import { getPlatformBridge } from '../../platform';
 import { StageViewport } from './StageViewport';
-import { Volume2 } from 'lucide-react';
+import { Volume2, Wifi } from 'lucide-react';
 import { ConnectionDiagnosticModal } from '../common/ConnectionDiagnosticModal';
 import { pairingEngine, type PairingPhaseInfo } from '../../services/pairingEngine';
 import { displayCommandExecutor } from '../../services/displayCommandExecutor';
@@ -18,6 +20,9 @@ import { RecapDisplayLayer } from './RecapDisplayLayer';
 import { APP_VERSION, BUILD_ID, PROTOCOL_VERSION, APP_CAPABILITIES } from '../../version';
 import { videoChunkSyncService } from '../../services/videoChunkSyncService';
 import { db } from '../../db';
+
+/** Maximum auto-reconnect attempts before showing "Session lost" screen (~5 min total with backoff) */
+const MAX_DISPLAY_RECONNECT_ATTEMPTS = 10;
 
 interface PlayerDisplayProps {
   initialRoomCode?: string;
@@ -35,6 +40,15 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
   const [pairingInfo, setPairingInfo] = useState<PairingPhaseInfo>(pairingEngine.getPhaseInfo());
   const [isOverlayMinimized, setIsOverlayMinimized] = useState<boolean>(false);
   const hasPlayedChimeRef = useRef<boolean>(false);
+
+  // ─── Auto-reconnect state ───────────────────────────────────────────────
+  const [isReconnecting, setIsReconnecting] = useState<boolean>(false);
+  const [reconnectAttempt, setReconnectAttempt] = useState<number>(0);
+  const [isSessionLost, setIsSessionLost] = useState<boolean>(false);
+  const reconnectAttemptsRef = useRef<number>(0);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const isIntentionalExitRef = useRef<boolean>(false);
+  const savedRoomCodeRef = useRef<string>(initialRoomCode || '');
 
   const pairingAuthorizationInProgress =
     pairingInfo.phase !== 'IDLE_WAITING' && pairingInfo.phase !== 'CONTROL_READY';
@@ -163,18 +177,63 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
     };
   }, []);
 
+  // ─── Auto-reconnect loop (runs in background, no player action required) ──
+  const scheduleAutoReconnect = useCallback((codeToReconnect: string) => {
+    if (reconnectAttemptsRef.current >= MAX_DISPLAY_RECONNECT_ATTEMPTS) {
+      console.warn('[PlayerDisplay] Auto-reconnect exhausted after', MAX_DISPLAY_RECONNECT_ATTEMPTS, 'attempts.');
+      setIsReconnecting(false);
+      setIsSessionLost(true);
+      connectivityStateMachine.dispatch({ type: 'RETRY_EXHAUSTED' });
+      return;
+    }
+
+    reconnectAttemptsRef.current += 1;
+    setReconnectAttempt(reconnectAttemptsRef.current);
+    setIsReconnecting(true);
+
+    const delayMs = connectivityStateMachine.getReconnectDelay(Math.random());
+    console.log(
+      `[PlayerDisplay] Auto-reconnect scheduled in ${Math.round(delayMs)}ms (attempt ${reconnectAttemptsRef.current}/${MAX_DISPLAY_RECONNECT_ATTEMPTS})`
+    );
+
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+    }
+
+    reconnectTimerRef.current = window.setTimeout(async () => {
+      if (isIntentionalExitRef.current) return;
+      try {
+        console.log('[PlayerDisplay] Attempting reconnect with room code:', codeToReconnect);
+        const code = await peerService.initDisplay(codeToReconnect);
+        // Success: reset counters (status listener will handle UI)
+        reconnectAttemptsRef.current = 0;
+        setReconnectAttempt(0);
+        setIsReconnecting(false);
+        setIsSessionLost(false);
+        setRoomCode(code);
+        savedRoomCodeRef.current = code;
+        displayCommandExecutor.setSessionContext(code, 1);
+      } catch (err) {
+        console.warn('[PlayerDisplay] Reconnect attempt failed:', err);
+        // scheduleAutoReconnect will be called again via the status listener
+      }
+    }, delayMs);
+  }, []);
+
   // 2. Initialize WebRTC Display Peer
   useEffect(() => {
     let unmounted = false;
-    const activeCode = roomCode || initialRoomCode || 'VP-DEMO';
+    const activeCode = initialRoomCode || 'VP-DEMO';
     displayCommandExecutor.setSessionContext(activeCode, 1);
     const stopWatcher = startTurnRenewalWatcher(activeCode);
+    isIntentionalExitRef.current = false;
 
     const setupPeer = async () => {
       try {
         const code = await peerService.initDisplay(initialRoomCode);
         if (!unmounted) {
           setRoomCode(code);
+          savedRoomCodeRef.current = code;
           displayCommandExecutor.setSessionContext(code, 1);
         }
       } catch (err) {
@@ -188,6 +247,39 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
       setConnectionStatus(status);
       if (lat !== undefined) {
         setLatencyMs(lat);
+      }
+
+      if (status === 'connected') {
+        // Persist room code for autonomous reconnection
+        const codeToSave = savedRoomCodeRef.current || initialRoomCode || '';
+        if (codeToSave) {
+          void sessionRecoveryService.saveIncrementalSnapshot({
+            role: 'display',
+            roomId: codeToSave,
+            masterPeerId: codeToSave,
+            sessionId: codeToSave,
+            connectionEpoch: Date.now(),
+            sessionRevision: displayCommandExecutor.getCurrentRevision(),
+            combatActive: false,
+            hasStagedChanges: false,
+            liveState: stateRef.current,
+          });
+        }
+        // Reset reconnect state on successful connection
+        reconnectAttemptsRef.current = 0;
+        setReconnectAttempt(0);
+        setIsReconnecting(false);
+        setIsSessionLost(false);
+        if (reconnectTimerRef.current !== null) {
+          window.clearTimeout(reconnectTimerRef.current);
+          reconnectTimerRef.current = null;
+        }
+      } else if ((status === 'disconnected' || status === 'error') && !isIntentionalExitRef.current) {
+        // Trigger autonomous reconnect loop
+        const codeToUse = savedRoomCodeRef.current || initialRoomCode || '';
+        if (codeToUse) {
+          scheduleAutoReconnect(codeToUse);
+        }
       }
     });
 
@@ -241,13 +333,19 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
 
     return () => {
       unmounted = true;
+      isIntentionalExitRef.current = true;
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       stopWatcher();
       unsubStatus();
       unsubMsg();
       unsubPairing();
       displayCommandExecutor.reset();
     };
-  }, [initialRoomCode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRoomCode, scheduleAutoReconnect]);
 
   // Background crossfade helper
   const triggerBgTransition = (newBgUrl: string) => {
@@ -548,13 +646,40 @@ export const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ initialRoomCode, o
         </div>
       )}
 
+      {/* ─── Auto-Reconnect Badge (non-intrusive, audience-visible) ─── */}
+      {isReconnecting && !isSessionLost && (
+        <div className="display-reconnecting-overlay" aria-live="polite" aria-label="Reconectando...">
+          <div className="display-reconnect-badge" id="display-reconnect-badge">
+            <Wifi />
+            <span>Reconectando…</span>
+            <span className="display-reconnect-attempt">
+              {reconnectAttempt}/{MAX_DISPLAY_RECONNECT_ATTEMPTS}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Session Lost Screen (after MAX_DISPLAY_RECONNECT_ATTEMPTS exhausted) ─── */}
+      {isSessionLost && (
+        <div className="display-session-lost-overlay" id="display-session-lost-overlay">
+          <Wifi size={40} style={{ opacity: 0.5, color: '#fde68a' }} />
+          <h2>Sesión perdida</h2>
+          <p>
+            No se pudo restablecer la conexión con el Master.
+            Pedile al Director el código QR para volver a conectar.
+          </p>
+        </div>
+      )}
+
       {/* QR Code & Room PIN Pairing Overlay for PC/TV Display */}
-      <DisplayPairingOverlay
-        isVisible={showPairingOverlay}
-        roomCode={roomCode}
-        pairingInfo={pairingInfo}
-        onMinimize={() => setIsOverlayMinimized(true)}
-      />
+      {!isSessionLost && (
+        <DisplayPairingOverlay
+          isVisible={showPairingOverlay}
+          roomCode={roomCode}
+          pairingInfo={pairingInfo}
+          onMinimize={() => setIsOverlayMinimized(true)}
+        />
+      )}
 
       {/* Top HUD Controls */}
       <DisplayHUD

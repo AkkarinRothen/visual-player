@@ -576,6 +576,16 @@ export const MasterMainTabs: React.FC<MasterMainTabsProps> = ({
                 newState.isActive ? 'Inicio de Combate' : 'Finalización de Combate',
                 liveState
               );
+            } else if (
+              newState.isActive &&
+              (newState.round !== activeDisplay.combatState.round ||
+                newState.currentTurnIndex !== activeDisplay.combatState.currentTurnIndex)
+            ) {
+              const activeCombatant = newState.combatants[newState.currentTurnIndex];
+              createAutoCheckpoint(
+                `Turno: Ronda ${newState.round} - Turno ${newState.currentTurnIndex + 1}${activeCombatant ? ` (${activeCombatant.name})` : ''}`,
+                { ...liveState, combatState: newState }
+              );
             }
             updateDisplay(
               (prev) => ({ ...prev, combatState: newState }),

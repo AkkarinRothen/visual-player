@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Camera as NativeCamera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Tv, Smartphone, Sparkles, ArrowRight, Camera, RefreshCw, Trash2, Image, ShieldAlert, Compass } from 'lucide-react';
+import { Tv, Smartphone, Sparkles, ArrowRight, Camera, RefreshCw, Trash2, Image, ShieldAlert, Compass, Eye } from 'lucide-react';
 import { sessionRecoveryService, type RecoverySnapshot } from '../../services/sessionRecovery';
-import type { Role } from '../../types';
+import { getLatestCheckpoints } from '../../db';
+import type { Role, SessionCheckpoint } from '../../types';
 import heroImage from '../../assets/hero.png';
 import { VisualDialog } from '../ui/VisualDialog';
 
 import type { Html5Qrcode, Html5QrcodeScanner } from 'html5-qrcode';
 
 interface LobbyProps {
-  onSelectRole: (role: Role, roomCode?: string) => void;
+  onSelectRole: (role: Role, roomCode?: string, checkpointId?: string) => void;
 }
 
 export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
@@ -19,6 +20,8 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
   const [showCameraPrompt, setShowCameraPrompt] = useState<boolean>(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [pendingRecovery, setPendingRecovery] = useState<RecoverySnapshot | null>(null);
+  const [recentCheckpoint, setRecentCheckpoint] = useState<SessionCheckpoint | null>(null);
+  const [showCheckpointPreview, setShowCheckpointPreview] = useState<boolean>(false);
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -26,6 +29,16 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
     sessionRecoveryService.getPendingRecovery().then((recovery) => {
       if (recovery) {
         setPendingRecovery(recovery);
+      }
+    });
+
+    getLatestCheckpoints(1).then((cps) => {
+      if (cps.length > 0) {
+        const latest = cps[0];
+        const ageMs = Date.now() - latest.createdAt;
+        if (ageMs < 48 * 60 * 60 * 1000) {
+          setRecentCheckpoint(latest);
+        }
       }
     });
   }, []);
@@ -219,6 +232,129 @@ export const Lobby: React.FC<LobbyProps> = ({ onSelectRole }) => {
               </button>
             </div>
           </div>
+        )}
+
+        {/* Recent Session Checkpoint Banner */}
+        {!pendingRecovery && recentCheckpoint && (
+          <div className="recent-checkpoint-banner">
+            <div
+              className="recent-checkpoint-thumb"
+              style={{ backgroundImage: `url(${recentCheckpoint.state.backgroundUrl})` }}
+            >
+              <span className={`cp-type-badge ${recentCheckpoint.type}`}>
+                {recentCheckpoint.type === 'manual' ? 'MANUAL' : 'AUTO'}
+              </span>
+            </div>
+
+            <div className="recent-checkpoint-info">
+              <span className="recent-checkpoint-kicker">SESIÓN GUARDADA RECIENTE</span>
+              <strong className="recent-checkpoint-title">{recentCheckpoint.name}</strong>
+              <div className="recent-checkpoint-details">
+                <span className="cp-detail-item">
+                  <Compass size={13} /> {recentCheckpoint.state.sceneName}
+                </span>
+                <span className="cp-detail-item">
+                  👥 {recentCheckpoint.state.characters?.length || 0} personajes
+                </span>
+                {recentCheckpoint.state.combatState?.isActive && (
+                  <span className="cp-detail-item combat-active">
+                    ⚔️ Ronda {recentCheckpoint.state.combatState.round}, Turno {(recentCheckpoint.state.combatState.currentTurnIndex || 0) + 1}
+                  </span>
+                )}
+                {recentCheckpoint.state.ambientPlaying && recentCheckpoint.state.ambientAudioUrl && (
+                  <span className="cp-detail-item music-active">
+                    🎵 Música
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="recent-checkpoint-actions">
+              <button
+                type="button"
+                onClick={() => setShowCheckpointPreview(true)}
+                className="btn-checkpoint-preview"
+                title="Previsualizar estado guardado"
+              >
+                <Eye size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecentCheckpoint(null)}
+                className="recovery-banner-discard"
+                title="Descartar aviso"
+              >
+                <Trash2 size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectRole('master', undefined, recentCheckpoint.id)}
+                className="recent-checkpoint-resume-btn"
+              >
+                <span>Retomar Sesión</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Checkpoint Preview Modal in Lobby */}
+        {showCheckpointPreview && recentCheckpoint && (
+          <VisualDialog
+            open
+            title={`Previsualización: ${recentCheckpoint.name}`}
+            className="preview-submodal"
+            onOpenChange={(open) => {
+              if (!open) setShowCheckpointPreview(false);
+            }}
+          >
+            <div
+              className="checkpoint-preview-stage"
+              style={{ backgroundImage: `url(${recentCheckpoint.state.backgroundUrl})` }}
+            >
+              <div className="preview-stage-characters">
+                {recentCheckpoint.state.characters.map((ch) => (
+                  <div key={ch.id} className="preview-stage-char">
+                    <img src={ch.avatarUrl} alt={ch.name} className="char-avatar" />
+                    <span>{ch.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="preview-meta-details">
+              <p>
+                <strong>Escenario:</strong> {recentCheckpoint.state.sceneName}
+              </p>
+              <p>
+                <strong>Clima / Iluminación:</strong> {recentCheckpoint.state.weather} / {recentCheckpoint.state.lighting}
+              </p>
+              <p>
+                <strong>Combatientes:</strong> {recentCheckpoint.state.combatState?.combatants?.length || 0}
+                {recentCheckpoint.state.combatState?.isActive &&
+                  ` (Ronda ${recentCheckpoint.state.combatState.round}, Turno ${(recentCheckpoint.state.combatState.currentTurnIndex || 0) + 1})`}
+              </p>
+              <p>
+                <strong>Música Ambiental:</strong>{' '}
+                {recentCheckpoint.state.ambientPlaying && recentCheckpoint.state.ambientAudioUrl
+                  ? '🎵 Activa (se reanudará al entrar)'
+                  : 'En silencio'}
+              </p>
+            </div>
+
+            <div className="preview-modal-footer">
+              <button
+                className="btn-primary full"
+                onClick={() => {
+                  setShowCheckpointPreview(false);
+                  onSelectRole('master', undefined, recentCheckpoint.id);
+                }}
+              >
+                <ArrowRight size={16} />
+                <span>Retomar esta Sesión Ahora</span>
+              </button>
+            </div>
+          </VisualDialog>
         )}
 
         {/* Role Cards Grid */}

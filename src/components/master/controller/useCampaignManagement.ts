@@ -11,8 +11,6 @@ import type {
 } from '../../../types';
 import {
   db,
-  DEMO_CAMPAIGN,
-  DEMO_ENCOUNTERS,
   getAllCampaigns,
   duplicateCampaign,
   deleteCampaign,
@@ -235,6 +233,7 @@ export function useCampaignManagement({
 
   const handleResetDemo = async () => {
     if (window.confirm('¿Restaurar la campaña de demostración inicial?')) {
+      const { DEMO_CAMPAIGN, DEMO_ENCOUNTERS } = await import('../../../db/demoData');
       await db.campaigns.clear();
       await db.scenes.clear();
       await db.characters.clear();

@@ -108,6 +108,10 @@ export interface MacroStep {
   lightning?: boolean;
   shake?: boolean;
   blackout?: boolean;
+  advanceMode?: 'auto' | 'manual';
+  dialogueText?: string;
+  dialogueSpeakerName?: string;
+  dialogueAvatarUrl?: string;
 }
 
 export interface CinematicMacro {

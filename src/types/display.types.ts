@@ -48,6 +48,7 @@ export interface DisplayState {
   combatState: CombatState;
   activeTransitions?: ElementTransitionDirective[];
   dialogue?: CinematicDialogue | null;
+  cinematicDialogue?: CinematicDialogue | null;
   camera?: CameraTransform;
   cameraTransition?: CameraTransitionDirective;
   lights?: SceneLight[];
